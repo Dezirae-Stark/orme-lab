@@ -148,14 +148,14 @@
     <!-- RIGHT RAIL: gate cascade + spectrum + ranking -->
     <aside class="rail right">
       <div class="group">
-        <div class="eyebrow"><span>Deformation &amp; coupling</span></div>
-        <div class="metric"><span class="k">spin polarization</span><span class="v" id="mSpin">—</span></div>
-        <div class="metric"><span class="k">density anisotropy</span><span class="v"><span id="fBean" class="flag off"></span> <span id="mAniso">—</span></span></div>
-        <div class="metric"><span class="k">inter-unit coupling</span><span class="v"><span id="fIso" class="flag off"></span> <span id="mCoupling">—</span></span></div>
-        <div class="metric"><span class="k">carrier proxy</span><span class="v" id="mCarrier">—</span></div>
-        <div class="metric"><span class="k">field suppression</span><span class="v" id="mSupp">—</span></div>
-        <div class="metric"><span class="k">structural stability</span><span class="v" id="mStab">—</span></div>
-        <div class="metric"><span class="k">resistance regime</span><span class="v" id="mRegime">—</span></div>
+        <div class="eyebrow"><span>Deformation &amp; coupling</span><span class="eyebrow-hint">tap to inspect</span></div>
+        <div class="metric tappable" data-metric="spin" role="button" tabindex="0"><span class="k">spin polarization</span><span class="v" id="mSpin">—</span></div>
+        <div class="metric tappable" data-metric="anisotropy" role="button" tabindex="0"><span class="k">density anisotropy</span><span class="v"><span id="fBean" class="flag off"></span> <span id="mAniso">—</span></span></div>
+        <div class="metric tappable" data-metric="coupling" role="button" tabindex="0"><span class="k">inter-unit coupling</span><span class="v"><span id="fIso" class="flag off"></span> <span id="mCoupling">—</span></span></div>
+        <div class="metric tappable" data-metric="carrier" role="button" tabindex="0"><span class="k">carrier proxy</span><span class="v" id="mCarrier">—</span></div>
+        <div class="metric tappable" data-metric="supp" role="button" tabindex="0"><span class="k">field suppression</span><span class="v" id="mSupp">—</span></div>
+        <div class="metric tappable" data-metric="stability" role="button" tabindex="0"><span class="k">structural stability</span><span class="v" id="mStab">—</span></div>
+        <div class="metric tappable" data-metric="regime" role="button" tabindex="0"><span class="k">resistance regime</span><span class="v" id="mRegime">—</span></div>
       </div>
 
       <div class="group">
@@ -164,10 +164,10 @@
       </div>
 
       <div class="group">
-        <div class="eyebrow"><span>EM coherence (H12/H16)</span></div>
-        <div class="metric"><span class="k">coupling regime</span><span class="v" id="mEmRegime">—</span></div>
-        <div class="metric"><span class="k">plasmon energy</span><span class="v" id="mPlasmon">—</span></div>
-        <div class="metric"><span class="k">coherence score</span><span class="v" id="mEmScore">—</span></div>
+        <div class="eyebrow"><span>EM coherence (H12/H16)</span><span class="eyebrow-hint">tap to inspect</span></div>
+        <div class="metric tappable" data-metric="emRegime" role="button" tabindex="0"><span class="k">coupling regime</span><span class="v" id="mEmRegime">—</span></div>
+        <div class="metric tappable" data-metric="plasmon" role="button" tabindex="0"><span class="k">plasmon energy</span><span class="v" id="mPlasmon">—</span></div>
+        <div class="metric tappable" data-metric="coherence" role="button" tabindex="0"><span class="k">coherence score</span><span class="v" id="mEmScore">—</span></div>
         <canvas id="plasmon"></canvas>
         <div class="spec-caption"><span id="specL">L —</span><span>plasmon split ← anisotropy →</span><span id="specT">T —</span></div>
       </div>
@@ -175,7 +175,7 @@
       <div class="group">
         <div class="eyebrow"><span>Screen ranking</span><span>top 12</span></div>
         <table id="rank">
-          <thead><tr><th>el</th><th>geom</th><th>s</th><th>coup</th><th>plaus</th></tr></thead>
+          <thead><tr><th>el</th><th>geom</th><th>s</th><th>coup</th><th>score</th></tr></thead>
           <tbody id="rankBody"></tbody>
         </table>
         <p class="hint">Click a row to load that candidate. Ranking recomputes with field &amp; temperature.</p>
@@ -184,9 +184,27 @@
 
     <!-- VERDICT BAR -->
     <div id="verdict">
-      <span class="badge" id="vBadge">—</span>
+      <span class="badge" id="vBadge" data-metric="screening" role="button" tabindex="0" title="Inspect the screening score">—</span>
       <span class="line" id="vLine"></span>
       <span class="evidence" id="vEvidence" title="Charter evidence hierarchy (0–6)"></span>
+    </div>
+
+    <!-- METRIC INSPECTOR -->
+    <div id="metricModal" class="mm-overlay" hidden>
+      <div class="mm-card" role="dialog" aria-modal="true" aria-labelledby="mmTitle">
+        <button class="mm-close" id="mmClose" aria-label="Close">✕</button>
+        <div class="mm-eyebrow" id="mmEyebrow"></div>
+        <h2 class="mm-title display" id="mmTitle"></h2>
+        <div class="mm-value">current: <span id="mmValue"></span></div>
+        <dl class="mm-fields">
+          <dt>Definition</dt><dd id="mmDef"></dd>
+          <dt>Calculation</dt><dd id="mmCalc"></dd>
+          <dt>Experimental analogue</dt><dd id="mmExp"></dd>
+          <dt>Confidence</dt><dd id="mmConfidence"></dd>
+          <dt>Future validation</dt><dd id="mmFuture"></dd>
+        </dl>
+        <div class="mm-source">computed in <code id="mmSource"></code></div>
+      </div>
     </div>
   </div>
 

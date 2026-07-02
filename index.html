@@ -67,6 +67,12 @@
             <label>l <select id="eigenL" class="field" aria-label="angular l"></select></label>
             <label>m <select id="eigenM" class="field" aria-label="magnetic m"></select></label>
           </div>
+          <div class="cube-row">
+            <label class="chip" for="cubeFile">load DFT .cube</label>
+            <input id="cubeFile" type="file" accept=".cube,.cub" hidden />
+            <button class="chip" id="cubeClear" hidden>use analytic</button>
+          </div>
+          <p class="hint" id="cubeSource">source: harmonic-oscillator model. Load a Gaussian <code>.cube</code> (real DFT density ρ or an orbital ψ, exported offline) to render the actual calculation through the same pipeline.</p>
         </div>
       </div>
 

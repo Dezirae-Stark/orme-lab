@@ -210,8 +210,9 @@ function updateHUD(res) {
     line.textContent = "Fails necessary condition(s): " + failed.join(", ") + ".";
   } else {
     badge.className = "badge ok"; badge.textContent = "NOT RULED OUT";
-    line.textContent = `plausibility ${f3(sc.score)} — a screening signal, not evidence of superconductivity. Needs ab-initio + measurement.`;
+    line.textContent = `screening score ${f3(sc.score)} — a triage signal, not evidence of superconductivity. Needs ab-initio + measurement.`;
   }
+  line.title = "Screening / triage score in [0,1] — a ranking of where to look next, NOT a probability of superconductivity.";
   $("vEvidence").textContent = res.evidence.badge;
 
   // EM coherence
@@ -257,7 +258,7 @@ function updateScientist(res) {
   // one-line hint on the collapsed header
   $("sciHint").textContent = res.sc.ruledOut
     ? `ruled out — ${res.sc.gates.filter((g) => !g.passed).length} gate(s) failed`
-    : `not ruled out — plausibility ${res.sc.score.toFixed(3)}`;
+    : `not ruled out — screening score ${res.sc.score.toFixed(3)}`;
 }
 
 function addChatMsg(cls, text) {

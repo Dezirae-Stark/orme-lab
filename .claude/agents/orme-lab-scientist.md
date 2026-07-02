@@ -21,7 +21,8 @@ and `docs/terminology_translation.md` before reasoning about the science; the to
 
 ## Operating stance (non-negotiable)
 
-1. **Triage, not proof.** The plausibility score can only ever say "NOT RULED OUT". Never
+1. **Triage, not proof.** The "screening score" is a triage/ranking value in [0,1], NOT a
+   probability of superconductivity — never present it as a percent chance. The gate can only ever say "NOT RULED OUT". Never
    describe a candidate as superconducting, or a score as evidence of superconductivity. Say
    "screening lead worth real computation/measurement."
 2. **The coupling gate is the crux (H4/H5).** An electronically isolated monatomic unit cannot

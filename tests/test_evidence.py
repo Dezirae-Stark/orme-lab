@@ -12,27 +12,27 @@ from orme_lab.evidence import (
 
 
 def test_levels_are_ordered_0_to_6():
-    assert int(EvidenceLevel.SPECULATION) == 0
-    assert int(EvidenceLevel.MULTIPLE_REPLICATIONS) == 6
+    assert int(EvidenceLevel.CONCEPT) == 0
+    assert int(EvidenceLevel.ESTABLISHED_PHENOMENON) == 6
     values = [int(l) for l in EvidenceLevel]
     assert values == sorted(values) == list(range(7))
 
 
-def test_lab_ceiling_is_computational_simulation():
-    # Nothing in this repo can exceed a computational-simulation artifact.
-    assert LAB_CEILING == EvidenceLevel.COMPUTATIONAL_SIMULATION
+def test_lab_ceiling_is_simulation_candidate():
+    # Nothing in this repo can exceed a simulation-candidate artifact.
+    assert LAB_CEILING == EvidenceLevel.SIMULATION_CANDIDATE
 
 
-def test_candidate_level_never_reaches_experiment():
+def test_candidate_level_never_reaches_observation():
     survives = candidate_evidence_level(ruled_out=False)
     ruled = candidate_evidence_level(ruled_out=True)
-    # a survivor yields at most a laboratory PREDICTION, never an experiment
+    # a survivor yields at most a laboratory PREDICTION, never an observation
     assert survives == EvidenceLevel.LABORATORY_PREDICTION
-    assert survives < EvidenceLevel.SINGLE_EXPERIMENT
-    assert ruled == EvidenceLevel.COMPUTATIONAL_SIMULATION
+    assert survives < EvidenceLevel.INITIAL_OBSERVATION
+    assert ruled == EvidenceLevel.SIMULATION_CANDIDATE
 
 
 def test_badge_format():
-    b = badge(EvidenceLevel.COMPUTATIONAL_SIMULATION)
-    assert b == "Level 2/6 — computational simulation"
-    assert "computational simulation" in describe(EvidenceLevel.COMPUTATIONAL_SIMULATION)
+    b = badge(EvidenceLevel.SIMULATION_CANDIDATE)
+    assert b == "Level 2/6 — simulation candidate"
+    assert "simulation candidate" in describe(EvidenceLevel.SIMULATION_CANDIDATE)

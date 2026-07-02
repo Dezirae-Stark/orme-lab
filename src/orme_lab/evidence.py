@@ -17,32 +17,33 @@ from enum import IntEnum
 
 
 class EvidenceLevel(IntEnum):
-    """Standing of a claim, from concept to independently replicated fact."""
+    """Standing of a claim, from concept to established phenomenon (the lab's
+    signature 0-6 evidence ladder; see ``docs/CHARTER.md``)."""
 
-    SPECULATION = 0             # speculation / concept
-    MATHEMATICAL_CONSISTENCY = 1  # internally consistent math
-    COMPUTATIONAL_SIMULATION = 2  # reproduced in simulation
-    LABORATORY_PREDICTION = 3     # a concrete, measurable prediction
-    SINGLE_EXPERIMENT = 4         # one reproducible experiment
-    INDEPENDENT_REPLICATION = 5   # replicated by an independent lab
-    MULTIPLE_REPLICATIONS = 6     # multiple independent replications + peer scrutiny
+    CONCEPT = 0                    # concept
+    MATHEMATICAL_CONSISTENCY = 1   # internally consistent math
+    SIMULATION_CANDIDATE = 2       # a candidate reproduced in simulation
+    LABORATORY_PREDICTION = 3      # a concrete, measurable prediction
+    INITIAL_OBSERVATION = 4        # first laboratory observation
+    INDEPENDENT_REPLICATION = 5    # replicated by an independent lab
+    ESTABLISHED_PHENOMENON = 6     # established phenomenon (peer-scrutinized)
 
 
 _LABELS = {
-    EvidenceLevel.SPECULATION: "speculation / concept",
+    EvidenceLevel.CONCEPT: "concept",
     EvidenceLevel.MATHEMATICAL_CONSISTENCY: "mathematical consistency",
-    EvidenceLevel.COMPUTATIONAL_SIMULATION: "computational simulation",
+    EvidenceLevel.SIMULATION_CANDIDATE: "simulation candidate",
     EvidenceLevel.LABORATORY_PREDICTION: "laboratory prediction",
-    EvidenceLevel.SINGLE_EXPERIMENT: "single reproducible experiment",
-    EvidenceLevel.INDEPENDENT_REPLICATION: "independent laboratory replication",
-    EvidenceLevel.MULTIPLE_REPLICATIONS: "multiple independent replications with peer scrutiny",
+    EvidenceLevel.INITIAL_OBSERVATION: "initial observation",
+    EvidenceLevel.INDEPENDENT_REPLICATION: "independent replication",
+    EvidenceLevel.ESTABLISHED_PHENOMENON: "established phenomenon",
 }
 
-MAX_LEVEL = EvidenceLevel.MULTIPLE_REPLICATIONS
+MAX_LEVEL = EvidenceLevel.ESTABLISHED_PHENOMENON
 
 #: The highest level anything this repository can produce. The toy pipeline is a
-#: computational-simulation artifact; reaching higher requires a real lab.
-LAB_CEILING = EvidenceLevel.COMPUTATIONAL_SIMULATION
+#: simulation-candidate artifact; reaching higher requires a real lab.
+LAB_CEILING = EvidenceLevel.SIMULATION_CANDIDATE
 
 
 def describe(level: EvidenceLevel) -> str:
@@ -59,11 +60,11 @@ def badge(level: EvidenceLevel) -> str:
 def candidate_evidence_level(ruled_out: bool) -> EvidenceLevel:
     """Evidence level for a screened candidate.
 
-    A ruled-out candidate rests on computational simulation (Level 2): the model
-    has shown, in simulation, that a necessary condition fails. A surviving
-    ('not ruled out') candidate additionally yields a **laboratory prediction**
-    (Level 3) — it tells you which measurement would be decisive — but it asserts
-    nothing at Level 4+; that requires a real experiment and, ultimately,
-    independent replication.
+    A ruled-out candidate rests on simulation (Level 2 — simulation candidate):
+    the model has shown, in simulation, that a necessary condition fails. A
+    surviving ('not ruled out') candidate additionally yields a **laboratory
+    prediction** (Level 3) — it tells you which measurement would be decisive —
+    but it asserts nothing at Level 4+; that requires a real observation and,
+    ultimately, independent replication.
     """
-    return EvidenceLevel.LABORATORY_PREDICTION if not ruled_out else EvidenceLevel.COMPUTATIONAL_SIMULATION
+    return EvidenceLevel.LABORATORY_PREDICTION if not ruled_out else EvidenceLevel.SIMULATION_CANDIDATE

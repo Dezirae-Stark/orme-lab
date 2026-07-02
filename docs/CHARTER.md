@@ -49,16 +49,16 @@ it.
 
 | Level | Evidence |
 |:-----:|----------|
-| 0 | Speculation / concept |
+| 0 | Concept |
 | 1 | Mathematical consistency |
-| 2 | Computational simulation |
+| 2 | Simulation candidate |
 | 3 | Laboratory prediction |
-| 4 | Single reproducible experiment |
-| 5 | Independent laboratory replication |
-| 6 | Multiple independent replications with peer scrutiny |
+| 4 | Initial observation |
+| 5 | Independent replication |
+| 6 | Established phenomenon |
 
-**Where this lab currently sits: Level 2 (computational simulation) — and, for
-the toy models, the low end of it.** Everything the pipeline emits is a Level-2
+**Where this lab currently sits: Level 2 (simulation candidate) — and, for the
+toy models, the low end of it.** Everything the pipeline emits is a Level-2
 artifact at most. The `superconductivity` gate producing "NOT RULED OUT" moves a
 candidate from Level 0/1 toward a Level-3 *laboratory prediction* (which
 measurement to run), but it never asserts anything at Level 4+. Reaching Levels

@@ -76,9 +76,10 @@ class PlausibilityResult:
                 f"{', '.join(self.failed_gates)}."
             )
         return (
-            f"NOT RULED OUT (plausibility={self.score:.3f}). All necessary "
-            f"conditions met; this is a screening signal, not evidence of "
-            f"superconductivity. Requires ab-initio + experimental confirmation."
+            f"NOT RULED OUT (screening score={self.score:.3f} — a triage score, "
+            f"not a probability). All necessary conditions met; this is a screening "
+            f"signal, not evidence of superconductivity. Requires ab-initio + "
+            f"experimental confirmation."
         )
 
 

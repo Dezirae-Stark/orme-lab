@@ -73,10 +73,13 @@ lacked: a **testable model**. Concretely, the lab:
 - **This project does not prove superconductivity, and cannot.** Every number it
   emits is a **triage signal** — "worth real computation/measurement" or "ruled
   out under known physics" — never a proof.
-- The superconductivity plausibility score is an **AND-gate of necessary
+- The superconductivity **screening score** is an **AND-gate of necessary
   conditions** (coupling, carriers, field tolerance, structural stability, a
   measurable observable). Fail any one and the score is zero. It can only ever
-  report `NOT RULED OUT`, never `PROVEN`.
+  report `NOT RULED OUT`, never `PROVEN`. The score is a **triage/ranking value
+  in [0, 1] — deliberately *not* a probability**: it says where to look next, not
+  how likely superconductivity is. (Internally the code still calls this
+  `sc_plausibility`; the user-facing term is "screening score".)
 - **Zero resistance is not superconductivity.** Bulk diamagnetic screening (the
   Meissner effect) is a separate, first-class requirement — see
   `docs/validation_tests.md`.

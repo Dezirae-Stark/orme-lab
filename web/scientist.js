@@ -82,11 +82,11 @@ export function analyzeCandidate(r) {
     for (const g of failed) suggestions.push(GATE_FIX[g.name](r));
   } else {
     reading.push(
-      `NOT RULED OUT — clears all five necessary gates, plausibility ${r.sc.score.toFixed(3)}. This is a screening lead, not evidence of superconductivity.`
+      `NOT RULED OUT — clears all five necessary gates, screening score ${r.sc.score.toFixed(3)}. This is a screening lead, not evidence of superconductivity.`
     );
     suggestions.push("Escalate this candidate to a real calculation (ASE + PySCF/GPAW for the density, EPW for electron–phonon) — the toy score can't establish pairing.");
     suggestions.push("Decisive measurement: SQUID magnetometry for bulk Meissner screening. Zero resistance alone is not enough.");
-    caveats.push("Even a positive plausibility is a triage signal. The gate can only ever say 'not ruled out'.");
+    caveats.push("The screening score is a triage/ranking value in [0,1], NOT a probability of superconductivity. The gate can only ever say 'not ruled out'.");
   }
 
   // --- EM-coherence (H12/H16) cross-check ----------------------------------
@@ -213,7 +213,7 @@ export async function ask(result, question) {
 const SYSTEM_PROMPT = `You are the lab scientist embedded in "ORME Lab", a virtual lab that treats ORME/PGM high-spin ambient-superconductivity claims as falsifiable hypotheses to triage, never as settled fact.
 
 Hard rules:
-- Triage, not proof. The plausibility score can only say "not ruled out". Never call a candidate superconducting.
+- Triage, not proof. The "screening score" is a triage/ranking value in [0,1], NOT a probability of superconductivity; never present it as a percentage chance. The gate can only say "not ruled out", never "proven".
 - The inter-unit coupling gate is decisive: an electronically isolated monatomic unit cannot host a bulk condensate (there is nowhere for the macroscopic phase to live). A surviving monomer would be a model bug.
 - Zero resistance is NOT superconductivity — bulk Meissner flux expulsion is a separate requirement.
 - If the electromagnetic-coherence channel is strong while the SC gate fails, raise H12: the effect may be plasmonic/polaritonic coherence ("light flows through it"), not superconductivity.

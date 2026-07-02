@@ -4,7 +4,8 @@ import * as SIM from "./sim.js";
 import { analyzeCandidate, ask, pingProxy, keyStore, proxyStore } from "./scientist.js";
 import { METRICS } from "./metrics.js";
 import { renderRegistry, hypothesesForMetric } from "./hypotheses.js";
-import { buildEigenstate, mRange, MAX_K, MAX_L, energyLabel } from "./eigenstate.js";
+import { buildEigenstate, buildFromGrid, mRange, MAX_K, MAX_L, energyLabel } from "./eigenstate.js";
+import { parseCube } from "./cube.js";
 
 /* -------------------------------------------------------------------------
  * ORME Lab — interactive 3D front-end.
@@ -26,10 +27,12 @@ const state = {
 
 // Eigenstate mode (kept separate from `state` so it isn't passed to the sim
 // except as the anisotropy override). Default |k=0,l=2,m=0> — a prolate dz².
-const eigen = { on: false, k: 0, l: 2, m: 0 };
-let eigenData = null;               // cached { positive, negative, extent, anisotropy }
+const eigen = { on: false, k: 0, l: 2, m: 0, cube: null }; // cube: parsed DFT grid or null
+let eigenData = null;               // cached { positive, negative, extent, anisotropy, signed }
 function rebuildEigen() {
-  eigenData = eigen.on ? buildEigenstate(eigen.k, eigen.l, eigen.m, 40) : null;
+  if (!eigen.on) { eigenData = null; return; }
+  // DFT-cube path: if a cube is loaded, isosurface it; else the analytic eigenstate.
+  eigenData = eigen.cube ? buildFromGrid(eigen.cube) : buildEigenstate(eigen.k, eigen.l, eigen.m, 40);
 }
 
 // ---- three.js scene ------------------------------------------------------
@@ -365,9 +368,22 @@ function eigenRepopulateM() {
   if (!ms.includes(eigen.m)) eigen.m = 0;
   $("eigenM").innerHTML = ms.map((v) => `<option value="${v}"${v === eigen.m ? " selected" : ""}>${v}</option>`).join("");
 }
-function eigenUpdateEnergy() {
-  $("eigenEnergy").textContent = eigen.on ? energyLabel(eigen.k, eigen.l) : "";
+function eigenRefreshLabels() {
+  // when a DFT cube is loaded it overrides the analytic k/l/m selection
+  const cubeOn = !!eigen.cube;
+  ["eigenK", "eigenL", "eigenM"].forEach((id) => { $(id).disabled = cubeOn; });
+  $("cubeClear").hidden = !cubeOn;
+  if (!eigen.on) { $("eigenEnergy").textContent = ""; return; }
+  if (cubeOn) {
+    $("eigenEnergy").textContent = eigenData && eigenData.signed ? "orbital ψ" : "density ρ";
+    $("cubeSource").innerHTML = `source: <strong>DFT cube</strong> — ${escapeHtml(eigen.cube.title || "(loaded)")} · ${eigen.cube.nx}×${eigen.cube.ny}×${eigen.cube.nz}. A computed density (still Level 2 — computational simulation, not an experimental fact).`;
+  } else {
+    $("eigenEnergy").textContent = energyLabel(eigen.k, eigen.l);
+    $("cubeSource").innerHTML = 'source: harmonic-oscillator model. Load a Gaussian <code>.cube</code> (real DFT density ρ or an orbital ψ, exported offline) to render the actual calculation through the same pipeline.';
+  }
 }
+function escapeHtml(s) { return String(s).replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c])); }
+
 function wireEigen() {
   const ksel = $("eigenK"), lsel = $("eigenL"), msel = $("eigenM");
   ksel.innerHTML = Array.from({ length: MAX_K + 1 }, (_, i) => `<option value="${i}"${i === eigen.k ? " selected" : ""}>${i}</option>`).join("");
@@ -377,11 +393,35 @@ function wireEigen() {
     eigen.on = !eigen.on;
     e.target.setAttribute("aria-pressed", String(eigen.on));
     $("eigenControls").hidden = !eigen.on;
-    eigenUpdateEnergy(); rebuildEigen(); recompute();
+    rebuildEigen(); eigenRefreshLabels(); recompute();
   });
-  ksel.addEventListener("change", () => { eigen.k = +ksel.value; eigenUpdateEnergy(); rebuildEigen(); recompute(); });
-  lsel.addEventListener("change", () => { eigen.l = +lsel.value; eigenRepopulateM(); eigenUpdateEnergy(); rebuildEigen(); recompute(); });
-  msel.addEventListener("change", () => { eigen.m = +msel.value; rebuildEigen(); recompute(); });
+  ksel.addEventListener("change", () => { eigen.k = +ksel.value; rebuildEigen(); eigenRefreshLabels(); recompute(); });
+  lsel.addEventListener("change", () => { eigen.l = +lsel.value; eigenRepopulateM(); rebuildEigen(); eigenRefreshLabels(); recompute(); });
+  msel.addEventListener("change", () => { eigen.m = +msel.value; rebuildEigen(); eigenRefreshLabels(); recompute(); });
+
+  // DFT-cube path: load a Gaussian .cube (parsed client-side), or revert to analytic.
+  $("cubeFile").addEventListener("change", (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        eigen.cube = parseCube(String(reader.result));
+      } catch (err) {
+        eigen.cube = null;
+        $("cubeSource").innerHTML = `<span style="color:var(--ruled)">could not parse cube: ${escapeHtml(err.message)}</span>`;
+        e.target.value = "";
+        return;
+      }
+      e.target.value = "";
+      rebuildEigen(); eigenRefreshLabels(); recompute();
+    };
+    reader.readAsText(file);
+  });
+  $("cubeClear").addEventListener("click", () => {
+    eigen.cube = null;
+    rebuildEigen(); eigenRefreshLabels(); recompute();
+  });
 }
 
 function wireTabs() {

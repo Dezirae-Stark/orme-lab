@@ -123,6 +123,17 @@ so `run_screen()` with no backend is unchanged. The intended integration order:
    coupling and an Eliashberg gap, the *only* route to a defensible
    superconductivity estimate.
 
+**The DFT-cube bridge to the interactive lab.** `DFTBackend.density_cube`
+(`Capability.DENSITY_CUBE`) is the seam that serializes a computed charge density
+to a Gaussian `.cube`. The web lab (`web/cube.js`) loads that cube and
+isosurfaces it through the *same* marching-tetrahedra + `|ψ|²`-anisotropy pipeline
+as the analytic harmonic-oscillator eigenstate — so a real DFT density is a
+drop-in for the model, driving the density-anisotropy metric from the picture
+itself. `tools/eigenstate_to_cube.py` emits that cube from the analytic model
+(honestly labeled, not fabricated DFT) so the path is exercised end-to-end today;
+a wired backend swaps the source without changing the renderer. A loaded cube is
+still a Level-2 artifact — it upgrades the descriptor, not the evidence level.
+
 Until those land, `available_backends()` is empty and every number this pipeline
 emits is a **triage signal** — which candidates deserve real computation, not
 which ones superconduct. A wired backend does not by itself raise a result above

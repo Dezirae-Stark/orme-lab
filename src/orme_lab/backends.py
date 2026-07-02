@@ -53,6 +53,7 @@ class Capability(Enum):
     SUSCEPTIBILITY = "susceptibility"           # observables.py TODO(dft/epw)
     SC_GAP = "superconducting_gap"              # superconductivity.py TODO(ab-initio)
     DIELECTRIC_FUNCTION = "plasmon_energy"      # electromagnetic_coherence.py TODO(dft/rpa)
+    DENSITY_CUBE = "density_cube"               # emit a Gaussian .cube for the web renderer
 
 
 def implemented(capability: Capability) -> Callable:
@@ -160,6 +161,18 @@ class DFTBackend:
         """Plasmon energy (eV) from a computed dielectric function eps(q, w)."""
         self._nyi(Capability.DIELECTRIC_FUNCTION)
 
+    def density_cube(self, element: "Element", geometry: "ClusterGeometry",
+                     spin_state: "SpinState") -> str:
+        """Gaussian ``.cube`` text for the computed charge density (or an orbital).
+
+        This is the bridge to the web renderer's DFT-cube path (``web/cube.js``):
+        a real backend computes the density on a grid and serializes it to the
+        standard cube format, which the interactive lab loads and isosurfaces
+        through the same pipeline as the analytic eigenstate. See
+        ``tools/eigenstate_to_cube.py`` for the format (generated from the
+        analytic model until a real backend is wired)."""
+        self._nyi(Capability.DENSITY_CUBE)
+
 
 # ---------------------------------------------------------------------------
 # Named adapter stubs — the concrete places a real integration goes.
@@ -181,6 +194,7 @@ class PySCFBackend(DFTBackend):
         Capability.SPIN_STATE,
         Capability.DENSITY_ANISOTROPY,
         Capability.SUSCEPTIBILITY,
+        Capability.DENSITY_CUBE,
     })
     python_requires = ("pyscf",)
 
@@ -191,6 +205,7 @@ class GPAWBackend(DFTBackend):
     declared_capabilities = frozenset({
         Capability.DENSITY_ANISOTROPY,
         Capability.DIELECTRIC_FUNCTION,
+        Capability.DENSITY_CUBE,
     })
     python_requires = ("gpaw",)
 

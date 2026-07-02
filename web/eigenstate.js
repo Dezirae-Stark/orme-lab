@@ -70,62 +70,72 @@ export const energyLabel = (k, l) => {
   return `E = ${n2}/2 ħω`;
 };
 
-/** Sample ψ on a res³ grid spanning [-extent, extent]³. Returns the field. */
-export function sampleField(k, l, m, res = 40) {
+/*
+ * Generic voxel grid — the common shape the renderer consumes, whether the field
+ * is an analytic eigenstate (below) or a parsed DFT .cube (cube.js):
+ *   { field: Float32Array(nx*ny*nz),   // index ix + nx*(iy + ny*iz)
+ *     nx, ny, nz, ox, oy, oz, dx, dy, dz, maxAbs, min }
+ * coord(ix,iy,iz) = (ox+ix*dx, oy+iy*dy, oz+iz*dz).
+ */
+
+/** Sample ψ_{k,l,m} onto a cubic grid → generic grid descriptor. */
+export function hoGrid(k, l, m, res = 40) {
   const extent = Math.sqrt(2 * (2 * k + l) + 3) + 2.6; // ~classical turning radius + margin
-  const field = new Float32Array(res * res * res);
   const step = (2 * extent) / (res - 1);
-  let maxAbs = 0, idx = 0;
+  const field = new Float32Array(res * res * res);
+  let maxAbs = 0, min = Infinity, idx = 0;
   for (let iz = 0; iz < res; iz++) {
     const z = -extent + iz * step;
     for (let iy = 0; iy < res; iy++) {
       const y = -extent + iy * step;
       for (let ix = 0; ix < res; ix++) {
-        const x = -extent + ix * step;
-        const v = psi(k, l, m, x, y, z);
+        const v = psi(k, l, m, -extent + ix * step, y, z);
         field[idx++] = v;
-        const a = Math.abs(v);
-        if (a > maxAbs) maxAbs = a;
+        if (Math.abs(v) > maxAbs) maxAbs = Math.abs(v);
+        if (v < min) min = v;
       }
     }
   }
-  return { field, res, extent, step, maxAbs };
+  return { field, nx: res, ny: res, nz: res, ox: -extent, oy: -extent, oz: -extent,
+           dx: step, dy: step, dz: step, maxAbs, min };
 }
 
+const gridCenter = (g) => [g.ox + (g.nx - 1) * g.dx / 2, g.oy + (g.ny - 1) * g.dy / 2, g.oz + (g.nz - 1) * g.dz / 2];
+/** Half of the largest side — for normalizing display size. */
+export const gridExtent = (g) => 0.5 * Math.max((g.nx - 1) * g.dx, (g.ny - 1) * g.dy, (g.nz - 1) * g.dz);
+
 /**
- * Density anisotropy in [0,1] from the |ψ|² second-moment tensor — the same
- * fractional-anisotropy measure as the heuristic ellipsoid, but from the real
- * wavefunction. These states are axis-aligned, so the tensor is diagonal and the
- * principal variances are the diagonal second moments.
+ * Density anisotropy in [0,1] from the field's second-moment tensor — the same
+ * fractional-anisotropy measure as the heuristic ellipsoid. `densityWeight`:
+ * weight by the field itself (for a non-negative density ρ), else by field²
+ * (for a signed wavefunction ψ, whose density is ψ²). Diagonal (axis-aligned)
+ * variances; full eigendecomposition is a future refinement for tilted densities.
  */
-export function anisotropyFromField(fd) {
-  const { field, res, extent, step } = fd;
+export function anisotropyFromGrid(g, densityWeight) {
+  const { field, nx, ny, nz, ox, oy, oz, dx, dy, dz } = g;
   let sw = 0, sx = 0, sy = 0, sz = 0, sxx = 0, syy = 0, szz = 0, idx = 0;
-  for (let iz = 0; iz < res; iz++) {
-    const z = -extent + iz * step;
-    for (let iy = 0; iy < res; iy++) {
-      const y = -extent + iy * step;
-      for (let ix = 0; ix < res; ix++) {
-        const x = -extent + ix * step;
-        const w = field[idx] * field[idx]; idx++;
+  for (let iz = 0; iz < nz; iz++) {
+    const z = oz + iz * dz;
+    for (let iy = 0; iy < ny; iy++) {
+      const y = oy + iy * dy;
+      for (let ix = 0; ix < nx; ix++) {
+        const f = field[idx++];
+        const w = densityWeight ? Math.max(f, 0) : f * f;
         if (w === 0) continue;
+        const x = ox + ix * dx;
         sw += w; sx += w * x; sy += w * y; sz += w * z;
         sxx += w * x * x; syy += w * y * y; szz += w * z * z;
       }
     }
   }
   if (sw === 0) return 0;
-  const vx = sxx / sw - (sx / sw) ** 2;
-  const vy = syy / sw - (sy / sw) ** 2;
-  const vz = szz / sw - (sz / sw) ** 2;
-  // RMS extents = principal "semi-axes"; sort descending, apply the FA formula.
+  const vx = sxx / sw - (sx / sw) ** 2, vy = syy / sw - (sy / sw) ** 2, vz = szz / sw - (sz / sw) ** 2;
   const [a, b, c] = [Math.sqrt(Math.max(vx, 0)), Math.sqrt(Math.max(vy, 0)), Math.sqrt(Math.max(vz, 0))]
     .sort((p, q) => q - p);
   const mean = (a + b + c) / 3;
   const num = Math.sqrt((a - mean) ** 2 + (b - mean) ** 2 + (c - mean) ** 2);
   const den = Math.sqrt(a * a + b * b + c * c);
-  if (den === 0) return 0;
-  return Math.min(Math.max(Math.sqrt(1.5) * num / den, 0), 1);
+  return den === 0 ? 0 : Math.min(Math.max(Math.sqrt(1.5) * num / den, 0), 1);
 }
 
 // ---- marching tetrahedra (robust, small tables; DoubleSide-tolerant) -------
@@ -148,19 +158,20 @@ function interp(iso, pa, va, pb, vb) {
  * Float32Array of positions. Winding is not guaranteed — render DoubleSide with
  * computed normals.
  */
-export function marchIso(fd, iso, sign = 1) {
-  const { field, res, extent, step } = fd;
-  const at = (ix, iy, iz) => sign * field[ix + res * (iy + res * iz)];
+export function marchGrid(g, iso, sign = 1) {
+  const { field, nx, ny, nz, ox, oy, oz, dx, dy, dz } = g;
+  const [cx, cy, cz] = gridCenter(g); // emit centered coords for easy display placement
+  const at = (ix, iy, iz) => sign * field[ix + nx * (iy + ny * iz)];
   const pos = [];
   const pushT = (a, b, c) => { pos.push(a[0], a[1], a[2], b[0], b[1], b[2], c[0], c[1], c[2]); };
   const P = new Array(8), V = new Array(8);
-  for (let iz = 0; iz < res - 1; iz++) {
-    for (let iy = 0; iy < res - 1; iy++) {
-      for (let ix = 0; ix < res - 1; ix++) {
+  for (let iz = 0; iz < nz - 1; iz++) {
+    for (let iy = 0; iy < ny - 1; iy++) {
+      for (let ix = 0; ix < nx - 1; ix++) {
         for (let c = 0; c < 8; c++) {
           const o = CORNER[c];
           const gx = ix + o[0], gy = iy + o[1], gz = iz + o[2];
-          P[c] = [-extent + gx * step, -extent + gy * step, -extent + gz * step];
+          P[c] = [ox + gx * dx - cx, oy + gy * dy - cy, oz + gz * dz - cz];
           V[c] = at(gx, gy, gz);
         }
         for (let t = 0; t < 6; t++) {
@@ -195,17 +206,24 @@ export function marchIso(fd, iso, sign = 1) {
 }
 
 /**
- * Build both phase surfaces for |k,l,m>. Returns
- * { positive: Float32Array, negative: Float32Array, extent, anisotropy }.
- * Positions are in oscillator units (centered at origin, span ±extent).
+ * Isosurface any grid (analytic eigenstate OR a DFT .cube). Auto-detects a
+ * signed field (a wavefunction, with +/- lobes) vs a non-negative density.
+ * Returns { positive, negative, extent, anisotropy, signed }. Positions are
+ * centered at the grid centroid.
  */
-export function buildEigenstate(k, l, m, res = 40, isoFrac = 0.26) {
-  const fd = sampleField(k, l, m, res);
-  const iso = isoFrac * fd.maxAbs;
+export function buildFromGrid(g, isoFrac = 0.26) {
+  const signed = g.min < -0.02 * g.maxAbs;
+  const iso = isoFrac * g.maxAbs;
   return {
-    positive: marchIso(fd, iso, 1),   // {ψ ≥ +iso}  (positive lobes)
-    negative: marchIso(fd, iso, -1),  // {−ψ ≥ +iso} = {ψ ≤ −iso}  (negative lobes)
-    extent: fd.extent,
-    anisotropy: anisotropyFromField(fd),
+    positive: marchGrid(g, iso, 1),                          // {f ≥ +iso}
+    negative: signed ? marchGrid(g, iso, -1) : new Float32Array(0), // {f ≤ −iso}
+    extent: gridExtent(g),
+    anisotropy: anisotropyFromGrid(g, !signed),              // density-weight if unsigned
+    signed,
   };
+}
+
+/** Convenience: analytic harmonic-oscillator eigenstate |k,l,m>. */
+export function buildEigenstate(k, l, m, res = 40, isoFrac = 0.26) {
+  return buildFromGrid(hoGrid(k, l, m, res), isoFrac);
 }

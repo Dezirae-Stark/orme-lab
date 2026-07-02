@@ -212,6 +212,7 @@ function updateHUD(res) {
     badge.className = "badge ok"; badge.textContent = "NOT RULED OUT";
     line.textContent = `plausibility ${f3(sc.score)} — a screening signal, not evidence of superconductivity. Needs ab-initio + measurement.`;
   }
+  $("vEvidence").textContent = res.evidence.badge;
 
   // EM coherence
   $("mEmRegime").textContent = em.regime;

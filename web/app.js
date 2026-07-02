@@ -1,9 +1,9 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
-import * as SIM from "./sim.js";
-import { analyzeCandidate, ask, pingProxy, keyStore, proxyStore } from "./scientist.js";
-import { METRICS } from "./metrics.js";
-import { renderRegistry, hypothesesForMetric } from "./hypotheses.js";
+import * as SIM from "./sim.js?v=__BUILD__";
+import { analyzeCandidate, ask, pingProxy, keyStore, proxyStore } from "./scientist.js?v=__BUILD__";
+import { METRICS } from "./metrics.js?v=__BUILD__";
+import { renderRegistry, hypothesesForMetric } from "./hypotheses.js?v=__BUILD__";
 
 // The eigenstate + DFT-cube feature is the ONLY heavy/optional part of the lab.
 // It is loaded LAZILY via dynamic import() rather than a top-level static import,
@@ -18,8 +18,8 @@ function loadEigenModule() {
   if (Eigen && Cube) return Promise.resolve(true);
   if (eigenModulePromise) return eigenModulePromise;
   eigenModulePromise = Promise.all([
-    import("./eigenstate.js"),
-    import("./cube.js"),
+    import("./eigenstate.js?v=__BUILD__"),
+    import("./cube.js?v=__BUILD__"),
   ]).then(([e, c]) => {
     Eigen = e; Cube = c;
     return true;

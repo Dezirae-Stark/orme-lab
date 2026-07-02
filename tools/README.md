@@ -33,7 +33,8 @@ direct Console API key if you saved one).
 | `ANTHROPIC_API_KEY` | — | Console API key. Takes priority over the Max/OAuth path. |
 | `ORME_PROXY_PORT` | `8787` | Listen port. |
 | `ORME_PROXY_MODEL` | `claude-opus-4-8` | Default model (page can override per request). |
-| `ORME_PROXY_TOKEN` | — | If set, the page must send a matching `x-orme-token` (set it in the proxy settings). Guards against other local processes. |
+| `ORME_ALLOWED_ORIGINS` | `https://dezirae-stark.github.io` | Comma-separated extra page origins allowed to call the proxy. Any `localhost`/`127.0.0.1` port is always allowed. |
+| `ORME_PROXY_TOKEN` | — | If set, the page must send a matching `x-orme-token` (set it in the proxy settings). Guards against other local processes. Recommended. |
 
 ## Honest caveats
 
@@ -43,5 +44,11 @@ direct Console API key if you saved one).
   path. The proxy tells you which mode it's using and surfaces a hint on 401.
 - **Loopback only.** Do not change `HOST` to `0.0.0.0` — that would expose your
   credentials-backed endpoint to your whole network.
+- **Origin-allowlisted.** Loopback alone does not stop other *web origins* open in
+  your browser from calling the proxy, so the proxy grants CORS/Private-Network
+  access only to the ORME Lab page's own origins (the GitHub Pages origin +
+  localhost) and returns `403` to any other origin on `POST /claude`. A site you
+  visit cannot drive your credentials. For an additional guard against other
+  processes on your own machine, set `ORME_PROXY_TOKEN`.
 - The proxy is a **local dev tool**; it is not part of the deployed static site
   and is never uploaded anywhere.

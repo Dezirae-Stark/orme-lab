@@ -30,6 +30,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import subprocess
 import sys
 import urllib.error
@@ -41,6 +42,26 @@ PORT = int(os.environ.get("ORME_PROXY_PORT", "8787"))
 SHARED_TOKEN = os.environ.get("ORME_PROXY_TOKEN", "")
 DEFAULT_MODEL = os.environ.get("ORME_PROXY_MODEL", "claude-opus-4-8")
 ANTHROPIC_URL = "https://api.anthropic.com/v1/messages"
+
+# --- Origin allowlist -------------------------------------------------------
+# Loopback binding stops OTHER machines, but not other *web origins* open in
+# your own browser: without this allowlist, any site you visit could fetch() the
+# proxy (with Private-Network access granted) and burn your credentials. So we
+# only grant CORS to the ORME Lab page's own origins, never reflect arbitrary
+# ones. Add more with ORME_ALLOWED_ORIGINS="https://a.example,https://b.example".
+DEFAULT_ORIGINS = {"https://dezirae-stark.github.io"}
+ALLOWED_ORIGINS = DEFAULT_ORIGINS | {
+    o.strip() for o in os.environ.get("ORME_ALLOWED_ORIGINS", "").split(",") if o.strip()
+}
+# Any localhost/loopback origin (any port) is fine — an attacker can't serve a
+# page from your loopback, so these can only be the lab running on your machine.
+_LOCAL_ORIGIN_RE = re.compile(r"^https?://(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$")
+
+
+def origin_allowed(origin: str) -> bool:
+    if not origin:
+        return False  # e.g. "null" (file://, sandboxed) — deny
+    return origin in ALLOWED_ORIGINS or bool(_LOCAL_ORIGIN_RE.match(origin))
 
 SYSTEM_PROMPT = """You are the lab scientist embedded in "ORME Lab", a virtual lab that treats ORME/PGM high-spin ambient-superconductivity claims as falsifiable hypotheses to triage, never as settled fact.
 
@@ -103,13 +124,17 @@ def build_body(payload: dict) -> dict:
 
 class Handler(BaseHTTPRequestHandler):
     def _cors(self):
-        origin = self.headers.get("Origin", "*")
-        self.send_header("Access-Control-Allow-Origin", origin)
-        self.send_header("Vary", "Origin")
+        # Grant CORS + Private-Network access ONLY to allowlisted origins. A
+        # disallowed browser origin gets no Access-Control-Allow-Origin, so the
+        # browser blocks it from reading any response.
+        origin = self.headers.get("Origin")
+        if origin and origin_allowed(origin):
+            self.send_header("Access-Control-Allow-Origin", origin)
+            self.send_header("Vary", "Origin")
+            # Chrome Private Network Access: allow HTTPS page -> loopback
+            self.send_header("Access-Control-Allow-Private-Network", "true")
         self.send_header("Access-Control-Allow-Methods", "POST, GET, OPTIONS")
         self.send_header("Access-Control-Allow-Headers", "content-type, x-orme-token")
-        # Chrome Private Network Access: allow HTTPS public page -> loopback
-        self.send_header("Access-Control-Allow-Private-Network", "true")
 
     def _json(self, code: int, obj: dict):
         body = json.dumps(obj).encode("utf-8")
@@ -139,6 +164,13 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
         if self.path.rstrip("/") != "/claude":
             self._json(404, {"error": "not found"})
+            return
+        # Reject cross-origin browser requests from non-allowlisted sites. A
+        # browser always sends Origin, so this blocks a malicious page from
+        # driving your credentials even though the port is loopback.
+        origin = self.headers.get("Origin")
+        if origin and not origin_allowed(origin):
+            self._json(403, {"error": f"origin not allowed: {origin}"})
             return
         if not self._token_ok():
             self._json(401, {"error": "bad or missing x-orme-token"})
@@ -191,9 +223,12 @@ def main():
         print("  ⚠ No credentials found. Set ANTHROPIC_API_KEY, or run `ant auth login` (Claude Code / Max), then restart.")
     elif mode == "max-oauth":
         print("  Using Claude Code / Max OAuth token. If the API rejects it, set ANTHROPIC_API_KEY to a Console key.")
+    print(f"  Allowed page origins: {', '.join(sorted(ALLOWED_ORIGINS))} + any localhost/127.0.0.1 port.")
     if SHARED_TOKEN:
         print("  Shared token required (x-orme-token). Configure the same token in the page's proxy settings.")
-    print("  Loopback only — not reachable from other machines. Ctrl-C to stop.")
+    else:
+        print("  Tip: set ORME_PROXY_TOKEN for an extra guard against other local processes.")
+    print("  Loopback only + origin-allowlisted — not reachable from other machines or arbitrary sites. Ctrl-C to stop.")
     ThreadingHTTPServer((HOST, PORT), Handler).serve_forever()
 
 

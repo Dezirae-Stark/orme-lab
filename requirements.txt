@@ -1,0 +1,26 @@
+# orme-lab core dependencies
+# -----------------------------------------------------------------------------
+# The core scaffold runs on the Python standard library alone -- no third-party
+# package is required to run `run_screen()` or the tests. The entries below are
+# OPTIONAL, used only by the examples/notebooks (numeric + plotting).
+
+numpy>=1.23        # optional: vectorized density/geometry math in examples
+matplotlib>=3.6    # optional: plot_candidate_density.py
+
+# Development / testing
+pytest>=7.4
+
+# -----------------------------------------------------------------------------
+# FUTURE ab-initio / DFT integrations (NOT installed here; placeholders only).
+# These are heavy, often require compilers, MPI, or external binaries, and are
+# wired in behind the `TODO(dft)` markers in src/orme_lab. Uncomment per-backend
+# as integrations land.
+#
+#   ase>=3.22           # atomistic structures, calculators, optimizers
+#   pyscf>=2.3          # Gaussian-basis DFT / post-HF for clusters
+#   gpaw>=23.6          # real-space / PAW DFT (needs libxc, MPI)
+#   # ORCA              # external binary (license required), driven via files
+#   # NWChem            # external binary, MPI
+#   # Quantum ESPRESSO  # external binary, plane-wave DFT for periodic solids
+#   # EPW               # electron-phonon / Eliashberg (part of QE) for SC
+# -----------------------------------------------------------------------------

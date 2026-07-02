@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+env/
+
+# Test / coverage
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Screen outputs (keep the directory, ignore generated artifacts)
+outputs/*
+!outputs/.gitkeep
+
+# Browser automation scratch (never publish captured private content)
+.playwright-mcp/
+
+# OS / editor
+.DS_Store
+*.swp
+.idea/
+.vscode/

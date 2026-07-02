@@ -1,0 +1,38 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "orme-lab"
+version = "0.1.0"
+description = "Virtual lab for testing ORME/PGM high-spin electron-density and superconductivity-like claims as falsifiable hypotheses."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "orme-lab contributors" }]
+keywords = ["platinum-group-metals", "superconductivity", "DFT", "spin-states", "hypothesis-testing"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "Programming Language :: Python :: 3",
+    "Topic :: Scientific/Engineering :: Physics",
+]
+
+# The core scaffold intentionally runs on the standard library alone so it is
+# usable without heavy quantum-chemistry stacks. Numerical/plotting extras are
+# optional; ab-initio backends are future integrations (see requirements.txt).
+dependencies = []
+
+[project.optional-dependencies]
+numeric = ["numpy>=1.23"]
+plot = ["numpy>=1.23", "matplotlib>=3.6"]
+notebook = ["jupyter>=1.0", "numpy>=1.23", "matplotlib>=3.6"]
+dev = ["pytest>=7.4", "pytest-cov>=4.1"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+addopts = "-q"

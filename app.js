@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import * as SIM from "./sim.js";
+import { analyzeCandidate, askClaude, keyStore } from "./scientist.js";
 
 /* -------------------------------------------------------------------------
  * ORME Lab — interactive 3D front-end.
@@ -220,6 +221,100 @@ function updateHUD(res) {
 
   // ranking highlight
   markRanking();
+
+  // lab scientist deterministic analysis
+  updateScientist(res);
+}
+
+// ---- lab scientist -------------------------------------------------------
+function esc(str) {
+  return String(str).replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+}
+
+function updateScientist(res) {
+  const a = analyzeCandidate(res);
+  const el = $("sciAnalysis");
+  const readingHtml = a.reading
+    .map((line) => {
+      const cls = line.includes("RULED OUT") ? "ro" : line.includes("NOT RULED OUT") ? "ok" : "";
+      // highlight the verdict token
+      let html = esc(line)
+        .replace("NOT RULED OUT", '<span class="ok">NOT RULED OUT</span>')
+        .replace(/(?<!NOT )RULED OUT/, '<span class="ro">RULED OUT</span>');
+      return `<p class="reading">${html}</p>`;
+    })
+    .join("");
+  const listHtml = (items, cls) =>
+    items.length
+      ? `<ul>${items.map((i) => `<li class="${cls}">${esc(i)}</li>`).join("")}</ul>`
+      : "";
+  el.innerHTML =
+    readingHtml +
+    (a.suggestions.length ? `<div class="sci-block-label">Suggested next moves</div>${listHtml(a.suggestions, "")}` : "") +
+    (a.caveats.length ? `<div class="sci-block-label">Caveats</div>${listHtml(a.caveats, "caveat")}` : "");
+
+  // one-line hint on the collapsed header
+  $("sciHint").textContent = res.sc.ruledOut
+    ? `ruled out — ${res.sc.gates.filter((g) => !g.passed).length} gate(s) failed`
+    : `not ruled out — plausibility ${res.sc.score.toFixed(3)}`;
+}
+
+function addChatMsg(cls, text) {
+  const chat = $("sciChat");
+  const div = document.createElement("div");
+  div.className = "sci-msg " + cls;
+  div.textContent = text;
+  chat.appendChild(div);
+  $("sciBody").scrollTop = $("sciBody").scrollHeight;
+  return div;
+}
+
+async function askScientist() {
+  const input = $("sciInput");
+  const q = input.value.trim();
+  if (!current) return;
+  if (!keyStore.get()) {
+    addChatMsg("err", "Real-Claude analysis needs an Anthropic Console API key — open the settings below to add one. (The deterministic analysis above always runs without a key.)");
+    return;
+  }
+  if (q) addChatMsg("you", q);
+  input.value = "";
+  const pending = addChatMsg("pending", "thinking…");
+  try {
+    const answer = await askClaude(current, q);
+    pending.remove();
+    addChatMsg("claude", answer);
+  } catch (e) {
+    pending.remove();
+    addChatMsg("err", "Claude call failed: " + e.message);
+  }
+}
+
+function wireScientist() {
+  const toggle = $("sciToggle");
+  toggle.addEventListener("click", () => {
+    const body = $("sciBody");
+    const open = body.hidden;
+    body.hidden = !open;
+    toggle.setAttribute("aria-expanded", String(open));
+  });
+  $("sciSend").addEventListener("click", askScientist);
+  $("sciInput").addEventListener("keydown", (e) => { if (e.key === "Enter") askScientist(); });
+
+  // key settings
+  const keyInput = $("sciKey"), modelSel = $("sciModel"), state = $("sciKeyState");
+  const refreshState = () => {
+    state.textContent = keyStore.get() ? "key saved (this browser only)" : "no key set";
+    modelSel.value = keyStore.model();
+  };
+  refreshState();
+  $("sciSaveKey").addEventListener("click", () => {
+    if (keyInput.value.trim()) { keyStore.set(keyInput.value); keyInput.value = ""; }
+    keyStore.setModel(modelSel.value);
+    refreshState();
+  });
+  $("sciClearKey").addEventListener("click", () => { keyStore.clear(); refreshState(); });
+  modelSel.addEventListener("change", () => keyStore.setModel(modelSel.value));
 }
 
 function setFlag(node, on, onText, offText) {
@@ -362,6 +457,7 @@ function loop() {
 
 // ---- boot ----------------------------------------------------------------
 wireControls();
+wireScientist();
 buildRanking();
 resize();
 recompute();

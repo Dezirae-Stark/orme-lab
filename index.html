@@ -80,6 +80,46 @@
         <span><i style="background:#c9a86a"></i>coupling</span>
         <span><i style="background:#6aa6d6"></i>field</span>
       </div>
+
+      <!-- LAB SCIENTIST drawer -->
+      <section id="scientist" aria-label="Lab scientist">
+        <button id="sciToggle" class="sci-header" aria-expanded="false">
+          <span class="sci-dot"></span>
+          <span class="sci-title">Lab Scientist</span>
+          <span class="sci-hint" id="sciHint">analysis of the current candidate</span>
+          <span class="sci-caret">▲</span>
+        </button>
+        <div class="sci-body" id="sciBody" hidden>
+          <div class="sci-analysis" id="sciAnalysis"></div>
+          <div class="sci-chat" id="sciChat"></div>
+          <div class="sci-ask">
+            <input id="sciInput" type="text" placeholder="Ask the scientist about this candidate…" autocomplete="off" />
+            <button id="sciSend" class="chip">ask</button>
+          </div>
+          <details class="sci-settings">
+            <summary>Real-Claude analysis (optional — your own API key)</summary>
+            <p class="hint">
+              The deterministic analysis above always runs, no key needed. To get live Claude
+              analysis, paste an <strong>Anthropic Console API key</strong> (a Claude Max / Claude.ai
+              login will not work — that's a first-party credential, not an API key). It is stored
+              only in this browser and sent only to api.anthropic.com.
+            </p>
+            <div class="sci-key-row">
+              <input id="sciKey" type="password" placeholder="sk-ant-… (stored locally only)" autocomplete="off" />
+              <select id="sciModel" class="field" aria-label="Model">
+                <option value="claude-opus-4-8">Opus 4.8</option>
+                <option value="claude-sonnet-5">Sonnet 5</option>
+                <option value="claude-haiku-4-5">Haiku 4.5</option>
+              </select>
+            </div>
+            <div class="sci-key-actions">
+              <button id="sciSaveKey" class="chip">save key</button>
+              <button id="sciClearKey" class="chip">clear</button>
+              <span id="sciKeyState" class="hint"></span>
+            </div>
+          </details>
+        </div>
+      </section>
     </main>
 
     <!-- RIGHT RAIL: gate cascade + spectrum + ranking -->

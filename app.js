@@ -2,6 +2,7 @@ import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import * as SIM from "./sim.js";
 import { analyzeCandidate, ask, pingProxy, keyStore, proxyStore } from "./scientist.js";
+import { METRICS } from "./metrics.js";
 
 /* -------------------------------------------------------------------------
  * ORME Lab — interactive 3D front-end.
@@ -196,7 +197,10 @@ function updateHUD(res) {
   cascade.innerHTML = "";
   sc.gates.forEach((g) => {
     const row = document.createElement("div");
-    row.className = "gate " + (g.passed ? "pass" : "fail");
+    row.className = "gate tappable " + (g.passed ? "pass" : "fail");
+    row.dataset.metric = "gate_" + g.name;
+    row.setAttribute("role", "button");
+    row.tabIndex = 0;
     row.innerHTML = `<span class="led"></span><span class="lbl">${gnames[g.name]}</span>
       <span class="num">${f3(g.value)} / ${g.threshold}</span>`;
     cascade.appendChild(row);
@@ -304,6 +308,46 @@ async function refreshProxyStatus() {
   } else {
     el.innerHTML = `<span class="off">not running</span> — start <code>python tools/orme-claude-proxy.py</code>`;
   }
+}
+
+// ---- metric inspector ----------------------------------------------------
+let lastFocused = null;
+function openMetric(key) {
+  const m = METRICS[key];
+  if (!m || !current) return;
+  lastFocused = document.activeElement;
+  $("mmEyebrow").textContent = m.eyebrow;
+  $("mmTitle").textContent = m.title;
+  $("mmValue").textContent = m.get(current);
+  $("mmDef").textContent = m.definition;
+  $("mmCalc").textContent = m.calculation;
+  $("mmExp").textContent = m.experimental;
+  $("mmConfidence").textContent = m.confidence;
+  $("mmFuture").textContent = m.future;
+  $("mmSource").textContent = m.source;
+  $("metricModal").hidden = false;
+  $("mmClose").focus();
+}
+function closeMetric() {
+  $("metricModal").hidden = true;
+  if (lastFocused && lastFocused.focus) lastFocused.focus();
+}
+
+function wireMetricInspector() {
+  // delegated open on any [data-metric] element (metric rows, gate rows, badge)
+  document.body.addEventListener("click", (e) => {
+    const el = e.target.closest("[data-metric]");
+    if (el) openMetric(el.dataset.metric);
+  });
+  document.body.addEventListener("keydown", (e) => {
+    if (e.key !== "Enter" && e.key !== " ") return;
+    const el = e.target.closest?.('[data-metric][role="button"]');
+    if (el) { e.preventDefault(); openMetric(el.dataset.metric); }
+  });
+  // close: ✕, overlay click, Escape
+  $("mmClose").addEventListener("click", closeMetric);
+  $("metricModal").addEventListener("click", (e) => { if (e.target.id === "metricModal") closeMetric(); });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("metricModal").hidden) closeMetric(); });
 }
 
 function wireScientist() {
@@ -486,6 +530,7 @@ function loop() {
 // ---- boot ----------------------------------------------------------------
 wireControls();
 wireScientist();
+wireMetricInspector();
 buildRanking();
 resize();
 recompute();

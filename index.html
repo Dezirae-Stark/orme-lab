@@ -56,6 +56,21 @@
       </div>
 
       <div class="group">
+        <div class="eyebrow"><span>Electron cloud</span><span id="eigenEnergy"></span></div>
+        <div class="chip-row">
+          <button class="chip" id="eigenToggle" aria-pressed="false">eigenstate mode</button>
+        </div>
+        <div id="eigenControls" hidden>
+          <p class="hint">Real harmonic-oscillator eigenstate |k,l,m⟩ — its |ψ|² deformation drives the density-anisotropy metric. A model potential (Level 2), not the atomic DFT density.</p>
+          <div class="klm-row">
+            <label>k <select id="eigenK" class="field" aria-label="radial k"></select></label>
+            <label>l <select id="eigenL" class="field" aria-label="angular l"></select></label>
+            <label>m <select id="eigenM" class="field" aria-label="magnetic m"></select></label>
+          </div>
+        </div>
+      </div>
+
+      <div class="group">
         <div class="eyebrow"><span>Applied field</span><span id="fieldVal">0.0 T</span></div>
         <div class="slider-row">
           <input type="range" id="fieldSlider" min="0" max="8" step="0.1" value="0" aria-label="Applied magnetic field (tesla)" />

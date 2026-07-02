@@ -95,6 +95,11 @@ select.field {
   padding: 7px 8px; cursor: pointer;
 }
 
+#eigenEnergy { font-family: "IBM Plex Mono", monospace; font-size: 10px; color: var(--coherent); letter-spacing: normal; text-transform: none; }
+.klm-row { display: flex; gap: 8px; margin-top: 8px; }
+.klm-row label { flex: 1; display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--muted); }
+.klm-row .field { flex: 1; padding: 5px 6px; }
+
 .slider-row { display: flex; align-items: center; gap: 10px; }
 input[type=range] {
   -webkit-appearance: none; appearance: none; flex: 1; height: 3px;

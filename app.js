@@ -4,6 +4,7 @@ import * as SIM from "./sim.js";
 import { analyzeCandidate, ask, pingProxy, keyStore, proxyStore } from "./scientist.js";
 import { METRICS } from "./metrics.js";
 import { renderRegistry, hypothesesForMetric } from "./hypotheses.js";
+import { buildEigenstate, mRange, MAX_K, MAX_L, energyLabel } from "./eigenstate.js";
 
 /* -------------------------------------------------------------------------
  * ORME Lab — interactive 3D front-end.
@@ -22,6 +23,14 @@ const ELEMENT_COLOR = {
 const state = {
   elSym: "Os", geomKind: "compact13", spinKind: "high", fieldT: 0, tempK: 298.15,
 };
+
+// Eigenstate mode (kept separate from `state` so it isn't passed to the sim
+// except as the anisotropy override). Default |k=0,l=2,m=0> — a prolate dz².
+const eigen = { on: false, k: 0, l: 2, m: 0 };
+let eigenData = null;               // cached { positive, negative, extent, anisotropy }
+function rebuildEigen() {
+  eigenData = eigen.on ? buildEigenstate(eigen.k, eigen.l, eigen.m, 40) : null;
+}
 
 // ---- three.js scene ------------------------------------------------------
 const stage = document.getElementById("stage");
@@ -90,20 +99,44 @@ function buildCandidate(res) {
     atom.position.set(x, y, z);
     candidateGroup.add(atom);
 
-    // "rice-bean" electron-density ellipsoid: prolate, long axis along x
-    const shell = new THREE.Mesh(sphereGeo, new THREE.MeshStandardMaterial({
-      color: survives ? 0x35d6c4 : col,
-      transparent: true,
-      opacity: 0.12 + 0.28 * scores.aniso,
-      metalness: 0.0, roughness: 1.0,
-      emissive: survives ? 0x1a6b63 : 0x000000,
-      emissiveIntensity: survives ? 0.6 : 0.0,
-      depthWrite: false,
-    }));
-    const s = 1.35;
-    shell.scale.set(ellipsoid.a * s, ellipsoid.c * s, ellipsoid.b * s);
-    shell.position.set(x, y, z);
-    candidateGroup.add(shell);
+    // heuristic "rice-bean" ellipsoid — only when NOT in eigenstate mode.
+    if (!eigen.on) {
+      const shell = new THREE.Mesh(sphereGeo, new THREE.MeshStandardMaterial({
+        color: survives ? 0x35d6c4 : col,
+        transparent: true,
+        opacity: 0.12 + 0.28 * scores.aniso,
+        metalness: 0.0, roughness: 1.0,
+        emissive: survives ? 0x1a6b63 : 0x000000,
+        emissiveIntensity: survives ? 0.6 : 0.0,
+        depthWrite: false,
+      }));
+      const s = 1.35;
+      shell.scale.set(ellipsoid.a * s, ellipsoid.c * s, ellipsoid.b * s);
+      shell.position.set(x, y, z);
+      candidateGroup.add(shell);
+    }
+  }
+
+  // eigenstate electron cloud (real |k,l,m> isosurfaces) — replaces the ellipsoids.
+  // Two phase lobes in light/deep teal (matching the atomic palette), translucent
+  // so atoms and coupling filaments stay visible through the cloud deformation.
+  if (eigen.on && eigenData) {
+    const scale = 6.0 / eigenData.extent; // normalize display size across states
+    const lobe = (arr, colorHex, opacity) => {
+      if (!arr || !arr.length) return;
+      const g = new THREE.BufferGeometry();
+      g.setAttribute("position", new THREE.BufferAttribute(arr, 3));
+      g.computeVertexNormals();
+      const mesh = new THREE.Mesh(g, new THREE.MeshStandardMaterial({
+        color: colorHex, emissive: colorHex, emissiveIntensity: 0.28,
+        transparent: true, opacity, metalness: 0.0, roughness: 1.0,
+        side: THREE.DoubleSide, depthWrite: false,
+      }));
+      mesh.scale.setScalar(scale);   // centered at origin == cluster centroid
+      candidateGroup.add(mesh);
+    };
+    lobe(eigenData.positive, 0x7af0e4, 0.40); // positive phase — light teal
+    lobe(eigenData.negative, 0x0e5c55, 0.50); // negative phase — deep teal
   }
 
   // coupling filaments between near neighbours (thickness/opacity ~ coupling)
@@ -326,6 +359,31 @@ function setTab(name) {
   });
 }
 
+// ---- eigenstate mode controls --------------------------------------------
+function eigenRepopulateM() {
+  const ms = mRange(eigen.l);
+  if (!ms.includes(eigen.m)) eigen.m = 0;
+  $("eigenM").innerHTML = ms.map((v) => `<option value="${v}"${v === eigen.m ? " selected" : ""}>${v}</option>`).join("");
+}
+function eigenUpdateEnergy() {
+  $("eigenEnergy").textContent = eigen.on ? energyLabel(eigen.k, eigen.l) : "";
+}
+function wireEigen() {
+  const ksel = $("eigenK"), lsel = $("eigenL"), msel = $("eigenM");
+  ksel.innerHTML = Array.from({ length: MAX_K + 1 }, (_, i) => `<option value="${i}"${i === eigen.k ? " selected" : ""}>${i}</option>`).join("");
+  lsel.innerHTML = Array.from({ length: MAX_L + 1 }, (_, i) => `<option value="${i}"${i === eigen.l ? " selected" : ""}>${i}</option>`).join("");
+  eigenRepopulateM();
+  $("eigenToggle").addEventListener("click", (e) => {
+    eigen.on = !eigen.on;
+    e.target.setAttribute("aria-pressed", String(eigen.on));
+    $("eigenControls").hidden = !eigen.on;
+    eigenUpdateEnergy(); rebuildEigen(); recompute();
+  });
+  ksel.addEventListener("change", () => { eigen.k = +ksel.value; eigenUpdateEnergy(); rebuildEigen(); recompute(); });
+  lsel.addEventListener("change", () => { eigen.l = +lsel.value; eigenRepopulateM(); eigenUpdateEnergy(); rebuildEigen(); recompute(); });
+  msel.addEventListener("change", () => { eigen.m = +msel.value; rebuildEigen(); recompute(); });
+}
+
 function wireTabs() {
   renderRegistry($("regBody"));
   document.querySelectorAll(".tab").forEach((t) =>
@@ -514,7 +572,8 @@ function markRanking() {
 // ---- recompute + wire ----------------------------------------------------
 let current;
 function recompute() {
-  current = SIM.evaluateCandidate(state);
+  const anisotropyOverride = eigen.on && eigenData ? eigenData.anisotropy : undefined;
+  current = SIM.evaluateCandidate({ ...state, anisotropyOverride });
   buildCandidate(current);
   buildField(current);
   updateHUD(current);
@@ -594,6 +653,7 @@ wireControls();
 wireScientist();
 wireMetricInspector();
 wireTabs();
+wireEigen();
 buildRanking();
 resize();
 recompute();

@@ -117,6 +117,7 @@ Each module owns one hypothesis and exposes one bounded `[0, 1]` score:
 | `magnetic_field.py` | field stabilize/suppress | `magnetic_field_suppression_factor` |
 | `observables.py` | susceptibility, resistance, Meissner | `meissner_screening_proxy` |
 | `superconductivity.py` | necessary-condition gate | `superconductivity_plausibility_score` |
+| `electromagnetic_coherence.py` | polariton/plasmon coherence (H12/H16) | `polariton_coherence_score` |
 | `pipeline.py` | orchestration, ranking, CSV | — |
 
 Full detail: `docs/simulation_pipeline.md`. The determinism guarantee (same
@@ -146,9 +147,12 @@ gap is marked `TODO(<backend>)` in the source):
    the only defensible route to a real superconductivity estimate.
 5. **ORCA / NWChem** — molecular reference calculations, spin-orbit coupling
    (important for 5d metals).
-6. **`electromagnetic_coherence.py`** (new) — model H12/H16: polaritonic /
-   plasmonic coherence, the charitable translation of Hudson's "light flows
-   through it." See `docs/terminology_translation.md`.
+6. **`electromagnetic_coherence.py`** ✅ *(implemented)* — models H12/H16:
+   polaritonic / plasmonic coherence, the charitable translation of Hudson's
+   "light flows through it." Kept deliberately separate from the SC gate: a
+   coherent quantum material is not a superconductor. `TODO(dft/rpa)`: replace the
+   free-electron plasmon estimate with a computed dielectric function ε(q, ω).
+   See `docs/terminology_translation.md`.
 
 ## Documentation index
 

@@ -19,6 +19,14 @@ from __future__ import annotations
 
 from .config import DEFAULT_CONFIG, LabConfig, ModelThresholds
 from .coupling import inter_unit_coupling_score, is_electronically_isolated
+from .electromagnetic_coherence import (
+    CoherenceResult,
+    ElectromagneticMode,
+    coupling_regime,
+    evaluate_em_coherence,
+    plasmon_energy_ev,
+    polariton_coherence_score,
+)
 from .electron_density import electron_density_anisotropy_score, ricebean_score
 from .elements import Element, all_elements, core_screen_elements, get_element
 from .magnetic_field import magnetic_field_suppression_factor
@@ -52,6 +60,12 @@ __all__ = [
     "spin_polarization_score",
     "electron_density_anisotropy_score",
     "ricebean_score",
+    "ElectromagneticMode",
+    "CoherenceResult",
+    "evaluate_em_coherence",
+    "plasmon_energy_ev",
+    "polariton_coherence_score",
+    "coupling_regime",
     "inter_unit_coupling_score",
     "is_electronically_isolated",
     "magnetic_field_suppression_factor",

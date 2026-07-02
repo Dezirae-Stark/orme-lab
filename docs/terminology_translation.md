@@ -64,11 +64,11 @@ the roadmap even though v0.1 does not fully model all of them:
 
 | # | Hypothesis | Status in codebase |
 |---|-----------|--------------------|
-| H12 | **Electromagnetic-coherence misidentification** — the "light" effect is EM/quantum coherence (polaritons/plasmons), not superconductivity per se | roadmap module |
+| H12 | **Electromagnetic-coherence misidentification** — the "light" effect is EM/quantum coherence (polaritons/plasmons), not superconductivity per se | **modeled**: `electromagnetic_coherence.py` |
 | H13 | **Collective spin polarization** — "high spin" = a high degree of *collective* electronic/nuclear spin **order**, not literal identical-spin alignment of every particle (forbidden by Pauli exclusion + the nuclear shell model as a stable ground state). Probe via ESR/EPR, NMR, SQUID, synchrotron X-ray | partially: `spin_states.py` (electronic only); roadmap: collective/nuclear order |
 | H14 | Electron-density anisotropy increases inter-unit coupling/coherence, favoring SC-like behavior | modeled: `electron_density.py` → `carrier_coherence_proxy` |
 | H15 | The active unit is a **nanocluster**, not monatomic | modeled: `geometry.py` compact clusters |
-| H16 | Claimed SC is actually **polaritonic / plasmonic** coherence | roadmap module |
+| H16 | Claimed SC is actually **polaritonic / plasmonic** coherence | **modeled**: `electromagnetic_coherence.py` |
 | H17 | The material is a **granular Josephson network** | partially: `resistance_regime`; roadmap: explicit network model |
 | H18 | Preparation creates **metastable charge/spin states** | modeled: spin-state enumeration; roadmap: charge states |
 | H19 | Magnetic fields **stabilize or destroy** the state depending on phase | modeled: `magnetic_field.py` (both directions) |
@@ -76,9 +76,12 @@ the roadmap even though v0.1 does not fully model all of them:
 
 ## Roadmap module implied by this matrix
 
-The translation matrix makes clear that a future **`electromagnetic_coherence.py`**
-module is warranted, to model H12/H16: plasmon/polariton mode frequencies, light–
-matter coupling strength, and coherence lifetime, with predicted optical/THz
-observables. That is the natural next expansion beyond the current
-spin → density → coupling → SC chain, and it is where Hudson's "light" language,
-charitably translated, actually points.
+The **`electromagnetic_coherence.py`** module now models H12/H16: plasmon energy
+(from carrier density), longitudinal/transverse plasmon splitting driven by the
+rice-bean anisotropy, light–matter coupling (Rabi splitting, cooperativity,
+strong/ultrastrong regimes), coherence lifetime and quality factor, with predicted
+optical/THz observables. Crucially its `CoherenceResult` is kept **separate** from
+the superconductivity `PlausibilityResult`: a high coherence score is a candidate
+*coherent quantum material*, explicitly **not** a superconductivity claim — which
+is the whole content of H12 (misidentification). This is where Hudson's "light"
+language, charitably translated, actually points.

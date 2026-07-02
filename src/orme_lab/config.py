@@ -24,7 +24,12 @@ BOLTZMANN = 1.380649e-23                # J / K
 ELEMENTARY_CHARGE = 1.602176634e-19     # C
 HBAR = 1.054571817e-34                  # J s
 VACUUM_PERMEABILITY = 1.25663706212e-6  # N / A^2
+VACUUM_PERMITTIVITY = 8.8541878128e-12  # F / m (epsilon_0)
 BOHR_RADIUS = 5.29177210903e-11         # m
+ELECTRON_MASS = 9.1093837015e-31        # kg
+SPEED_OF_LIGHT = 2.99792458e8           # m / s
+PLANCK_H = 6.62607015e-34               # J s
+EV_IN_JOULES = 1.602176634e-19          # J per eV
 
 ROOM_TEMPERATURE_K = 298.15             # ambient reference temperature
 
@@ -70,6 +75,16 @@ class ModelThresholds:
     coupling_distance_scale_ang: float = 3.0
     """Nearest-neighbour distance (angstrom) at which coupling falls to ~1/e.
     Rough proxy for orbital-overlap decay length in a PGM cluster."""
+
+    # --- electromagnetic-coherence (polariton/plasmon) heuristics ----------
+    ultrastrong_coupling_ratio: float = 0.10
+    """Rabi-splitting / mode-energy ratio above which coupling is 'ultrastrong'.
+    The ~10% figure is the conventional (if soft) boundary in cavity QED."""
+
+    min_cooperativity_for_coherence: float = 1.0
+    """Cooperativity C = 4g^2/(kappa*gamma) must exceed this for the coherent
+    (strong-coupling) regime to be considered established. C>1 is the standard
+    strong-coupling threshold."""
 
 
 @dataclass(frozen=True)

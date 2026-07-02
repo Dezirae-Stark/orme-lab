@@ -34,6 +34,11 @@
       </div>
       <p class="tagline">Platinum-group high-spin superconductivity — a virtual lab for triage, not proof.</p>
 
+      <div class="tabbar" role="tablist" aria-label="View">
+        <button class="tab active" data-tab="lab" role="tab" aria-selected="true">Lab</button>
+        <button class="tab" data-tab="registry" role="tab" aria-selected="false">Registry</button>
+      </div>
+
       <div class="group">
         <div class="eyebrow"><span>Element</span></div>
         <div class="chip-row" id="elChips"></div>
@@ -187,6 +192,21 @@
       <span class="badge" id="vBadge" data-metric="screening" role="button" tabindex="0" title="Inspect the screening score">—</span>
       <span class="line" id="vLine"></span>
       <span class="evidence" id="vEvidence" title="Charter evidence hierarchy (0–6)"></span>
+    </div>
+
+    <!-- HYPOTHESIS REGISTRY (tab) -->
+    <div id="registry" class="reg-overlay" hidden>
+      <div class="reg-inner">
+        <header class="reg-head">
+          <div>
+            <div class="reg-eyebrow">Scientific notebook</div>
+            <h2 class="reg-title display">Hypothesis Registry</h2>
+            <p class="reg-sub">Every claim the lab tracks — its standing on the 0–6 evidence ladder, where it's modeled, and the decisive experiment that would advance or falsify it. Nothing here sits above <strong>Level 2 (simulation candidate)</strong>; evidence is <em>simulation only</em> until a real lab weighs in.</p>
+          </div>
+          <button id="regClose" class="chip">← back to lab</button>
+        </header>
+        <div id="regBody"></div>
+      </div>
     </div>
 
     <!-- METRIC INSPECTOR -->

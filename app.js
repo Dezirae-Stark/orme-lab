@@ -3,6 +3,7 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import * as SIM from "./sim.js";
 import { analyzeCandidate, ask, pingProxy, keyStore, proxyStore } from "./scientist.js";
 import { METRICS } from "./metrics.js";
+import { renderRegistry } from "./hypotheses.js";
 
 /* -------------------------------------------------------------------------
  * ORME Lab — interactive 3D front-end.
@@ -310,6 +311,27 @@ async function refreshProxyStatus() {
   }
 }
 
+// ---- view tabs (Lab | Registry) ------------------------------------------
+function setTab(name) {
+  const isRegistry = name === "registry";
+  $("registry").hidden = !isRegistry;
+  document.querySelectorAll(".tab").forEach((t) => {
+    const active = t.dataset.tab === name;
+    t.classList.toggle("active", active);
+    t.setAttribute("aria-selected", String(active));
+  });
+}
+
+function wireTabs() {
+  renderRegistry($("regBody"));
+  document.querySelectorAll(".tab").forEach((t) =>
+    t.addEventListener("click", () => setTab(t.dataset.tab)));
+  $("regClose").addEventListener("click", () => setTab("lab"));
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && !$("registry").hidden) setTab("lab");
+  });
+}
+
 // ---- metric inspector ----------------------------------------------------
 let lastFocused = null;
 function openMetric(key) {
@@ -531,6 +553,7 @@ function loop() {
 wireControls();
 wireScientist();
 wireMetricInspector();
+wireTabs();
 buildRanking();
 resize();
 recompute();

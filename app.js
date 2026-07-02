@@ -208,16 +208,20 @@ function updateHUD(res) {
   });
 
   // verdict bar
-  const badge = $("vBadge"), line = $("vLine");
+  const badge = $("vBadge"), line = $("vLine"), band = $("vBand");
   if (sc.ruledOut) {
     const failed = sc.gates.filter((g) => !g.passed).map((g) => gnames[g.name]);
     badge.className = "badge no"; badge.textContent = "RULED OUT";
+    band.hidden = true;
     line.textContent = "Fails necessary condition(s): " + failed.join(", ") + ".";
   } else {
     badge.className = "badge ok"; badge.textContent = "NOT RULED OUT";
-    line.textContent = `screening score ${f3(sc.score)} — a triage signal, not evidence of superconductivity. Needs ab-initio + measurement.`;
+    band.hidden = false;
+    band.className = "cband cband--" + res.band.key;
+    band.textContent = "candidate · " + res.band.label;
+    line.textContent = "a triage signal, not evidence of superconductivity. Needs ab-initio + measurement.";
   }
-  line.title = "Screening / triage score in [0,1] — a ranking of where to look next, NOT a probability of superconductivity.";
+  line.title = "A screening result — a ranking of where to look next, NOT a probability of superconductivity.";
   $("vEvidence").textContent = res.evidence.badge;
 
   // EM coherence

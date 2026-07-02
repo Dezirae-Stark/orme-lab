@@ -192,6 +192,32 @@ export function plausibility(coupling, carrier, supp, stability, obsSignal) {
   return { gates, allPassed, score, ruledOut: !allPassed };
 }
 
+const BAND_LABELS = ["LOW", "MEDIUM", "HIGH", "VERY HIGH"];
+const BAND_KEYS = ["low", "medium", "high", "veryhigh"];
+
+/*
+ * Categorical candidate priority for a NOT-RULED-OUT candidate. Derived from the
+ * gate cascade (how comfortably each necessary condition clears), NOT the raw
+ * product score — which collapses to tiny values and would band everything LOW.
+ * The band tracks the mean gate margin, but a barely-passing necessary condition
+ * (the weakest link) caps it so a bottleneck can't read as HIGH/VERY HIGH.
+ * Returns null for a ruled-out candidate (there is no priority band — it failed).
+ */
+export function candidateBand(sc) {
+  if (sc.ruledOut) return null;
+  const margins = sc.gates.map((g) => g.margin);
+  const mean = margins.reduce((a, b) => a + b, 0) / margins.length;
+  const weakest = Math.min(...margins);
+  const weakestGate = sc.gates.reduce((a, b) => (b.margin < a.margin ? b : a));
+  let level = mean >= 0.6 ? 3 : mean >= 0.4 ? 2 : mean >= 0.2 ? 1 : 0;
+  const capped = weakest < 0.15 && level > 1;
+  if (capped) level = 1; // a near-threshold necessary condition caps enthusiasm
+  return {
+    level, label: BAND_LABELS[level], key: BAND_KEYS[level],
+    mean, weakest, cappedBy: capped ? weakestGate.name : null,
+  };
+}
+
 // ---- electromagnetic coherence (mirror electromagnetic_coherence.py) ------
 export function plasmonEnergyEv(n, mRatio = 1.0) {
   if (n <= 0 || mRatio <= 0) return 0;
@@ -278,6 +304,7 @@ export function evaluateCandidate({ elSym, geomKind, spinKind, fieldT, tempK }) 
     scores: { spin, aniso, bean, coupling, isolated, carrier, Hc, supp, stability,
               chi, meissner, regime, obsSignal },
     sc,
+    band: candidateBand(sc),
     evidence,
     em: { nDensity, plasmon: hwp, split, mode, regime: emRegime, score: emScore },
   };

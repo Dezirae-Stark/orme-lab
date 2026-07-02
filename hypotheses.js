@@ -125,13 +125,33 @@ export const HYPOTHESES = [
   },
 ];
 
+// Each hypothesis links to the live metric that most directly bears on it
+// (a key in metrics.js). Drives the registry ↔ lab cross-link.
+const METRIC_FOR = {
+  "H-01": "spin", "H-02": "anisotropy", "H-03": "anisotropy", "H-04": "coupling",
+  "H-05": "coupling", "H-06": "regime", "H-07": "supp", "H-12": "coherence",
+  "H-13": "spin", "H-14": "carrier", "H-15": "coupling", "H-16": "coherence",
+  "H-17": "regime", "H-18": "spin", "H-19": "supp", "H-20": "anisotropy",
+};
+HYPOTHESES.forEach((h) => { h.metric = METRIC_FOR[h.id] || null; });
+
+/** Hypotheses whose linked metric matches `metricKey` (with gate_ normalization). */
+export function hypothesesForMetric(metricKey) {
+  const GATE_TO_METRIC = {
+    gate_coupling: "coupling", gate_carriers: "carrier", gate_field_tolerance: "supp",
+    gate_structural_stability: "stability", gate_observable_signal: "observable",
+  };
+  const canon = GATE_TO_METRIC[metricKey] || metricKey;
+  return HYPOTHESES.filter((h) => h.metric === canon);
+}
+
 const STATUS_LABEL = {
   modeled: "modeled", partial: "partial", premise: "premise", roadmap: "roadmap",
 };
 
 function card(h) {
   return `
-    <article class="hyp" data-status="${h.status}">
+    <article class="hyp" id="hyp-${h.id}" data-status="${h.status}">
       <div class="hyp-head">
         <span class="hyp-id">${h.id}</span>
         <span class="hyp-status hyp-status--${h.status}">${STATUS_LABEL[h.status]}</span>
@@ -143,6 +163,7 @@ function card(h) {
         <dt>Evidence</dt><dd>none — simulation only</dd>
         <dt>Decisive test</dt><dd>${h.test}</dd>
       </dl>
+      ${h.metric ? `<button class="hyp-link" data-inspect="${h.metric}">inspect its live metric in the lab →</button>` : ""}
     </article>`;
 }
 

@@ -174,8 +174,14 @@ outputs/      generated CSVs / figures (git-ignored except .gitkeep)
 
 ## Future roadmap
 
-The current models are triage stand-ins. The intended integration order (each
-gap is marked `TODO(<backend>)` in the source):
+The current models are triage stand-ins. Each `TODO(<backend>)` seam is now a
+concrete extension point in [`src/orme_lab/backends.py`](src/orme_lab/backends.py)
+— a `DFTBackend` interface + named adapter stubs (ASE, PySCF, GPAW, ORCA, NWChem,
+Quantum ESPRESSO, EPW) keyed to a `Capability` enum. Subclass one, override a
+seam, decorate with `@implemented(Capability.X)`, and pass it to
+`run_screen(backend=...)`; the pipeline uses it only where it's genuinely
+implemented and falls back to the toy model everywhere else. Intended integration
+order (each gap is marked `TODO(<backend>)` in the source):
 
 1. **ASE** — structure handling and geometry relaxation.
 2. **PySCF / GPAW** — cluster/periodic DFT for real spin densities and

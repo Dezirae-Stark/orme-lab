@@ -17,6 +17,15 @@ Scoring & output:      :mod:`orme_lab.superconductivity`, :mod:`orme_lab.observa
 
 from __future__ import annotations
 
+from .backends import (
+    BACKENDS,
+    Capability,
+    DFTBackend,
+    available_backends,
+    get_backend,
+    implemented,
+    list_backends,
+)
 from .config import DEFAULT_CONFIG, LabConfig, ModelThresholds
 from .coupling import inter_unit_coupling_score, is_electronically_isolated
 from .electromagnetic_coherence import (
@@ -51,6 +60,13 @@ __all__ = [
     "LabConfig",
     "ModelThresholds",
     "DEFAULT_CONFIG",
+    "DFTBackend",
+    "Capability",
+    "implemented",
+    "get_backend",
+    "list_backends",
+    "available_backends",
+    "BACKENDS",
     "Element",
     "get_element",
     "all_elements",

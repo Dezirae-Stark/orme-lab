@@ -93,16 +93,37 @@ precondition for the whole enterprise being scientific rather than anecdotal.
 
 ## Extending the pipeline with a real backend
 
-Every heavy-physics gap is marked with a `TODO(<backend>)` comment. The intended
-integration order:
+Every heavy-physics gap is marked with a `TODO(<backend>)` comment, and each is
+now a **concrete extension point** in `src/orme_lab/backends.py`: a
+`DFTBackend` interface with named adapter stubs (`ASEBackend`, `PySCFBackend`,
+`GPAWBackend`, `ORCABackend`, `NWChemBackend`, `QuantumEspressoBackend`,
+`EPWBackend`) keyed to a `Capability` enum. To wire a real calculation in,
+subclass a backend, override the seam method, and decorate it with
+`@implemented(Capability.X)`:
 
-1. **ASE** — structure handling and relaxation (`geometry.py`).
-2. **PySCF / GPAW** — cluster/periodic DFT for spin densities and charge-density
-   anisotropy (`spin_states.py`, `electron_density.py`).
-3. **Tight-binding fit** — transfer integrals for real coupling (`coupling.py`).
-4. **Quantum ESPRESSO + EPW** — electron-phonon coupling and an Eliashberg gap,
-   the *only* route to a defensible superconductivity estimate
-   (`superconductivity.py`).
+```python
+from orme_lab import DFTBackend, Capability, implemented, run_screen
 
-Until those land, every number this pipeline emits is a **triage signal** — it
-tells you which candidates deserve real computation, not which ones superconduct.
+class MyASE(DFTBackend):
+    @implemented(Capability.RELAX_GEOMETRY)
+    def relax_geometry(self, geometry):
+        ...  # real ASE relaxation, returns a ClusterGeometry
+
+records = run_screen(backend=MyASE())   # relaxation from ASE, everything else toy
+```
+
+The pipeline consults the backend **only** for capabilities it genuinely
+implements (`backend.provides(...)`) and falls back to the toy model otherwise,
+so `run_screen()` with no backend is unchanged. The intended integration order:
+
+1. **ASE** (`RELAX_GEOMETRY`) — structure handling and relaxation.
+2. **PySCF / GPAW** (`SPIN_STATE`, `DENSITY_ANISOTROPY`) — cluster/periodic DFT.
+3. **Tight-binding fit** (`INTER_UNIT_COUPLING`) — real transfer integrals.
+4. **Quantum ESPRESSO + EPW** (`SC_GAP`, `DIELECTRIC_FUNCTION`) — electron-phonon
+   coupling and an Eliashberg gap, the *only* route to a defensible
+   superconductivity estimate.
+
+Until those land, `available_backends()` is empty and every number this pipeline
+emits is a **triage signal** — which candidates deserve real computation, not
+which ones superconduct. A wired backend does not by itself raise a result above
+the charter's Level 2–3; that needs independent, instrumented replication.

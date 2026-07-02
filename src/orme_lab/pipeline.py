@@ -23,10 +23,11 @@ import csv
 import math
 from dataclasses import asdict, dataclass, field
 
+from .backends import Capability, DFTBackend
 from .config import DEFAULT_CONFIG, LabConfig
 from .coupling import inter_unit_coupling_score, is_electronically_isolated
 from .evidence import badge as evidence_badge, candidate_evidence_level
-from .electron_density import ricebean_score
+from .electron_density import is_ricebean, ricebean_score
 from .elements import Element, core_screen_elements
 from .geometry import (
     ClusterGeometry,
@@ -121,19 +122,41 @@ def evaluate_candidate(
     spin_label: str,
     state: SpinState,
     config: LabConfig,
+    backend: DFTBackend | None = None,
 ) -> CandidateRecord:
-    """Run one candidate through the full scoring chain."""
+    """Run one candidate through the full scoring chain.
+
+    If ``backend`` is supplied, each ab-initio seam is taken from the backend
+    *only where it genuinely implements that capability* (``backend.provides``);
+    otherwise the toy model is used. With ``backend=None`` (the default) the
+    result is identical to the toy pipeline.
+    """
     th = config.thresholds
 
-    spin_pol = spin_polarization_score(state)
-    anisotropy, ricebean = ricebean_score(state, th)
+    # Geometry relaxation seam (ASE). Toy geometries are unrelaxed.
+    if backend is not None and backend.provides(Capability.RELAX_GEOMETRY):
+        geometry = backend.relax_geometry(geometry)
 
+    spin_pol = spin_polarization_score(state)
+
+    # Density-anisotropy seam (DFT charge-density tensor).
+    anisotropy, ricebean = ricebean_score(state, th)
+    if backend is not None and backend.provides(Capability.DENSITY_ANISOTROPY):
+        anisotropy = backend.density_anisotropy(state)
+        ricebean = is_ricebean(anisotropy, th)
+
+    # Inter-unit-coupling seam (tight-binding transfer integrals).
     coupling = inter_unit_coupling_score(geometry, th)
+    if backend is not None and backend.provides(Capability.INTER_UNIT_COUPLING):
+        coupling = backend.inter_unit_coupling(geometry)
     isolated = is_electronically_isolated(coupling, th)
 
     carrier = carrier_coherence_proxy(coupling, anisotropy)
 
+    # Field-response seam (orbital + paramagnetic pair-breaking).
     crit_field = critical_field_proxy(spin_pol, coupling)
+    if backend is not None and backend.provides(Capability.FIELD_RESPONSE):
+        crit_field = backend.critical_field(spin_pol, coupling)
     suppression = magnetic_field_suppression_factor(config.applied_field_t, crit_field)
 
     stability = structural_stability_proxy(geometry)
@@ -201,18 +224,21 @@ def run_screen(
     elements: list[Element] | None = None,
     config: LabConfig = DEFAULT_CONFIG,
     geometry_factory=default_geometries,
+    backend: DFTBackend | None = None,
 ) -> list[CandidateRecord]:
     """Screen a set of elements across geometries and spin states.
 
     Returns records sorted best-candidate-first (deterministically). Defaults to
-    the six spec elements (Au, Pt, Pd, Ir, Rh, Os).
+    the six spec elements (Au, Pt, Pd, Ir, Rh, Os). Pass ``backend`` to route the
+    ab-initio seams through a :class:`~orme_lab.backends.DFTBackend`; the toy
+    model is used for any capability the backend does not implement.
     """
     els = elements if elements is not None else core_screen_elements()
     records: list[CandidateRecord] = []
     for el in els:
         for geom in geometry_factory(el):
             for spin_label, state in _spin_states(el):
-                records.append(evaluate_candidate(el, geom, spin_label, state, config))
+                records.append(evaluate_candidate(el, geom, spin_label, state, config, backend))
     records.sort(key=_sort_key)
     return records
 

@@ -19,6 +19,15 @@ time. Runs entirely client-side (a faithful JS port of the Python toy models).
 
 **▶ Live:** https://dezirae-stark.github.io/orme-lab/ &nbsp;·&nbsp; source in [`web/`](web/)
 
+The lab includes a **Lab Scientist**: an always-on deterministic analyst that reads
+the real gate values for the current candidate and gives grounded readings, ranked
+next-experiment suggestions, and caveats (no key, no cost). For *live Claude*
+analysis gated to you, run the loopback proxy in [`tools/`](tools/) — it uses your
+own credentials on your own machine (`127.0.0.1`), so no outside party on the
+public page can reach it. See [`tools/README.md`](tools/README.md). An in-repo
+[`orme-lab-scientist`](.claude/agents/orme-lab-scientist.md) Claude Code subagent
+covers the same role in a coding session (runs under your Claude plan).
+
 The lab translates that claim into **explicit, falsifiable, computable models**,
 runs a screen over candidate `(element × geometry × spin-state)` configurations,
 and predicts the experimental signatures that would confirm or kill each lead.

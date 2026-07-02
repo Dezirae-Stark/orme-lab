@@ -118,6 +118,8 @@ export function analyzeCandidate(r) {
 
 const KEY_STORE = "orme_lab_anthropic_key";
 const MODEL_STORE = "orme_lab_claude_model";
+const PROXY_URL_STORE = "orme_lab_proxy_url";
+const PROXY_TOKEN_STORE = "orme_lab_proxy_token";
 
 export const keyStore = {
   get: () => localStorage.getItem(KEY_STORE) || "",
@@ -126,6 +128,82 @@ export const keyStore = {
   model: () => localStorage.getItem(MODEL_STORE) || "claude-opus-4-8",
   setModel: (m) => localStorage.setItem(MODEL_STORE, m),
 };
+
+// Local proxy (Claude Code / Max). Reachable only on this machine (loopback).
+export const proxyStore = {
+  url: () => (localStorage.getItem(PROXY_URL_STORE) || "http://127.0.0.1:8787").replace(/\/+$/, ""),
+  setUrl: (u) => localStorage.setItem(PROXY_URL_STORE, u.trim()),
+  token: () => localStorage.getItem(PROXY_TOKEN_STORE) || "",
+  setToken: (t) => localStorage.setItem(PROXY_TOKEN_STORE, t.trim()),
+  clearToken: () => localStorage.removeItem(PROXY_TOKEN_STORE),
+};
+
+// Shared context payload for both the proxy and the direct-key path.
+function buildContext(result) {
+  return {
+    element: result.el.symbol,
+    geometry: result.geom.label,
+    spin: result.st.isHigh ? "high" : "low",
+    unpaired_electrons: result.st.unpaired,
+    scores: result.scores,
+    superconductivity: {
+      ruled_out: result.sc.ruledOut,
+      plausibility: result.sc.score,
+      gates: result.sc.gates.map((g) => ({ name: g.name, value: g.value, threshold: g.threshold, passed: g.passed })),
+    },
+    em_coherence: { regime: result.em.regime, plasmon_ev: result.em.plasmon, split: result.em.split, score: result.em.score },
+  };
+}
+
+/**
+ * Ping the local proxy's /health. Returns {auth, model_default, token_required}
+ * on success, or null if it isn't running / unreachable.
+ */
+export async function pingProxy() {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 1500);
+  try {
+    const resp = await fetch(proxyStore.url() + "/health", { signal: ctrl.signal });
+    if (!resp.ok) return null;
+    return await resp.json();
+  } catch (_) {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function askViaProxy(result, question) {
+  const headers = { "content-type": "application/json" };
+  if (proxyStore.token()) headers["x-orme-token"] = proxyStore.token();
+  const resp = await fetch(proxyStore.url() + "/claude", {
+    method: "POST",
+    headers,
+    body: JSON.stringify({ context: buildContext(result), question, model: keyStore.model() }),
+  });
+  const data = await resp.json().catch(() => ({}));
+  if (!resp.ok) throw new Error(data.error || `proxy error ${resp.status}`);
+  return data.text || "(empty response)";
+}
+
+/**
+ * Route a Lab-Scientist question to Claude: prefer the local proxy (your Max /
+ * Claude Code login, loopback-only), else a direct browser call with a saved
+ * Console API key, else fail with guidance. Returns {text, via}.
+ */
+export async function ask(result, question) {
+  const health = await pingProxy();
+  if (health && health.auth && health.auth !== "none") {
+    return { text: await askViaProxy(result, question), via: `local proxy (${health.auth})` };
+  }
+  if (keyStore.get()) {
+    return { text: await askClaude(result, question), via: "browser API key" };
+  }
+  if (health && health.auth === "none") {
+    throw new Error("Local proxy is running but has no credentials. Set ANTHROPIC_API_KEY or run `ant auth login`, then restart the proxy.");
+  }
+  throw new Error("No Claude connection. Start the local proxy (python tools/orme-claude-proxy.py) for your Max login, or add a Console API key below.");
+}
 
 const SYSTEM_PROMPT = `You are the lab scientist embedded in "ORME Lab", a virtual lab that treats ORME/PGM high-spin ambient-superconductivity claims as falsifiable hypotheses to triage, never as settled fact.
 
@@ -146,19 +224,7 @@ export async function askClaude(result, question) {
   const key = keyStore.get();
   if (!key) throw new Error("No API key set. Add an Anthropic Console API key first (a Max subscription won't work here).");
 
-  const context = {
-    element: result.el.symbol,
-    geometry: result.geom.label,
-    spin: result.st.isHigh ? "high" : "low",
-    unpaired_electrons: result.st.unpaired,
-    scores: result.scores,
-    superconductivity: {
-      ruled_out: result.sc.ruledOut,
-      plausibility: result.sc.score,
-      gates: result.sc.gates.map((g) => ({ name: g.name, value: g.value, threshold: g.threshold, passed: g.passed })),
-    },
-    em_coherence: { regime: result.em.regime, plasmon_ev: result.em.plasmon, split: result.em.split, score: result.em.score },
-  };
+  const context = buildContext(result);
 
   const userText =
     `Current candidate scores (toy models):\n${JSON.stringify(context, null, 2)}\n\n` +

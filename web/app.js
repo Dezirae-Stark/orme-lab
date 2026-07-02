@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import * as SIM from "./sim.js";
-import { analyzeCandidate, askClaude, keyStore } from "./scientist.js";
+import { analyzeCandidate, ask, pingProxy, keyStore, proxyStore } from "./scientist.js";
 
 /* -------------------------------------------------------------------------
  * ORME Lab — interactive 3D front-end.
@@ -273,20 +273,34 @@ async function askScientist() {
   const input = $("sciInput");
   const q = input.value.trim();
   if (!current) return;
-  if (!keyStore.get()) {
-    addChatMsg("err", "Real-Claude analysis needs an Anthropic Console API key — open the settings below to add one. (The deterministic analysis above always runs without a key.)");
-    return;
-  }
   if (q) addChatMsg("you", q);
   input.value = "";
   const pending = addChatMsg("pending", "thinking…");
   try {
-    const answer = await askClaude(current, q);
+    const { text, via } = await ask(current, q);
     pending.remove();
-    addChatMsg("claude", answer);
+    const msg = addChatMsg("claude", text);
+    const tag = document.createElement("div");
+    tag.className = "sci-via";
+    tag.textContent = "via " + via;
+    msg.appendChild(tag);
   } catch (e) {
     pending.remove();
-    addChatMsg("err", "Claude call failed: " + e.message);
+    addChatMsg("err", e.message);
+  }
+}
+
+async function refreshProxyStatus() {
+  const el = $("sciProxyState");
+  if (!el) return;
+  el.textContent = "checking…";
+  const h = await pingProxy();
+  if (h && h.auth && h.auth !== "none") {
+    el.innerHTML = `<span class="ok">connected</span> — ${h.auth}${h.token_required ? " · token required" : ""}`;
+  } else if (h && h.auth === "none") {
+    el.innerHTML = `<span class="ro">running, no credentials</span> — set ANTHROPIC_API_KEY or run \`ant auth login\``;
+  } else {
+    el.innerHTML = `<span class="off">not running</span> — start <code>python tools/orme-claude-proxy.py</code>`;
   }
 }
 
@@ -297,11 +311,23 @@ function wireScientist() {
     const open = body.hidden;
     body.hidden = !open;
     toggle.setAttribute("aria-expanded", String(open));
+    if (open) refreshProxyStatus();  // re-check proxy each time the drawer opens
   });
   $("sciSend").addEventListener("click", askScientist);
   $("sciInput").addEventListener("keydown", (e) => { if (e.key === "Enter") askScientist(); });
 
-  // key settings
+  // local proxy settings
+  const proxyUrl = $("sciProxyUrl"), proxyToken = $("sciProxyToken");
+  proxyUrl.value = proxyStore.url();
+  proxyToken.value = proxyStore.token();
+  $("sciProxySave").addEventListener("click", () => {
+    proxyStore.setUrl(proxyUrl.value || "http://127.0.0.1:8787");
+    proxyStore.setToken(proxyToken.value);
+    refreshProxyStatus();
+  });
+  $("sciProxyCheck").addEventListener("click", refreshProxyStatus);
+
+  // direct key settings
   const keyInput = $("sciKey"), modelSel = $("sciModel"), state = $("sciKeyState");
   const refreshState = () => {
     state.textContent = keyStore.get() ? "key saved (this browser only)" : "no key set";

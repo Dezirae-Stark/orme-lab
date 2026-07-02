@@ -257,14 +257,16 @@ export function polaritonCoherenceScore(m) {
  * evaluateCandidate -- the full pipeline for one (element, geometry, spin) at a
  * given field/temperature. Returns everything the 3D lab needs to render.
  */
-export function evaluateCandidate({ elSym, geomKind, spinKind, fieldT, tempK }) {
+export function evaluateCandidate({ elSym, geomKind, spinKind, fieldT, tempK, anisotropyOverride }) {
   const el = ELEMENTS[elSym];
   const st = spinState(el, spinKind);
   const geom = makeGeometry(el, geomKind);
 
   const spin = spinPolarizationScore(st);
   const ell = estimateEllipsoid(st);
-  const aniso = anisotropyScore(ell);
+  // Eigenstate mode drives the anisotropy from the real |ψ|² tensor; otherwise
+  // the heuristic ellipsoid is used.
+  const aniso = typeof anisotropyOverride === "number" ? anisotropyOverride : anisotropyScore(ell);
   const bean = isRicebean(aniso);
 
   const coupling = couplingScore(geom);

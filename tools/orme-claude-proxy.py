@@ -30,7 +30,9 @@ from __future__ import annotations
 
 import json
 import os
+import pathlib
 import re
+import secrets
 import subprocess
 import sys
 import urllib.error
@@ -39,9 +41,43 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 HOST = "127.0.0.1"  # loopback ONLY -- do not change to 0.0.0.0
 PORT = int(os.environ.get("ORME_PROXY_PORT", "8787"))
-SHARED_TOKEN = os.environ.get("ORME_PROXY_TOKEN", "")
 DEFAULT_MODEL = os.environ.get("ORME_PROXY_MODEL", "claude-opus-4-8")
 ANTHROPIC_URL = "https://api.anthropic.com/v1/messages"
+
+# --- Access token (required by default) -------------------------------------
+# A token is REQUIRED unless you explicitly opt out with ORME_PROXY_NO_AUTH=1.
+# It defends against other processes on your own machine hitting /claude with no
+# browser Origin. If ORME_PROXY_TOKEN isn't set, one is auto-generated and kept
+# in tools/.orme-proxy-token (git-ignored) so it's stable across restarts.
+_TOKEN_FILE = pathlib.Path(__file__).with_name(".orme-proxy-token")
+_NO_AUTH = os.environ.get("ORME_PROXY_NO_AUTH") == "1"
+
+
+def _resolve_token() -> tuple[str, str]:
+    """Return (token, source). token='' means auth disabled (opt-out)."""
+    env = os.environ.get("ORME_PROXY_TOKEN", "").strip()
+    if env:
+        return env, "env"
+    if _NO_AUTH:
+        return "", "disabled"
+    try:
+        if _TOKEN_FILE.exists():
+            t = _TOKEN_FILE.read_text().strip()
+            if t:
+                return t, "file"
+        t = secrets.token_urlsafe(24)
+        _TOKEN_FILE.write_text(t)
+        try:
+            _TOKEN_FILE.chmod(0o600)
+        except OSError:
+            pass
+        return t, "generated"
+    except OSError:
+        # Can't persist — fall back to an in-memory token for this run.
+        return secrets.token_urlsafe(24), "ephemeral"
+
+
+SHARED_TOKEN, TOKEN_SOURCE = _resolve_token()
 
 # --- Origin allowlist -------------------------------------------------------
 # Loopback binding stops OTHER machines, but not other *web origins* open in
@@ -146,7 +182,15 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def _token_ok(self) -> bool:
-        return not SHARED_TOKEN or self.headers.get("x-orme-token", "") == SHARED_TOKEN
+        if not SHARED_TOKEN:
+            return True
+        return secrets.compare_digest(self.headers.get("x-orme-token", ""), SHARED_TOKEN)
+
+    def _host_ok(self) -> bool:
+        # DNS-rebinding defense: the Host must be loopback. A rebound attacker
+        # domain (evil.com -> 127.0.0.1) sends Host: evil.com and is rejected.
+        host = self.headers.get("Host", "").rsplit(":", 1)[0].strip("[]")
+        return host in ("127.0.0.1", "localhost", "::1")
 
     def do_OPTIONS(self):
         self.send_response(204)
@@ -154,6 +198,9 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
 
     def do_GET(self):
+        if not self._host_ok():
+            self._json(403, {"error": "bad host"})
+            return
         if self.path.rstrip("/") == "/health":
             _, mode = resolve_auth()
             self._json(200, {"ok": True, "auth": mode, "model_default": DEFAULT_MODEL,
@@ -162,6 +209,9 @@ class Handler(BaseHTTPRequestHandler):
             self._json(404, {"error": "not found"})
 
     def do_POST(self):
+        if not self._host_ok():
+            self._json(403, {"error": "bad host"})
+            return
         if self.path.rstrip("/") != "/claude":
             self._json(404, {"error": "not found"})
             return
@@ -225,10 +275,18 @@ def main():
         print("  Using Claude Code / Max OAuth token. If the API rejects it, set ANTHROPIC_API_KEY to a Console key.")
     print(f"  Allowed page origins: {', '.join(sorted(ALLOWED_ORIGINS))} + any localhost/127.0.0.1 port.")
     if SHARED_TOKEN:
-        print("  Shared token required (x-orme-token). Configure the same token in the page's proxy settings.")
+        if TOKEN_SOURCE in ("generated", "file", "ephemeral"):
+            print("\n  ── Access token (required) ──────────────────────────────")
+            print(f"     {SHARED_TOKEN}")
+            print("     Paste this into the page: Lab Scientist → settings → Local proxy → token, then Save.")
+            if TOKEN_SOURCE == "file":
+                print(f"     (stored in {_TOKEN_FILE.name}; delete it to rotate)")
+            print("  ─────────────────────────────────────────────────────────\n")
+        else:
+            print("  Token required via ORME_PROXY_TOKEN — set the same value in the page's proxy settings.")
     else:
-        print("  Tip: set ORME_PROXY_TOKEN for an extra guard against other local processes.")
-    print("  Loopback only + origin-allowlisted — not reachable from other machines or arbitrary sites. Ctrl-C to stop.")
+        print("  ⚠ Running WITHOUT a token (ORME_PROXY_NO_AUTH=1): any process on this machine can use your credentials.")
+    print("  Loopback only + Host-checked + origin-allowlisted — not reachable from other machines, rebinding domains, or arbitrary sites. Ctrl-C to stop.")
     ThreadingHTTPServer((HOST, PORT), Handler).serve_forever()
 
 

@@ -25,6 +25,9 @@ outputs/*
 # Browser automation scratch (never publish captured private content)
 .playwright-mcp/
 
+# Local Claude proxy access token (never commit)
+tools/.orme-proxy-token
+
 # OS / editor
 .DS_Store
 *.swp

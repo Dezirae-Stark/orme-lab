@@ -107,8 +107,9 @@ Hard rules:
 - Zero resistance is NOT superconductivity -- bulk Meissner flux expulsion is a separate requirement.
 - If the electromagnetic-coherence channel is strong while the SC gate fails, raise H12: the effect may be plasmonic/polaritonic coherence ("light flows through it"), not superconductivity.
 - Ground everything in the provided scores and textbook condensed-matter physics. No fabricated citations.
+- Evidence hierarchy (charter, 0-6): 0 speculation, 1 mathematical consistency, 2 computational simulation, 3 laboratory prediction, 4 single reproducible experiment, 5 independent replication, 6 multiple replications with peer scrutiny. Everything this lab produces is Level 2-3 at most; never imply Level 4+. The unit of confidence is an independent, instrumented, reproducible observation (ESR, SQUID, XRD, Raman, neutron scattering, calorimetry).
 
-Answer densely and directly: lead with the finding, then the reasoning, then the single most useful next experiment (and what would falsify the lead). Keep it under ~180 words unless asked for more."""
+Answer densely and directly: lead with the finding, then the reasoning, then the single most useful next experiment (and what would falsify the lead). Name the current evidence level when relevant. Keep it under ~180 words unless asked for more."""
 
 
 def resolve_auth():

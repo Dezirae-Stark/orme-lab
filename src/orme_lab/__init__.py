@@ -28,6 +28,7 @@ from .electromagnetic_coherence import (
     polariton_coherence_score,
 )
 from .electron_density import electron_density_anisotropy_score, ricebean_score
+from .evidence import EvidenceLevel, badge as evidence_badge, candidate_evidence_level, describe as evidence_describe
 from .elements import Element, all_elements, core_screen_elements, get_element
 from .magnetic_field import magnetic_field_suppression_factor
 from .observables import ObservableSet, predict_observables
@@ -60,6 +61,10 @@ __all__ = [
     "spin_polarization_score",
     "electron_density_anisotropy_score",
     "ricebean_score",
+    "EvidenceLevel",
+    "evidence_badge",
+    "evidence_describe",
+    "candidate_evidence_level",
     "ElectromagneticMode",
     "CoherenceResult",
     "evaluate_em_coherence",

@@ -25,6 +25,7 @@ from dataclasses import asdict, dataclass, field
 
 from .config import DEFAULT_CONFIG, LabConfig
 from .coupling import inter_unit_coupling_score, is_electronically_isolated
+from .evidence import badge as evidence_badge, candidate_evidence_level
 from .electron_density import ricebean_score
 from .elements import Element, core_screen_elements
 from .geometry import (
@@ -87,6 +88,7 @@ class CandidateRecord:
     susceptibility: float
     sc_plausibility: float
     ruled_out: bool
+    evidence_level: int
     verdict: str
 
     def as_csv_row(self) -> dict[str, object]:
@@ -176,7 +178,8 @@ def evaluate_candidate(
         susceptibility=obs.molar_susceptibility,
         sc_plausibility=plaus.score,
         ruled_out=not plaus.all_passed,
-        verdict=plaus.explain(),
+        evidence_level=int(candidate_evidence_level(not plaus.all_passed)),
+        verdict=f"{plaus.explain()} [{evidence_badge(candidate_evidence_level(not plaus.all_passed))}]",
     )
 
 

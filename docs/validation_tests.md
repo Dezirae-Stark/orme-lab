@@ -146,3 +146,12 @@ A candidate is credited as a *serious* superconductivity lead only if it shows
 specific-heat anomaly at `T_c` **and** the expected `H_c` field dependence — and
 survives ruling out every alternative in §6. Anything less is a lead worth more
 computation and measurement, not a confirmed result.
+
+The standard of proof is an **independent, instrumented, reproducible
+observation**: the witness is a calibrated instrument (SQUID, ESR, XRD, Raman,
+neutron scattering, calorimetry), and another laboratory with comparable
+equipment must reproduce the result under the same conditions. Per the charter's
+evidence hierarchy (`CHARTER.md`), the tests above move a candidate from a
+Level-3 *laboratory prediction* to Level 4 (single reproducible experiment) and
+only reach Level 5–6 on independent replication. Everything this repository
+produces is a Level-2/3 artifact and must be labeled as such.

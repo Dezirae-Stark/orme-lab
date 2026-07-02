@@ -34,6 +34,21 @@ and predicts the experimental signatures that would confirm or kill each lead.
 
 ---
 
+## Charter
+
+> ORME Lab is an open computational research laboratory dedicated to translating
+> extraordinary claims into testable scientific hypotheses. We do not begin by
+> assuming claims are true or false. We construct models, derive predictions,
+> perform simulations, design reproducible experiments, and follow the evidence
+> wherever it leads.
+
+Hypotheses are welcome; evidence is required; negative results are valuable;
+unexpected results are investigated rigorously; reproducibility is the standard
+for confidence. Every claim carries an explicit **evidence level (0–6)**, and the
+unit of confidence is an *independent, instrumented, reproducible observation*.
+See [`docs/CHARTER.md`](docs/CHARTER.md). Everything this repository produces sits
+at **Level 2–3** (computational simulation / laboratory prediction) at most.
+
 ## Purpose
 
 Give the ORME/PGM high-spin superconductivity claim the one thing it has always
@@ -179,6 +194,7 @@ gap is marked `TODO(<backend>)` in the source):
 
 ## Documentation index
 
+- `docs/CHARTER.md` — mission, principles, the evidence hierarchy (0–6), and the instrumented-reproducibility standard
 - `docs/hypothesis_matrix.md` — every claim as a falsifiable hypothesis + rejection condition
 - `docs/simulation_pipeline.md` — data flow, score meanings, determinism, backends
 - `docs/validation_tests.md` — the falsification playbook (why zero-R ≠ SC, etc.)

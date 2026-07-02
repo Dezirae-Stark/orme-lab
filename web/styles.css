@@ -132,7 +132,9 @@ input[type=range]::-moz-range-thumb {
 }
 #verdict .badge.ok { background: rgba(53,214,196,0.14); color: var(--coherent); border: 1px solid rgba(53,214,196,0.4); }
 #verdict .badge.no { background: rgba(214,106,74,0.14); color: var(--ruled); border: 1px solid rgba(214,106,74,0.4); }
-#verdict .line { color: var(--muted); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#verdict .line { color: var(--muted); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+#verdict .evidence { flex: none; font-size: 10px; letter-spacing: 0.04em; color: var(--gold);
+  border: 1px solid var(--line); border-radius: 3px; padding: 4px 9px; white-space: nowrap; }
 
 /* ---- stage overlays ---- */
 .stage-tag {

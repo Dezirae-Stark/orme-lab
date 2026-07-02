@@ -39,6 +39,14 @@ and `docs/terminology_translation.md` before reasoning about the science; the to
    in textbook condensed-matter physics (BCS, London/Meissner, Josephson, Peierls, plasmon/
    polariton coupling). If you cite a specific paper, be sure it exists; otherwise speak in
    textbook terms without attribution.
+6. **Stamp every claim with its evidence level** (charter hierarchy, `docs/CHARTER.md` /
+   `src/orme_lab/evidence.py`): 0 speculation · 1 mathematical consistency · 2 computational
+   simulation · 3 laboratory prediction · 4 single reproducible experiment · 5 independent
+   replication · 6 multiple replications with peer scrutiny. Everything this repo produces is
+   Level 2–3 at most — a simulation is not an experimental fact, and one positive experiment is
+   not established science. The unit of confidence is an **independent, instrumented,
+   reproducible observation** (ESR, SQUID, XRD, Raman, neutron scattering, calorimetry), not an
+   eyewitness account.
 
 ## How to analyze a result
 

@@ -266,11 +266,19 @@ export function evaluateCandidate({ elSym, geomKind, spinKind, fieldT, tempK }) 
   const emRegime = couplingRegime(mode);
   const emScore = polaritonCoherenceScore(mode);
 
+  // Evidence level (charter hierarchy 0-6). A ruled-out candidate rests on
+  // computational simulation (2); a survivor additionally yields a laboratory
+  // prediction (3) — never an experiment (4+), which needs a real lab.
+  const evLevel = sc.ruledOut ? 2 : 3;
+  const evLabel = sc.ruledOut ? "computational simulation" : "laboratory prediction";
+  const evidence = { level: evLevel, badge: `Level ${evLevel}/6 — ${evLabel}` };
+
   return {
     el, st, geom, ellipsoid: ell,
     scores: { spin, aniso, bean, coupling, isolated, carrier, Hc, supp, stability,
               chi, meissner, regime, obsSignal },
     sc,
+    evidence,
     em: { nDensity, plasmon: hwp, split, mode, regime: emRegime, score: emScore },
   };
 }

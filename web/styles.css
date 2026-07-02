@@ -62,6 +62,15 @@ h1, h2, h3, .display { font-family: "Space Grotesk", system-ui, sans-serif; }
 .brand .ver { font-size: 10px; color: var(--muted-2); letter-spacing: 0.14em; }
 .tagline { color: var(--muted); font-size: 11px; margin: 0 0 20px; }
 
+/* ---- view tabs ---- */
+.tabbar { display: flex; gap: 4px; margin: 0 0 20px; padding: 3px; background: var(--void-2);
+  border: 1px solid var(--line); border-radius: 5px; }
+.tab { flex: 1; font-family: "Space Grotesk", sans-serif; font-size: 12px; font-weight: 600;
+  color: var(--muted); background: transparent; border: none; border-radius: 3px; padding: 7px 8px;
+  cursor: pointer; transition: all .12s ease; }
+.tab:hover { color: var(--platinum); }
+.tab.active { color: var(--void); background: var(--gold); }
+
 /* ---- control groups ---- */
 .group { margin-bottom: 20px; }
 .eyebrow {
@@ -137,9 +146,43 @@ input[type=range]::-moz-range-thumb {
 .gate.tappable:hover { background: var(--panel-2); }
 .gate.tappable:focus-visible { box-shadow: inset 0 0 0 1px var(--gold); }
 
+/* ---- hypothesis registry overlay ---- */
+.reg-overlay { position: fixed; inset: 0; z-index: 30; overflow-y: auto;
+  background: radial-gradient(120% 120% at 50% -10%, #101728 0%, var(--void) 60%); }
+.reg-inner { max-width: 1080px; margin: 0 auto; padding: 34px 28px 60px; }
+.reg-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px;
+  border-bottom: 1px solid var(--line); padding-bottom: 20px; margin-bottom: 26px; }
+.reg-eyebrow { font-size: 10px; letter-spacing: 0.24em; text-transform: uppercase; color: var(--muted-2); }
+.reg-title { font-size: 30px; font-weight: 700; letter-spacing: -0.02em; margin: 4px 0 10px; }
+.reg-sub { color: var(--muted); font-size: 13px; line-height: 1.6; max-width: 780px; margin: 0; }
+.reg-head .chip { flex: none; white-space: nowrap; }
+.reg-section-label { font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--gold);
+  margin: 28px 0 12px; }
+.reg-section-label span { color: var(--muted-2); letter-spacing: 0.04em; text-transform: none; }
+.hyp-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 14px; }
+.hyp { background: linear-gradient(180deg, var(--panel) 0%, var(--void-2) 100%);
+  border: 1px solid var(--line); border-radius: 6px; padding: 15px 16px; }
+.hyp-head { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; margin-bottom: 9px; }
+.hyp-id { font-family: "IBM Plex Mono", monospace; font-size: 13px; font-weight: 600; color: var(--platinum);
+  letter-spacing: 0.04em; }
+.hyp-status { font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase; padding: 2px 7px; border-radius: 2px; }
+.hyp-status--modeled { background: rgba(53,214,196,0.15); color: var(--coherent); }
+.hyp-status--partial { background: rgba(201,168,106,0.15); color: var(--gold); }
+.hyp-status--premise { background: rgba(106,166,214,0.15); color: var(--spin-dn); }
+.hyp-status--roadmap { background: var(--panel-2); color: var(--muted-2); }
+.hyp-evidence { margin-left: auto; font-size: 9px; color: var(--muted-2); border: 1px solid var(--line);
+  border-radius: 2px; padding: 2px 6px; white-space: nowrap; }
+.hyp-statement { color: var(--platinum); font-size: 12.5px; line-height: 1.5; margin: 0 0 10px; }
+.hyp-fields { margin: 0; font-size: 11.5px; }
+.hyp-fields dt { font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted-2); margin-top: 8px; }
+.hyp-fields dd { margin: 2px 0 0; color: var(--muted); line-height: 1.5; }
+.hyp-fields code { color: var(--gold); font-size: 11px; }
+
 /* ---- metric inspector modal ---- */
 .mm-overlay { position: fixed; inset: 0; z-index: 40; display: flex; align-items: center; justify-content: center;
   background: rgba(5, 8, 14, 0.66); backdrop-filter: blur(3px); padding: 24px; }
+/* the `hidden` attribute must win over the display:flex above */
+.mm-overlay[hidden] { display: none; }
 .mm-card { position: relative; width: min(560px, 100%); max-height: 86vh; overflow-y: auto;
   background: linear-gradient(180deg, var(--panel) 0%, var(--void-2) 100%);
   border: 1px solid var(--line); border-radius: 8px; box-shadow: var(--shadow); padding: 22px 24px 20px; }

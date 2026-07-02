@@ -97,12 +97,35 @@
             <button id="sciSend" class="chip">ask</button>
           </div>
           <details class="sci-settings">
-            <summary>Real-Claude analysis (optional — your own API key)</summary>
+            <summary>Live Claude analysis (optional) — connect your own Claude</summary>
             <p class="hint">
-              The deterministic analysis above always runs, no key needed. To get live Claude
-              analysis, paste an <strong>Anthropic Console API key</strong> (a Claude Max / Claude.ai
-              login will not work — that's a first-party credential, not an API key). It is stored
-              only in this browser and sent only to api.anthropic.com.
+              The deterministic analysis above always runs, no connection needed. Live Claude is
+              gated to <strong>you</strong>: it uses a proxy on <strong>your machine</strong> (loopback
+              only), so an outside party on this public page can't reach it. Nothing is embedded in
+              the page.
+            </p>
+
+            <div class="sci-block-label">Local proxy — your Max / Claude Code login</div>
+            <p class="hint">
+              Run <code>python tools/orme-claude-proxy.py</code> (authenticated via Claude Code /
+              <code>ant auth login</code>, or with <code>ANTHROPIC_API_KEY</code> set). Bound to
+              127.0.0.1 — only reachable from your computer.
+            </p>
+            <div class="sci-key-row">
+              <input id="sciProxyUrl" type="text" placeholder="http://127.0.0.1:8787" autocomplete="off" />
+              <input id="sciProxyToken" type="password" placeholder="x-orme-token (optional)" autocomplete="off" />
+            </div>
+            <div class="sci-key-actions">
+              <button id="sciProxySave" class="chip">save</button>
+              <button id="sciProxyCheck" class="chip">check</button>
+              <span id="sciProxyState" class="hint">not checked</span>
+            </div>
+
+            <div class="sci-block-label">Or: direct API key (this browser only)</div>
+            <p class="hint">
+              Paste an <strong>Anthropic Console API key</strong> (a Claude Max / Claude.ai login will
+              not work here — that's a first-party credential, not an API key). Stored only in this
+              browser, sent only to api.anthropic.com. Used only if the local proxy isn't running.
             </p>
             <div class="sci-key-row">
               <input id="sciKey" type="password" placeholder="sk-ant-… (stored locally only)" autocomplete="off" />

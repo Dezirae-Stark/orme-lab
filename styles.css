@@ -221,7 +221,12 @@ input[type=range]::-moz-range-thumb {
   color: var(--platinum); background: var(--panel-2); border: 1px solid var(--line);
   border-radius: 4px; padding: 7px 9px; }
 .sci-key-row .field { width: 108px; flex: none; }
-.sci-key-actions { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+.sci-key-actions { display: flex; align-items: center; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
+.sci-settings code { background: var(--void); border: 1px solid var(--line-soft); border-radius: 3px; padding: 0 4px; color: var(--gold); font-size: 11px; }
+#sciProxyState .ok, .sci-analysis .ok { color: var(--coherent); }
+#sciProxyState .ro { color: var(--ruled); }
+#sciProxyState .off { color: var(--muted-2); }
+.sci-via { margin-top: 6px; font-size: 10px; color: var(--muted-2); font-style: italic; }
 
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; } }
 @media (max-width: 1080px) {

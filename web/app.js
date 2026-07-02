@@ -3,7 +3,7 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import * as SIM from "./sim.js";
 import { analyzeCandidate, ask, pingProxy, keyStore, proxyStore } from "./scientist.js";
 import { METRICS } from "./metrics.js";
-import { renderRegistry } from "./hypotheses.js";
+import { renderRegistry, hypothesesForMetric } from "./hypotheses.js";
 
 /* -------------------------------------------------------------------------
  * ORME Lab — interactive 3D front-end.
@@ -351,24 +351,60 @@ function openMetric(key) {
   $("mmConfidence").textContent = m.confidence;
   $("mmFuture").textContent = m.future;
   $("mmSource").textContent = m.source;
+  // related hypotheses (reverse cross-link back to the registry)
+  const related = hypothesesForMetric(key);
+  const hypDd = $("mmHyp"), hypDt = $("mmHypDt");
+  if (related.length) {
+    hypDd.innerHTML = related
+      .map((h) => `<button class="mm-hyp" data-hyp="${h.id}" title="${h.statement.replace(/"/g, "&quot;")}">${h.id}</button>`)
+      .join(" ");
+    hypDd.hidden = false; hypDt.hidden = false;
+  } else {
+    hypDd.hidden = true; hypDt.hidden = true;
+  }
   $("metricModal").hidden = false;
   $("mmClose").focus();
+}
+
+// Registry → lab: jump from a hypothesis card to its live metric inspector.
+function inspectFromRegistry(metricKey) {
+  setTab("lab");
+  openMetric(metricKey);
+}
+// Lab → registry: jump from a metric's related-hypothesis chip to its card.
+function jumpToHypothesis(id) {
+  closeMetric();
+  setTab("registry");
+  const card = document.getElementById("hyp-" + id);
+  if (card) {
+    card.scrollIntoView({ behavior: "smooth", block: "center" });
+    card.classList.remove("hyp-flash"); void card.offsetWidth; // restart animation
+    card.classList.add("hyp-flash");
+  }
 }
 function closeMetric() {
   $("metricModal").hidden = true;
   if (lastFocused && lastFocused.focus) lastFocused.focus();
 }
 
+function handleInspectorTarget(target) {
+  const hyp = target.closest("[data-hyp]");
+  if (hyp) { jumpToHypothesis(hyp.dataset.hyp); return true; }
+  const inspect = target.closest("[data-inspect]");
+  if (inspect) { inspectFromRegistry(inspect.dataset.inspect); return true; }
+  const metric = target.closest("[data-metric]");
+  if (metric) { openMetric(metric.dataset.metric); return true; }
+  return false;
+}
+
 function wireMetricInspector() {
-  // delegated open on any [data-metric] element (metric rows, gate rows, badge)
-  document.body.addEventListener("click", (e) => {
-    const el = e.target.closest("[data-metric]");
-    if (el) openMetric(el.dataset.metric);
-  });
+  // delegated open: metric rows / gate rows / verdict badge+band ([data-metric]),
+  // registry cards ([data-inspect]), and related-hypothesis chips ([data-hyp]).
+  document.body.addEventListener("click", (e) => handleInspectorTarget(e.target));
   document.body.addEventListener("keydown", (e) => {
     if (e.key !== "Enter" && e.key !== " ") return;
-    const el = e.target.closest?.('[data-metric][role="button"]');
-    if (el) { e.preventDefault(); openMetric(el.dataset.metric); }
+    const el = e.target.closest?.('[data-metric],[data-inspect],[data-hyp]');
+    if (el) { e.preventDefault(); handleInspectorTarget(e.target); }
   });
   // close: ✕, overlay click, Escape
   $("mmClose").addEventListener("click", closeMetric);

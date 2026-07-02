@@ -177,6 +177,22 @@ input[type=range]::-moz-range-thumb {
 .hyp-fields dt { font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted-2); margin-top: 8px; }
 .hyp-fields dd { margin: 2px 0 0; color: var(--muted); line-height: 1.5; }
 .hyp-fields code { color: var(--gold); font-size: 11px; }
+.hyp-link { margin-top: 12px; font-family: "IBM Plex Mono", monospace; font-size: 11px; color: var(--coherent);
+  background: transparent; border: 1px solid var(--line); border-radius: 3px; padding: 6px 10px; cursor: pointer;
+  transition: all .12s ease; }
+.hyp-link:hover { border-color: var(--coherent); background: rgba(53,214,196,0.08); }
+.hyp-link:focus-visible { outline: 2px solid var(--coherent); outline-offset: 2px; }
+.hyp-flash { animation: hypFlash 1.6s ease-out; }
+@keyframes hypFlash {
+  0%, 20% { box-shadow: inset 0 0 0 1px var(--gold), 0 0 22px rgba(201,168,106,0.5); border-color: var(--gold); }
+  100% { box-shadow: none; }
+}
+/* related-hypothesis chips inside the metric inspector */
+.mm-hyp { font-family: "IBM Plex Mono", monospace; font-size: 11px; font-weight: 600; color: var(--gold);
+  background: var(--void); border: 1px solid var(--line); border-radius: 3px; padding: 3px 8px; margin: 2px 4px 2px 0;
+  cursor: pointer; transition: all .12s ease; }
+.mm-hyp:hover { border-color: var(--gold); background: rgba(201,168,106,0.12); }
+.mm-hyp:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
 
 /* ---- metric inspector modal ---- */
 .mm-overlay { position: fixed; inset: 0; z-index: 40; display: flex; align-items: center; justify-content: center;

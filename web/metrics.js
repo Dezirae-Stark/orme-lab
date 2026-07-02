@@ -157,16 +157,20 @@ export const METRICS = {
   gate_field_tolerance: null,   // -> supp
   gate_structural_stability: null, // -> stability
   screening: {
-    title: "Screening score",
+    title: "Candidate priority & screening score",
     eyebrow: "Verdict",
-    get: (r) => r.sc.score.toFixed(3) + (r.sc.ruledOut ? "  (ruled out)" : "  (not ruled out)"),
+    get: (r) => {
+      if (r.sc.ruledOut) return "ruled out";
+      const cap = r.band.cappedBy ? ` · capped by ${r.band.cappedBy.replace(/_/g, " ")}` : "";
+      return `${r.band.label} candidate · screening score ${r.sc.score.toFixed(3)}${cap}`;
+    },
     definition:
-      "A triage / ranking value in [0,1] — where to look next, NOT a probability of superconductivity. It only ever says 'not ruled out', never 'proven'.",
+      "A triage / ranking of where to look next — NOT a probability of superconductivity. The categorical band (LOW / MEDIUM / HIGH / VERY HIGH) is the primary read; the numeric screening score in [0,1] is the fine-grained tie-breaker. It only ever says 'not ruled out', never 'proven'.",
     calculation:
-      "AND-gate of five necessary conditions (coupling, carriers, field tolerance, structural stability, measurable observable). Fail any one → 0. If all pass, score = product of each gate's normalized margin (the weakest link dominates).",
+      "First the AND-gate: five necessary conditions (coupling, carriers, field tolerance, structural stability, measurable observable) — fail any one → ruled out. Band = mean of the gate margins (how comfortably each clears), thresholds 0.2 / 0.4 / 0.6 → MEDIUM / HIGH / VERY HIGH; a barely-passing gate (margin < 0.15, the weakest link) caps the band at MEDIUM. Numeric score = product of the margins (weakest link dominates).",
     experimental:
-      "None directly — it decides which of the above experiments to run. Confirmation needs zero-R AND Meissner AND a specific-heat jump AND the H_c dependence.",
-    confidence: "Toy (Level 2 → 3). A survivor is a laboratory prediction, never an experimental fact.",
+      "None directly — the band decides which of the other experiments to run. Confirmation needs zero-R AND Meissner AND a specific-heat jump AND the H_c dependence.",
+    confidence: "Toy (Level 2 → 3). A survivor is a laboratory prediction, never an experimental fact — the band ranks leads, it does not measure likelihood.",
     future: "Electron-phonon coupling + Eliashberg gap (Quantum ESPRESSO + EPW) — the only defensible superconductivity estimate.",
     source: "src/orme_lab/superconductivity.py",
   },

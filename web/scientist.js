@@ -82,7 +82,7 @@ export function analyzeCandidate(r) {
     for (const g of failed) suggestions.push(GATE_FIX[g.name](r));
   } else {
     reading.push(
-      `NOT RULED OUT — clears all five necessary gates, screening score ${r.sc.score.toFixed(3)}. This is a screening lead, not evidence of superconductivity.`
+      `NOT RULED OUT — ${r.band.label} candidate (clears all five necessary gates; screening score ${r.sc.score.toFixed(3)}${r.band.cappedBy ? `, capped by ${r.band.cappedBy.replace(/_/g, " ")}` : ""}). This is a screening lead, not evidence of superconductivity.`
     );
     suggestions.push("Escalate this candidate to a real calculation (ASE + PySCF/GPAW for the density, EPW for electron–phonon) — the toy score can't establish pairing.");
     suggestions.push("Decisive measurement: SQUID magnetometry for bulk Meissner screening. Zero resistance alone is not enough.");
@@ -153,7 +153,9 @@ function buildContext(result) {
     scores: result.scores,
     superconductivity: {
       ruled_out: result.sc.ruledOut,
-      plausibility: result.sc.score,
+      candidate_band: result.band ? result.band.label : "ruled out",
+      band_capped_by: result.band ? result.band.cappedBy : null,
+      screening_score: result.sc.score,
       gates: result.sc.gates.map((g) => ({ name: g.name, value: g.value, threshold: g.threshold, passed: g.passed })),
     },
     em_coherence: { regime: result.em.regime, plasmon_ev: result.em.plasmon, split: result.em.split, score: result.em.score },

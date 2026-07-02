@@ -216,6 +216,13 @@ input[type=range]::-moz-range-thumb {
 #verdict .line { color: var(--muted); font-size: 12px; white-space: normal; overflow: visible; min-width: 0; flex: 1 1 240px; }
 #verdict .evidence { flex: none; font-size: 10px; letter-spacing: 0.04em; color: var(--gold);
   border: 1px solid var(--line); border-radius: 3px; padding: 4px 9px; white-space: nowrap; }
+#verdict .cband { flex: none; font-family: "Space Grotesk", sans-serif; font-weight: 700; font-size: 11px;
+  letter-spacing: 0.08em; padding: 5px 11px; border-radius: 3px; white-space: nowrap; cursor: pointer; border: 1px solid transparent; }
+#verdict .cband:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+.cband--veryhigh { background: rgba(53,214,196,0.20); color: var(--coherent); border-color: rgba(53,214,196,0.5); }
+.cband--high { background: rgba(53,214,196,0.12); color: var(--coherent); border-color: rgba(53,214,196,0.32); }
+.cband--medium { background: rgba(201,168,106,0.15); color: var(--gold); border-color: rgba(201,168,106,0.4); }
+.cband--low { background: var(--panel-2); color: var(--muted); border-color: var(--line); }
 
 /* ---- stage overlays ---- */
 .stage-tag {

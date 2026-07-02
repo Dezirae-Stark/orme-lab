@@ -22,7 +22,16 @@ time. Runs entirely client-side (a faithful JS port of the Python toy models).
 <p align="center">
   <img src="web/assets/lab-screenshot.jpg" alt="ORME Lab interactive 3D interface — an osmium compact-13 cluster with rice-bean electron-density shells, the superconductivity gate cascade, the electromagnetic-coherence plasmon spectrum, and the evidence-level verdict bar" width="100%" />
 </p>
-<p align="center"><sub>The lab screening an osmium compact-13 high-spin candidate: 3D cluster + rice-bean density shells (centre), live scores and the five-gate superconductivity cascade (right), and the verdict bar stamped <code>Level 3/6 — laboratory prediction</code> (bottom).</sub></p>
+<p align="center"><sub>The lab screening an osmium compact-13 high-spin candidate: 3D cluster + rice-bean density shells (centre), live scores and the five-gate superconductivity cascade (right), and the verdict bar with its evidence-level stamp and categorical candidate band (bottom).</sub></p>
+
+**What you can do in it:**
+
+- **Screen live.** Pick element × geometry × spin state from the chips; drag the field and temperature sliders; the cluster, density shells, coupling filaments, five-gate cascade, plasmon spectrum, and the ranked candidate table all recompute in real time.
+- **Eigenstate mode.** Toggle the heuristic "rice-bean" ellipsoids for the *real* isotropic 3D harmonic-oscillator eigenstates |k, l, m⟩ — E = (2k + l + 3⁄2)ℏω — rendered as translucent light/deep-teal ±phase lobes (marching-tetrahedra isosurfaces). The |ψ|² fractional anisotropy of the rendered state **feeds the density-anisotropy metric**: the picture drives the score, not a hand-tuned number.
+- **DFT-cube bridge** *(the endgame path)*. Load a Gaussian `.cube` (a real DFT density ρ or orbital ψ, exported offline) and it is isosurfaced through the *same* marching-tetrahedra + anisotropy pipeline as the analytic eigenstate — a computed density is a drop-in for the model. [`tools/eigenstate_to_cube.py`](tools/eigenstate_to_cube.py) emits a model cube so the path is exercised end-to-end today. A loaded cube upgrades the *descriptor*, not the evidence level — it is still Level 2.
+- **Metric drill-downs.** Tap any score or gate for its definition, exact calculation, real-world experimental analogue, a confidence note, and the future measurement that would validate it.
+- **Hypothesis registry.** A scientific-notebook tab of the falsifiable hypotheses (H-01…H-20), cross-linked both ways with the live metrics — jump from a hypothesis card to the metric it drives, and from a metric back to its hypotheses.
+- **Candidate band.** A categorical **LOW / MEDIUM / HIGH / VERY HIGH** read derived from the *gate-margin cascade* (not the raw score), capped by the weakest necessary gate — a plain-language triage tier layered over the deliberately un-probability-like screening score.
 
 The lab includes a **Lab Scientist**: an always-on deterministic analyst that reads
 the real gate values for the current candidate and gives grounded readings, ranked
@@ -166,19 +175,32 @@ Each module owns one hypothesis and exposes one bounded `[0, 1]` score:
 | `electromagnetic_coherence.py` | polariton/plasmon coherence (H12/H16) | `polariton_coherence_score` |
 | `pipeline.py` | orchestration, ranking, CSV | — |
 
+Three further modules are infrastructure rather than hypotheses: `evidence.py`
+(the 0–6 evidence hierarchy and the Level-2 lab ceiling), `backends.py` (the
+optional ab-initio `DFTBackend` seams), and `config.py` (the deterministic
+`LabConfig`).
+
 Full detail: `docs/simulation_pipeline.md`. The determinism guarantee (same
 config → byte-identical CSV) is documented there too.
 
 ## Repository layout
 
 ```
-docs/         hypothesis matrix, pipeline, validation tests, terminology translation
-src/orme_lab/ the package (one module per hypothesis)
-tests/        pytest suite (element, spin, coupling, observables/pipeline)
-examples/     runnable screens + density plot
-notebooks/    00 project overview, 01 hypothesis mapping
-outputs/      generated CSVs / figures (git-ignored except .gitkeep)
+docs/          hypothesis matrix, pipeline, validation tests, terminology, CHARTER
+src/orme_lab/  the package (one module per hypothesis + evidence/backends/config)
+web/           the interactive 3D lab (static; deployed to GitHub Pages)
+tools/         eigenstate_to_cube.py, the loopback Claude proxy, tools/README
+tests/         pytest suite — 43 tests (element, spin, coupling, observables, evidence)
+examples/      runnable screens + density plot
+notebooks/     00 project overview, 01 hypothesis mapping
+outputs/       generated CSVs / figures (git-ignored except .gitkeep)
+.github/       Pages deploy workflow (build → publish web/ on push to master)
 ```
+
+The site auto-deploys: pushing a change under `web/` to `master` triggers
+[`.github/workflows/deploy-pages.yml`](.github/workflows/deploy-pages.yml), which
+publishes `web/` to GitHub Pages via the first-party Pages actions (retryable from
+the Actions tab, concurrency-guarded). No manual publish step.
 
 ## Future roadmap
 
@@ -193,7 +215,11 @@ order (each gap is marked `TODO(<backend>)` in the source):
 
 1. **ASE** — structure handling and geometry relaxation.
 2. **PySCF / GPAW** — cluster/periodic DFT for real spin densities and
-   charge-density anisotropy (replaces the ellipsoid heuristic).
+   charge-density anisotropy (replaces the ellipsoid heuristic). These emit
+   Gaussian `.cube` densities that drop straight into the interactive renderer
+   through the **DFT-cube bridge** (`DFTBackend.density_cube` → `web/cube.js`),
+   so a real calculation is visualized and scored by the same pipeline as the
+   analytic eigenstate.
 3. **Tight-binding fit** — real transfer integrals `t_ij` for coupling.
 4. **Quantum ESPRESSO + EPW** — electron-phonon coupling and an Eliashberg gap —
    the only defensible route to a real superconductivity estimate.

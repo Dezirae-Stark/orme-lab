@@ -270,7 +270,7 @@ export function evaluateCandidate({ elSym, geomKind, spinKind, fieldT, tempK }) 
   // computational simulation (2); a survivor additionally yields a laboratory
   // prediction (3) — never an experiment (4+), which needs a real lab.
   const evLevel = sc.ruledOut ? 2 : 3;
-  const evLabel = sc.ruledOut ? "computational simulation" : "laboratory prediction";
+  const evLabel = sc.ruledOut ? "simulation candidate" : "laboratory prediction";
   const evidence = { level: evLevel, badge: `Level ${evLevel}/6 — ${evLabel}` };
 
   return {

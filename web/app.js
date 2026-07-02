@@ -4,8 +4,32 @@ import * as SIM from "./sim.js";
 import { analyzeCandidate, ask, pingProxy, keyStore, proxyStore } from "./scientist.js";
 import { METRICS } from "./metrics.js";
 import { renderRegistry, hypothesesForMetric } from "./hypotheses.js";
-import { buildEigenstate, buildFromGrid, mRange, MAX_K, MAX_L, energyLabel } from "./eigenstate.js";
-import { parseCube } from "./cube.js";
+
+// The eigenstate + DFT-cube feature is the ONLY heavy/optional part of the lab.
+// It is loaded LAZILY via dynamic import() rather than a top-level static import,
+// so that a single lagging or 404'd module (e.g. mid-CDN-propagation) can at most
+// disable its own toggle — it can never throw at module-parse time and abort the
+// whole graph before wireControls() runs. That parse-time abort is exactly what
+// once blanked the PGM/spin rail. These holders stay null until the module loads.
+let Eigen = null;               // { buildEigenstate, buildFromGrid, mRange, MAX_K, MAX_L, energyLabel }
+let Cube = null;                // { parseCube }
+let eigenModulePromise = null;  // cached in-flight/settled load (null again on failure → retryable)
+function loadEigenModule() {
+  if (Eigen && Cube) return Promise.resolve(true);
+  if (eigenModulePromise) return eigenModulePromise;
+  eigenModulePromise = Promise.all([
+    import("./eigenstate.js"),
+    import("./cube.js"),
+  ]).then(([e, c]) => {
+    Eigen = e; Cube = c;
+    return true;
+  }).catch((err) => {
+    console.error("[orme-lab] eigenstate/cube feature failed to load:", err);
+    eigenModulePromise = null;   // allow a later retry without a page reload
+    return false;
+  });
+  return eigenModulePromise;
+}
 
 /* -------------------------------------------------------------------------
  * ORME Lab — interactive 3D front-end.
@@ -30,9 +54,9 @@ const state = {
 const eigen = { on: false, k: 0, l: 2, m: 0, cube: null }; // cube: parsed DFT grid or null
 let eigenData = null;               // cached { positive, negative, extent, anisotropy, signed }
 function rebuildEigen() {
-  if (!eigen.on) { eigenData = null; return; }
+  if (!eigen.on || !Eigen) { eigenData = null; return; }
   // DFT-cube path: if a cube is loaded, isosurface it; else the analytic eigenstate.
-  eigenData = eigen.cube ? buildFromGrid(eigen.cube) : buildEigenstate(eigen.k, eigen.l, eigen.m, 40);
+  eigenData = eigen.cube ? Eigen.buildFromGrid(eigen.cube) : Eigen.buildEigenstate(eigen.k, eigen.l, eigen.m, 40);
 }
 
 // ---- three.js scene ------------------------------------------------------
@@ -364,7 +388,8 @@ function setTab(name) {
 
 // ---- eigenstate mode controls --------------------------------------------
 function eigenRepopulateM() {
-  const ms = mRange(eigen.l);
+  if (!Eigen) return;   // selects are only populated once the optional module is loaded
+  const ms = Eigen.mRange(eigen.l);
   if (!ms.includes(eigen.m)) eigen.m = 0;
   $("eigenM").innerHTML = ms.map((v) => `<option value="${v}"${v === eigen.m ? " selected" : ""}>${v}</option>`).join("");
 }
@@ -378,23 +403,21 @@ function eigenRefreshLabels() {
     $("eigenEnergy").textContent = eigenData && eigenData.signed ? "orbital ψ" : "density ρ";
     $("cubeSource").innerHTML = `source: <strong>DFT cube</strong> — ${escapeHtml(eigen.cube.title || "(loaded)")} · ${eigen.cube.nx}×${eigen.cube.ny}×${eigen.cube.nz}. A computed density (still Level 2 — computational simulation, not an experimental fact).`;
   } else {
-    $("eigenEnergy").textContent = energyLabel(eigen.k, eigen.l);
+    $("eigenEnergy").textContent = Eigen ? Eigen.energyLabel(eigen.k, eigen.l) : "";
     $("cubeSource").innerHTML = 'source: harmonic-oscillator model. Load a Gaussian <code>.cube</code> (real DFT density ρ or an orbital ψ, exported offline) to render the actual calculation through the same pipeline.';
   }
 }
 function escapeHtml(s) { return String(s).replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c])); }
 
-function wireEigen() {
+// The k/l/m selects and the .cube input are wired ONLY after the optional module
+// has loaded (they reference its exports). Wired at most once.
+let eigenInputsWired = false;
+function initEigenInputs() {
+  if (eigenInputsWired || !Eigen || !Cube) return;
   const ksel = $("eigenK"), lsel = $("eigenL"), msel = $("eigenM");
-  ksel.innerHTML = Array.from({ length: MAX_K + 1 }, (_, i) => `<option value="${i}"${i === eigen.k ? " selected" : ""}>${i}</option>`).join("");
-  lsel.innerHTML = Array.from({ length: MAX_L + 1 }, (_, i) => `<option value="${i}"${i === eigen.l ? " selected" : ""}>${i}</option>`).join("");
+  ksel.innerHTML = Array.from({ length: Eigen.MAX_K + 1 }, (_, i) => `<option value="${i}"${i === eigen.k ? " selected" : ""}>${i}</option>`).join("");
+  lsel.innerHTML = Array.from({ length: Eigen.MAX_L + 1 }, (_, i) => `<option value="${i}"${i === eigen.l ? " selected" : ""}>${i}</option>`).join("");
   eigenRepopulateM();
-  $("eigenToggle").addEventListener("click", (e) => {
-    eigen.on = !eigen.on;
-    e.target.setAttribute("aria-pressed", String(eigen.on));
-    $("eigenControls").hidden = !eigen.on;
-    rebuildEigen(); eigenRefreshLabels(); recompute();
-  });
   ksel.addEventListener("change", () => { eigen.k = +ksel.value; rebuildEigen(); eigenRefreshLabels(); recompute(); });
   lsel.addEventListener("change", () => { eigen.l = +lsel.value; eigenRepopulateM(); rebuildEigen(); eigenRefreshLabels(); recompute(); });
   msel.addEventListener("change", () => { eigen.m = +msel.value; rebuildEigen(); eigenRefreshLabels(); recompute(); });
@@ -406,7 +429,7 @@ function wireEigen() {
     const reader = new FileReader();
     reader.onload = () => {
       try {
-        eigen.cube = parseCube(String(reader.result));
+        eigen.cube = Cube.parseCube(String(reader.result));
       } catch (err) {
         eigen.cube = null;
         $("cubeSource").innerHTML = `<span style="color:var(--ruled)">could not parse cube: ${escapeHtml(err.message)}</span>`;
@@ -422,6 +445,51 @@ function wireEigen() {
     eigen.cube = null;
     rebuildEigen(); eigenRefreshLabels(); recompute();
   });
+  eigenInputsWired = true;
+}
+
+// Ensure the optional module is loaded and its inputs are wired. Returns false if
+// the module could not be fetched (feature stays off; the core lab is unaffected).
+async function ensureEigenFeature() {
+  const ok = await loadEigenModule();
+  if (ok) initEigenInputs();
+  return ok;
+}
+
+function setEigenStatus(msg) {
+  const el = $("eigenStatus");
+  if (!el) return;
+  el.textContent = msg || "";
+  el.hidden = !msg;
+}
+
+// Only the toggle is wired at boot — it is safe (references no module export) and
+// pulls the heavy module in on demand. Turning the feature ON awaits the load;
+// turning it OFF never needs the module.
+function wireEigenToggle() {
+  const toggle = $("eigenToggle");
+  toggle.addEventListener("click", async () => {
+    if (!eigen.on) {
+      // turning ON — the optional module must be present first
+      toggle.disabled = true;
+      setEigenStatus("loading…");
+      const ok = await ensureEigenFeature();
+      toggle.disabled = false;
+      if (!ok) {
+        setEigenStatus("module unavailable — core lab unaffected; try again shortly");
+        return;   // stay off; nothing else in the app is touched
+      }
+      setEigenStatus("");
+    }
+    eigen.on = !eigen.on;
+    toggle.setAttribute("aria-pressed", String(eigen.on));
+    $("eigenControls").hidden = !eigen.on;
+    rebuildEigen(); eigenRefreshLabels(); recompute();
+  });
+
+  // Warm the module in the background so the first click is instant — but a
+  // failure here is silent and harmless (the click path will retry + report).
+  loadEigenModule().then((ok) => { if (ok) initEigenInputs(); });
 }
 
 function wireTabs() {
@@ -689,12 +757,18 @@ function loop() {
 }
 
 // ---- boot ----------------------------------------------------------------
-wireControls();
-wireScientist();
-wireMetricInspector();
-wireTabs();
-wireEigen();
-buildRanking();
-resize();
-recompute();
+// Each step is isolated: a throw in one wiring step is logged and skipped rather
+// than aborting the rest of boot. Combined with the lazy eigenstate import above,
+// no single feature (or lagging file) can blank the core lab controls again.
+function safe(name, fn) {
+  try { fn(); } catch (err) { console.error(`[orme-lab] boot step "${name}" failed:`, err); }
+}
+safe("controls", wireControls);
+safe("scientist", wireScientist);
+safe("metric-inspector", wireMetricInspector);
+safe("tabs", wireTabs);
+safe("eigenstate-toggle", wireEigenToggle);
+safe("ranking", buildRanking);
+safe("resize", resize);
+safe("recompute", recompute);
 loop();

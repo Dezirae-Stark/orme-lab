@@ -1,9 +1,23 @@
+<p align="center">
+  <img src="web/assets/orme-lab-banner.jpg" alt="ORME Lab — exploring the frontiers of matter and coherence" width="100%" />
+</p>
+
 # orme-lab
 
 A modular **virtual lab** for investigating a specific fringe claim with real
 physics: that platinum-group metals (Au, Pt, Pd, Ir, Rh, Os), when driven into an
 "Orbitally Rearranged Monatomic Element" (ORME) high-spin state, exhibit
 ambient-temperature superconductivity-like behavior.
+
+### 🔬 Interactive 3D lab
+
+An in-browser 3D instrument to pick a candidate (element × geometry × spin state),
+apply a magnetic field and temperature, and watch the whole scoring pipeline — the
+cluster, the "rice-bean" electron-density ellipsoids, coupling filaments, the
+superconductivity gate cascade, and the live plasmon spectrum — recompute in real
+time. Runs entirely client-side (a faithful JS port of the Python toy models).
+
+**▶ Live:** https://dezirae-stark.github.io/orme-lab/ &nbsp;·&nbsp; source in [`web/`](web/)
 
 The lab translates that claim into **explicit, falsifiable, computable models**,
 runs a screen over candidate `(element × geometry × spin-state)` configurations,

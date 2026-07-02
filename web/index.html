@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ORME Lab — PGM high-spin superconductivity virtual lab</title>
+  <meta name="description" content="Interactive 3D virtual lab translating ORME/PGM high-spin electron-density and ambient-superconductivity claims into falsifiable, computable models. Triage, not proof." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="icon" type="image/png" sizes="32x32" href="./assets/favicon-32.png" />
+  <link rel="icon" type="image/png" sizes="48x48" href="./assets/favicon-48.png" />
+  <link rel="apple-touch-icon" href="./assets/apple-touch-icon.png" />
+  <meta name="theme-color" content="#090c14" />
+  <link rel="stylesheet" href="./styles.css" />
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+    }
+  }
+  </script>
+</head>
+<body>
+  <div id="shell">
+
+    <!-- LEFT RAIL: instrument controls -->
+    <aside class="rail left">
+      <div class="brand">
+        <img class="emblem" src="./assets/orme-lab-emblem-128.png" alt="ORME Lab emblem" width="34" height="34" />
+        <span class="mark display">ORME&nbsp;<em>Lab</em></span>
+        <span class="ver">v0.1</span>
+      </div>
+      <p class="tagline">Platinum-group high-spin superconductivity — a virtual lab for triage, not proof.</p>
+
+      <div class="group">
+        <div class="eyebrow"><span>Element</span></div>
+        <div class="chip-row" id="elChips"></div>
+      </div>
+
+      <div class="group">
+        <div class="eyebrow"><span>Cluster geometry</span></div>
+        <select class="field" id="geomSel" aria-label="Cluster geometry"></select>
+        <p class="hint">Monomer is the isolated-atom limit — it should always be ruled out (no coupling channel).</p>
+      </div>
+
+      <div class="group">
+        <div class="eyebrow"><span>Spin state</span></div>
+        <div class="chip-row" id="spinChips"></div>
+      </div>
+
+      <div class="group">
+        <div class="eyebrow"><span>Applied field</span><span id="fieldVal">0.0 T</span></div>
+        <div class="slider-row">
+          <input type="range" id="fieldSlider" min="0" max="8" step="0.1" value="0" aria-label="Applied magnetic field (tesla)" />
+        </div>
+      </div>
+
+      <div class="group">
+        <div class="eyebrow"><span>Temperature</span><span id="tempVal">298 K</span></div>
+        <div class="slider-row">
+          <input type="range" id="tempSlider" min="4" max="400" step="1" value="298" aria-label="Temperature (kelvin)" />
+        </div>
+      </div>
+
+      <div class="group">
+        <div class="eyebrow"><span>View</span></div>
+        <button class="chip" id="rotToggle" aria-pressed="true">auto-rotate</button>
+      </div>
+    </aside>
+
+    <!-- STAGE: 3D candidate -->
+    <main id="stage">
+      <div class="stage-tag">live candidate</div>
+      <div class="stage-title display" id="stageTitle"></div>
+      <div class="legend">
+        <span><i style="background:#d8dee9"></i>atom</span>
+        <span><i style="background:#35d6c4"></i>density (survives)</span>
+        <span><i style="background:#c9a86a"></i>coupling</span>
+        <span><i style="background:#6aa6d6"></i>field</span>
+      </div>
+    </main>
+
+    <!-- RIGHT RAIL: gate cascade + spectrum + ranking -->
+    <aside class="rail right">
+      <div class="group">
+        <div class="eyebrow"><span>Deformation &amp; coupling</span></div>
+        <div class="metric"><span class="k">spin polarization</span><span class="v" id="mSpin">—</span></div>
+        <div class="metric"><span class="k">density anisotropy</span><span class="v"><span id="fBean" class="flag off"></span> <span id="mAniso">—</span></span></div>
+        <div class="metric"><span class="k">inter-unit coupling</span><span class="v"><span id="fIso" class="flag off"></span> <span id="mCoupling">—</span></span></div>
+        <div class="metric"><span class="k">carrier proxy</span><span class="v" id="mCarrier">—</span></div>
+        <div class="metric"><span class="k">field suppression</span><span class="v" id="mSupp">—</span></div>
+        <div class="metric"><span class="k">structural stability</span><span class="v" id="mStab">—</span></div>
+        <div class="metric"><span class="k">resistance regime</span><span class="v" id="mRegime">—</span></div>
+      </div>
+
+      <div class="group">
+        <div class="eyebrow"><span>Superconductivity gate</span><span>AND</span></div>
+        <div id="cascade"></div>
+      </div>
+
+      <div class="group">
+        <div class="eyebrow"><span>EM coherence (H12/H16)</span></div>
+        <div class="metric"><span class="k">coupling regime</span><span class="v" id="mEmRegime">—</span></div>
+        <div class="metric"><span class="k">plasmon energy</span><span class="v" id="mPlasmon">—</span></div>
+        <div class="metric"><span class="k">coherence score</span><span class="v" id="mEmScore">—</span></div>
+        <canvas id="plasmon"></canvas>
+        <div class="spec-caption"><span id="specL">L —</span><span>plasmon split ← anisotropy →</span><span id="specT">T —</span></div>
+      </div>
+
+      <div class="group">
+        <div class="eyebrow"><span>Screen ranking</span><span>top 12</span></div>
+        <table id="rank">
+          <thead><tr><th>el</th><th>geom</th><th>s</th><th>coup</th><th>plaus</th></tr></thead>
+          <tbody id="rankBody"></tbody>
+        </table>
+        <p class="hint">Click a row to load that candidate. Ranking recomputes with field &amp; temperature.</p>
+      </div>
+    </aside>
+
+    <!-- VERDICT BAR -->
+    <div id="verdict">
+      <span class="badge" id="vBadge">—</span>
+      <span class="line" id="vLine"></span>
+    </div>
+  </div>
+
+  <script type="module" src="./app.js"></script>
+</body>
+</html>

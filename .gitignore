@@ -30,3 +30,6 @@ outputs/*
 *.swp
 .idea/
 .vscode/
+
+# scratch screenshots
+/orme-*.png

@@ -19,6 +19,11 @@ time. Runs entirely client-side (a faithful JS port of the Python toy models).
 
 **▶ Live:** https://dezirae-stark.github.io/orme-lab/ &nbsp;·&nbsp; source in [`web/`](web/)
 
+<p align="center">
+  <img src="web/assets/lab-screenshot.jpg" alt="ORME Lab interactive 3D interface — an osmium compact-13 cluster with rice-bean electron-density shells, the superconductivity gate cascade, the electromagnetic-coherence plasmon spectrum, and the evidence-level verdict bar" width="100%" />
+</p>
+<p align="center"><sub>The lab screening an osmium compact-13 high-spin candidate: 3D cluster + rice-bean density shells (centre), live scores and the five-gate superconductivity cascade (right), and the verdict bar stamped <code>Level 3/6 — laboratory prediction</code> (bottom).</sub></p>
+
 The lab includes a **Lab Scientist**: an always-on deterministic analyst that reads
 the real gate values for the current candidate and gives grounded readings, ranked
 next-experiment suggestions, and caveats (no key, no cost). For *live Claude*

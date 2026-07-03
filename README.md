@@ -183,14 +183,62 @@ optional ab-initio `DFTBackend` seams), and `config.py` (the deterministic
 Full detail: `docs/simulation_pipeline.md`. The determinism guarantee (same
 config → byte-identical CSV) is documented there too.
 
+## The EPW backend — a real electron-phonon Tc (the endgame seam)
+
+The one path in the architecture that computes a *real* superconducting Tc
+rather than a triage score. `src/orme_lab/epw/` implements the
+`Capability.SC_GAP` seam: it builds a periodic approximant of a candidate, drives
+Quantum ESPRESSO + EPW (`pw.x → ph.x → nscf → epw.x`), parses the Eliashberg
+spectral function α²F(ω), and evaluates the McMillan–Allen–Dynes Tc:
+
+```
+α²F(ω) ─▶ λ, ω_log, ω̄₂ ─▶ Tc = f₁f₂ (ω_log/1.20) · exp[ −1.04(1+λ) / (λ − μ*(1 + 0.62λ)) ]
+```
+
+Wire it in like any backend; the computed Tc is reported **alongside** the
+unchanged five-gate triage, in new `sc_tc_kelvin` / `sc_lambda` /
+`sc_omega_log_k` / `sc_gap_mev` / `sc_source` columns:
+
+```python
+from orme_lab import run_screen
+from orme_lab.backends import EPWBackend
+
+records = run_screen(backend=EPWBackend())   # needs pw.x/ph.x/epw.x on PATH + pseudopotentials
+```
+
+Modules: `spectral.py` (α²F moments), `allen_dynes.py` (Tc + BCS gap),
+`approximant.py` (the periodic reference lattice), `config.py` (`EPWConfig`),
+`parse.py` (the 11-column `.a2f` reader), `runner.py` (subprocess orchestration),
+`qe_input.py` (deck writers), `result.py` (`EPWResult`). The deterministic core is
+fully unit-tested against analytic and reference-code oracles (e.g. the golden
+`Tc = 21.95 K` at λ=1, ω_log=300 K, μ\*=0.10; the sub-critical guard forcing
+`Tc = 0` below λ_crit); only the live subprocess path needs the binaries.
+
+> **Read this before trusting a number.** This Tc is a **phonon-channel,
+> spin-singlet counterfactual on an *imposed* periodic reference lattice**
+> inferred from a cluster's nearest-neighbour distance — *not* the finite
+> cluster, *not* the ORME high-spin motif, *not* any observed phase. For a
+> high-spin *magnetic* system the physically relevant pairing channel is
+> spin-fluctuation / triplet (a different kernel EPW does not compute), Migdal's
+> theorem is likely violated, and Allen–Dynes carries no magnetic pair-breaking
+> term — so **a returned Tc is not evidence the material superconducts.** At most
+> it supports phonon-mechanism *ruling-out*. Evidence stays capped at **Level
+> 2**; a wired backend does not raise it. The Allen–Dynes constants are verified
+> against Allen & Dynes 1975 via secondary sources (the primary PRB is
+> paywalled); the live decks and `.a2f` parsing have not yet been run against a
+> real EPW install and must be re-verified there. Design:
+> [`docs/superpowers/specs/2026-07-03-epw-backend-design.md`](docs/superpowers/specs/2026-07-03-epw-backend-design.md).
+
 ## Repository layout
 
 ```
-docs/          hypothesis matrix, pipeline, validation tests, terminology, CHARTER
+docs/          hypothesis matrix, pipeline, validation tests, terminology, CHARTER,
+               superpowers/ (the EPW backend design spec + implementation plan)
 src/orme_lab/  the package (one module per hypothesis + evidence/backends/config)
+src/orme_lab/epw/  the EPW electron-phonon Tc backend (SC_GAP seam; see above)
 web/           the interactive 3D lab (static; deployed to GitHub Pages)
 tools/         eigenstate_to_cube.py, the loopback Claude proxy, tools/README
-tests/         pytest suite — 43 tests (element, spin, coupling, observables, evidence)
+tests/         pytest suite — 95 tests (core toy models + the EPW backend)
 examples/      runnable screens + density plot
 notebooks/     00 project overview, 01 hypothesis mapping
 outputs/       generated CSVs / figures (git-ignored except .gitkeep)
@@ -221,8 +269,13 @@ order (each gap is marked `TODO(<backend>)` in the source):
    so a real calculation is visualized and scored by the same pipeline as the
    analytic eigenstate.
 3. **Tight-binding fit** — real transfer integrals `t_ij` for coupling.
-4. **Quantum ESPRESSO + EPW** — electron-phonon coupling and an Eliashberg gap —
-   the only defensible route to a real superconductivity estimate.
+4. **Quantum ESPRESSO + EPW** ✅ *(seam implemented)* — electron-phonon coupling
+   and a McMillan–Allen–Dynes Eliashberg Tc, the only defensible route to a real
+   superconductivity estimate. Wired behind `Capability.SC_GAP` in
+   [`src/orme_lab/epw/`](src/orme_lab/epw/) — see "The EPW backend" above. The
+   deterministic core is tested; the live `pw.x/ph.x/epw.x` path needs the
+   binaries and the result stays a Level-2 phonon-channel counterfactual, not a
+   superconductivity claim.
 5. **ORCA / NWChem** — molecular reference calculations, spin-orbit coupling
    (important for 5d metals).
 6. **`electromagnetic_coherence.py`** ✅ *(implemented)* — models H12/H16:

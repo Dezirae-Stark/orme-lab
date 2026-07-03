@@ -30,10 +30,15 @@ class EliashbergFunction:
     omega_min: float = 1e-6
     unstable_tol: float = 0.05
 
-    def _positive(self) -> tuple[list[float], list[float]]:
-        xs, ys = [], []
+    def _grid(self) -> tuple[list[float], list[float]]:
+        # Keep the full non-negative grid (INCLUDING omega=0) so trapezoidal
+        # geometry near omega=0 is preserved; a spike adjacent to omega=0 keeps
+        # its full weight. Clip a2f to >= 0. Strictly-negative frequencies
+        # (unstable modes) are excluded here and reported by .unstable instead.
+        xs: list[float] = []
+        ys: list[float] = []
         for w, a in zip(self.omega, self.a2f):
-            if w > self.omega_min:
+            if w >= 0.0:
                 xs.append(w)
                 ys.append(max(0.0, a))
         return xs, ys
@@ -49,10 +54,10 @@ class EliashbergFunction:
 
     @property
     def lam(self) -> float:
-        xs, ys = self._positive()
+        xs, ys = self._grid()
         if len(xs) < 2:
             return 0.0
-        integrand = [a / w for w, a in zip(xs, ys)]
+        integrand = [(a / w) if w > self.omega_min else 0.0 for w, a in zip(xs, ys)]
         return 2.0 * _trapz(integrand, xs)
 
     @property
@@ -60,8 +65,9 @@ class EliashbergFunction:
         lam = self.lam
         if lam <= 0.0:
             return 0.0
-        xs, ys = self._positive()
-        integrand = [(a / w) * math.log(w) for w, a in zip(xs, ys)]
+        xs, ys = self._grid()
+        integrand = [((a / w) * math.log(w)) if w > self.omega_min else 0.0
+                     for w, a in zip(xs, ys)]
         return math.exp((2.0 / lam) * _trapz(integrand, xs))
 
     @property
@@ -69,8 +75,8 @@ class EliashbergFunction:
         lam = self.lam
         if lam <= 0.0:
             return 0.0
-        xs, ys = self._positive()
-        integrand = [a * w for w, a in zip(xs, ys)]
+        xs, ys = self._grid()
+        integrand = [a * w for w, a in zip(xs, ys)]   # a2f*omega is 0 at omega=0
         return math.sqrt((2.0 / lam) * _trapz(integrand, xs))
 
     def moments(self) -> tuple[float, float, float]:

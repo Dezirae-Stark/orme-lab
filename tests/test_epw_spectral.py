@@ -23,7 +23,7 @@ def test_single_interior_spike_S2():
 
 
 def test_two_spike_distinguishes_wlog_from_w2_S3():
-    ef = _ef([0, 1, 2, 3, 4, 5], [0, 2, 0, 0, 2, 0])
+    ef = _ef([0, 1, 2, 3, 4, 5], [0, 1, 0, 0, 2, 0])
     lam, wlog, w2 = ef.moments()
     assert math.isclose(lam, 3.0, abs_tol=1e-10)
     assert math.isclose(wlog, 4 ** (1 / 3), abs_tol=1e-10)

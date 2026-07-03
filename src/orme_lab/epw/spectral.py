@@ -1,0 +1,77 @@
+"""Eliashberg spectral function alpha^2 F(omega) and its moments.
+
+lambda   = 2 * int alpha2F/omega d omega
+omega_log = exp[(2/lambda) int (alpha2F/omega) ln omega d omega]
+omega_2   = [(2/lambda) int alpha2F * omega d omega]^(1/2)
+
+Moments are returned in the SAME unit as the omega grid. Guards (G-SPEC): the
+1/omega factor and 0*ln0 term at omega<=omega_min are skipped; alpha2F is
+clipped to >= 0; a null positive spectrum returns (0,0,0), never NaN; negative
+(unstable) phonon frequencies set .unstable.
+"""
+
+from __future__ import annotations
+
+import math
+from dataclasses import dataclass
+
+
+def _trapz(y: list[float], x: list[float]) -> float:
+    total = 0.0
+    for i in range(1, len(x)):
+        total += 0.5 * (y[i] + y[i - 1]) * (x[i] - x[i - 1])
+    return total
+
+
+@dataclass(frozen=True)
+class EliashbergFunction:
+    omega: tuple[float, ...]
+    a2f: tuple[float, ...]
+    omega_min: float = 1e-6
+    unstable_tol: float = 0.05
+
+    def _positive(self) -> tuple[list[float], list[float]]:
+        xs, ys = [], []
+        for w, a in zip(self.omega, self.a2f):
+            if w > self.omega_min:
+                xs.append(w)
+                ys.append(max(0.0, a))
+        return xs, ys
+
+    @property
+    def unstable(self) -> bool:
+        neg = _trapz([abs(a) for w, a in zip(self.omega, self.a2f) if w < -self.omega_min],
+                     [w for w in self.omega if w < -self.omega_min])
+        pos = _trapz([max(0.0, a) for w, a in zip(self.omega, self.a2f) if w > self.omega_min],
+                     [w for w in self.omega if w > self.omega_min])
+        total = neg + pos
+        return total > 0.0 and neg > self.unstable_tol * total
+
+    @property
+    def lam(self) -> float:
+        xs, ys = self._positive()
+        if len(xs) < 2:
+            return 0.0
+        integrand = [a / w for w, a in zip(xs, ys)]
+        return 2.0 * _trapz(integrand, xs)
+
+    @property
+    def omega_log(self) -> float:
+        lam = self.lam
+        if lam <= 0.0:
+            return 0.0
+        xs, ys = self._positive()
+        integrand = [(a / w) * math.log(w) for w, a in zip(xs, ys)]
+        return math.exp((2.0 / lam) * _trapz(integrand, xs))
+
+    @property
+    def omega_2(self) -> float:
+        lam = self.lam
+        if lam <= 0.0:
+            return 0.0
+        xs, ys = self._positive()
+        integrand = [a * w for w, a in zip(xs, ys)]
+        return math.sqrt((2.0 / lam) * _trapz(integrand, xs))
+
+    def moments(self) -> tuple[float, float, float]:
+        return (self.lam, self.omega_log, self.omega_2)

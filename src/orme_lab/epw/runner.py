@@ -11,6 +11,7 @@ from __future__ import annotations
 import hashlib
 import os
 import shutil
+import signal
 import subprocess
 from typing import Protocol
 
@@ -59,10 +60,10 @@ class LiveEPWRunner:
         return all(shutil.which(b) for b in (cfg.pw_x, cfg.ph_x, cfg.epw_x))
 
     def run(self, approx: PeriodicApproximant, cfg: EPWConfig) -> str:
-        from . import qe_input   # lazy import: Task 8
-
         if not self.available(cfg):
             raise EPWError("pw.x/ph.x/epw.x not all on PATH")
+        from . import qe_input   # lazy import: Task 8
+
         prefix = scratch_name(approx)
         workdir = os.path.join(cfg.scratch_root, prefix)
         if os.path.exists(workdir):
@@ -70,12 +71,25 @@ class LiveEPWRunner:
         os.makedirs(workdir, exist_ok=True)
 
         def _run(binary: str, deck: str, *, converge: bool) -> str:
-            proc = subprocess.run(
-                [binary], input=deck, cwd=workdir, text=True,
-                capture_output=True, timeout=cfg.timeout_s, start_new_session=True,
+            proc = subprocess.Popen(
+                [binary], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT, cwd=workdir, text=True,
+                start_new_session=True,
             )
-            assert_stage_complete(proc.stdout, require_convergence=converge)
-            return proc.stdout
+            try:
+                stdout, _ = proc.communicate(input=deck, timeout=cfg.timeout_s)
+            except subprocess.TimeoutExpired as exc:
+                # G-KILL: kill the whole process group (mpirun + MPI ranks), not
+                # just the direct child, then fail closed as an EPWError so one
+                # candidate's timeout never aborts the screen.
+                try:
+                    os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
+                except ProcessLookupError:
+                    pass
+                proc.wait()
+                raise EPWError(f"{binary} timed out after {cfg.timeout_s}s") from exc
+            assert_stage_complete(stdout, require_convergence=converge)
+            return stdout
 
         _run(cfg.pw_x, qe_input.scf_input(approx, cfg), converge=True)
         _run(cfg.ph_x, qe_input.ph_input(approx, cfg, prefix), converge=False)
@@ -85,4 +99,5 @@ class LiveEPWRunner:
         a2f_path = os.path.join(workdir, f"{prefix}.a2f")
         if not os.path.exists(a2f_path):
             raise EPWError(f"EPW produced no .a2f at {a2f_path}")
-        return open(a2f_path, encoding="utf-8").read()
+        with open(a2f_path, encoding="utf-8") as fh:
+            return fh.read()

@@ -14,7 +14,10 @@ and why.
 
 Determinism: given the same :class:`~orme_lab.config.LabConfig`, a screen
 produces byte-identical output. No wall-clock, no unseeded RNG. Records are
-sorted by a total, tie-broken key so ordering is stable.
+sorted by a total, tie-broken key so ordering is stable. This byte-identity
+guarantee applies to the toy path (``backend=None``); with a live EPW backend
+the ``sc_*`` columns are not byte-reproducible (external solver MPI/BLAS
+nondeterminism).
 """
 
 from __future__ import annotations
@@ -26,7 +29,7 @@ from dataclasses import asdict, dataclass, field
 from .backends import Capability, DFTBackend
 from .config import DEFAULT_CONFIG, LabConfig
 from .coupling import inter_unit_coupling_score, is_electronically_isolated
-from .evidence import badge as evidence_badge, candidate_evidence_level
+from .evidence import badge as evidence_badge, candidate_evidence_level, LAB_CEILING
 from .electron_density import is_ricebean, ricebean_score
 from .elements import Element, core_screen_elements
 from .geometry import (
@@ -91,6 +94,12 @@ class CandidateRecord:
     ruled_out: bool
     evidence_level: int
     verdict: str
+    sc_tc_kelvin: float | None = None
+    sc_lambda: float | None = None
+    sc_omega_log_k: float | None = None
+    sc_gap_mev: float | None = None
+    sc_mu_star: float | None = None
+    sc_source: str = "toy"
 
     def as_csv_row(self) -> dict[str, object]:
         row = asdict(self)
@@ -181,6 +190,18 @@ def evaluate_candidate(
         thresholds=th,
     )
 
+    # SC_GAP seam (EPW). Gated on provides AND available; a per-candidate failure
+    # is recorded, never allowed to abort the screen (G-GATE). No silent fallback.
+    from .epw.result import EPWResult
+    epw = EPWResult.toy_absent()
+    if backend is not None and backend.provides(Capability.SC_GAP) and backend.available():
+        try:
+            epw = backend.superconducting_gap(element, geometry, state)
+        except Exception as exc:  # backstop; the backend should already catch EPWError
+            epw = EPWResult.failed(f"{type(exc).__name__}: {exc}")
+
+    level = min(candidate_evidence_level(not plaus.all_passed), LAB_CEILING)
+
     return CandidateRecord(
         element=element.symbol,
         geometry=geometry.label,
@@ -201,8 +222,14 @@ def evaluate_candidate(
         susceptibility=obs.molar_susceptibility,
         sc_plausibility=plaus.score,
         ruled_out=not plaus.all_passed,
-        evidence_level=int(candidate_evidence_level(not plaus.all_passed)),
-        verdict=f"{plaus.explain()} [{evidence_badge(candidate_evidence_level(not plaus.all_passed))}]",
+        evidence_level=int(level),
+        verdict=f"{plaus.explain()} [{evidence_badge(level)}]",
+        sc_tc_kelvin=epw.tc_kelvin,
+        sc_lambda=epw.lam,
+        sc_omega_log_k=epw.omega_log_k,
+        sc_gap_mev=epw.gap_mev,
+        sc_mu_star=epw.mu_star,
+        sc_source=epw.source,
     )
 
 

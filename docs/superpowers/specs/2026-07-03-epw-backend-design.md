@@ -292,26 +292,29 @@ EPW/Migdal-Eliashberg-in-magnetic-systems prior-art search must exist before the
 seam is described as validated anywhere; the skeptic reasoned from canonical
 theory and did not substitute for that search.
 
-## 11. Open decisions reserved for the operator
+## 11. Open decisions — RESOLVED (operator, 2026-07-03)
 
-- **O1 — primary-source bar.** Constants are secondary-source-confirmed and the
-  form reproduces the EPW reference code, but the primary PRB pages (Allen–Dynes
-  1975, McMillan 1968) were not obtained. Accept secondary + the recorded prior-art
-  caveat, or require APS/library scans before finalizing?
-- **O2 — geometry sensitivity band.** The NN→crystal map is under-determined
-  (fcc vs hcp, hcp c/a). Proposed default: the element's actual ambient close-packed
-  structure (fcc for Ir/Pt/Pd/Rh/Au/Ag, hcp for Os/Ru) with ideal c/a, optionally
-  sweeping the alternative and reporting a band. Confirm the default convention.
-- **O3 — strong-coupling gap.** Ship `Δ=1.764 k_B Tc` with a documented caveat, or
-  suppress/flag the BCS gap above a λ threshold (≈1.5) where the true ratio exceeds
-  1.764?
-- **O4 — charter reconciliation (evidence classification; operator authority).**
-  `candidate_evidence_level` emits Level 3 while the charter/`LAB_CEILING` caps at
-  Level 2. The `min(level, LAB_CEILING)` clamp (G-LEVEL) enforces the cap
-  conservatively, but *reconciling why Level 3 is emitted* is reserved to you.
-- **O5 — live-run reproducibility policy.** Accept `sc_*` as explicitly
-  non-deterministic, or require pinned MPI ranks/threads + Tc quantized to a
-  documented precision to preserve a weakened determinism claim on the EPW path?
+All five resolved to the proposed defaults; framing (§1) affirmed by the operator.
+
+- **O1 — primary-source bar. RESOLVED: proceed with secondary-source confirmation
+  + the recorded prior-art caveat.** Module docstrings carry the "constants
+  secondary-source-confirmed; primary PRB pages not obtained" note. Obtaining the
+  APS/library scans remains a nice-to-have, not a blocker.
+- **O2 — geometry convention. RESOLVED: use the element's actual ambient
+  close-packed structure** (fcc for Ir/Pt/Pd/Rh/Au/Ag, hcp for Os/Ru) with ideal
+  c/a (1.633) as the primary approximant. A fcc/hcp + c/a sensitivity sweep is
+  optional/deferred, not required for the first cut.
+- **O3 — strong-coupling gap. RESOLVED: ship `Δ=1.764 k_B Tc` with a documented
+  caveat** (the ratio understates the true gap for λ≳1.5). No λ-threshold
+  suppression in the first cut; the caveat lives in the `bcs_gap` docstring and the
+  metric provenance.
+- **O4 — charter reconciliation. RESOLVED (code fix): clamp to
+  `min(candidate_evidence_level(...), LAB_CEILING)`** so no record exceeds Level 2.
+  The deeper question of why `candidate_evidence_level` emits Level 3 is noted for a
+  future evidence-classification pass but is out of scope here.
+- **O5 — live-run reproducibility. RESOLVED: `sc_*` columns are explicitly
+  non-deterministic;** the byte-identity guarantee is scoped to `backend=None`. No
+  MPI-rank pinning / Tc quantization in the first cut.
 
 ## 12. Out of scope
 

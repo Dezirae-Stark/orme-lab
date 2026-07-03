@@ -39,6 +39,7 @@ if TYPE_CHECKING:  # avoid import cycles — these are annotation-only
     from .elements import Element
     from .geometry import ClusterGeometry
     from .spin_states import SpinState
+    from .epw.result import EPWResult
 
 
 class Capability(Enum):
@@ -153,8 +154,13 @@ class DFTBackend:
         """Computed magnetic susceptibility (replaces the Curie-law proxy)."""
         self._nyi(Capability.SUSCEPTIBILITY)
 
-    def superconducting_gap(self, coupling: float, carrier_proxy: float) -> float:
-        """Eliashberg/EPW superconducting gap or Tc (a real pairing estimate)."""
+    def superconducting_gap(self, element: "Element", geometry: "ClusterGeometry",
+                            spin_state: "SpinState") -> "EPWResult":
+        """Electron-phonon Eliashberg Tc for a periodic approximant of the
+        candidate (Capability.SC_GAP). PHONON-CHANNEL, SPIN-SINGLET Tc of an
+        IMPOSED reference lattice -- NOT a superconductivity estimate for the
+        ORME claim; a returned Tc is not evidence the material superconducts.
+        Level 2."""
         self._nyi(Capability.SC_GAP)
 
     def plasmon_energy(self, number_density_m3: float) -> float:
@@ -243,12 +249,34 @@ class QuantumEspressoBackend(DFTBackend):
 
 class EPWBackend(DFTBackend):
     name = "epw"
-    description = "EPW — ab-initio electron-phonon / Eliashberg (with Quantum ESPRESSO)"
-    declared_capabilities = frozenset({
-        Capability.INTER_UNIT_COUPLING,
-        Capability.SC_GAP,
-    })
-    binary_requires = ("epw.x",)
+    description = "EPW — ab-initio electron-phonon / Eliashberg Tc (with Quantum ESPRESSO)"
+    declared_capabilities = frozenset({Capability.SC_GAP})   # G-CAP: NOT INTER_UNIT_COUPLING
+    binary_requires = ("pw.x", "ph.x", "epw.x")              # G-GATE: all three
+
+    def __init__(self, config=None, runner=None):
+        from .epw.config import EPWConfig
+        from .epw.runner import LiveEPWRunner
+        self.config = config or EPWConfig()
+        self.runner = runner or LiveEPWRunner()
+
+    @implemented(Capability.SC_GAP)
+    def superconducting_gap(self, element, geometry, spin_state):
+        from .epw.approximant import build_approximant, ApproximantUndefined
+        from .epw.parse import parse_a2f
+        from .epw.result import EPWResult
+        from .epw.runner import EPWError
+        from .epw.spectral import EliashbergFunction
+
+        try:
+            approx = build_approximant(element, geometry, spin_state)
+        except ApproximantUndefined as exc:
+            return EPWResult.not_applicable(str(exc))
+        try:
+            raw = self.runner.run(approx, self.config)
+        except EPWError as exc:
+            return EPWResult.failed(str(exc))
+        ef = raw if isinstance(raw, EliashbergFunction) else parse_a2f(raw, self.config.smearing_column)
+        return EPWResult.from_eliashberg(ef, self.config.mu_star, approx.label)
 
 
 #: Registry of the named backend adapters, by short name.
@@ -266,10 +294,10 @@ def list_backends() -> list[type[DFTBackend]]:
     return list(BACKENDS.values())
 
 
-def get_backend(name: str) -> DFTBackend:
+def get_backend(name: str, **kwargs) -> DFTBackend:
     """Instantiate a named backend adapter (e.g. ``get_backend("pyscf")``)."""
     try:
-        return BACKENDS[name]()
+        return BACKENDS[name](**kwargs)
     except KeyError as exc:  # pragma: no cover - defensive
         known = ", ".join(sorted(BACKENDS))
         raise KeyError(f"Unknown backend {name!r}. Known: {known}") from exc

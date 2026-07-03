@@ -261,6 +261,7 @@ class EPWBackend(DFTBackend):
 
     @implemented(Capability.SC_GAP)
     def superconducting_gap(self, element, geometry, spin_state):
+        """See DFTBackend.superconducting_gap -- phonon-channel counterfactual Tc, Level 2."""
         from .epw.approximant import build_approximant, ApproximantUndefined
         from .epw.parse import parse_a2f
         from .epw.result import EPWResult
@@ -275,7 +276,8 @@ class EPWBackend(DFTBackend):
             raw = self.runner.run(approx, self.config)
         except EPWError as exc:
             return EPWResult.failed(str(exc))
-        ef = raw if isinstance(raw, EliashbergFunction) else parse_a2f(raw, self.config.smearing_column)
+        ef = raw if isinstance(raw, EliashbergFunction) else parse_a2f(
+            raw, self.config.smearing_column, self.config.omega_min_k, self.config.unstable_tol)
         return EPWResult.from_eliashberg(ef, self.config.mu_star, approx.label)
 
 

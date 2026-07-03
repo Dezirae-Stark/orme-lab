@@ -1,7 +1,7 @@
 """Build the periodic reference lattice EPW runs on.
 
-COUNTERFACTUAL: an imposed close-packed crystal inferred from the cluster's
-single nearest-neighbour distance and forced into the high-spin state. NOT the
+COUNTERFACTUAL: an imposed close-packed crystal, inferred from the cluster's
+nearest-neighbour distance and carrying the candidate's spin state. NOT the
 ORME motif, NOT the finite cluster, NOT any observed phase. The NN->crystal map
 is under-determined (fcc/hcp, c/a are conventions); see the spec's O2. Level 2.
 """

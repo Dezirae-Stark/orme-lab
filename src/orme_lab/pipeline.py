@@ -94,6 +94,9 @@ class CandidateRecord:
     ruled_out: bool
     evidence_level: int
     verdict: str
+    # EPW electron-phonon Tc of a periodic approximant (phonon-channel,
+    # spin-singlet counterfactual -- NOT evidence of superconductivity;
+    # Level 2). None on the toy path.
     sc_tc_kelvin: float | None = None
     sc_lambda: float | None = None
     sc_omega_log_k: float | None = None

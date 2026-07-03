@@ -48,13 +48,13 @@ def _atomic_blocks(approx: PeriodicApproximant, cfg: EPWConfig) -> str:
 
 
 def _pw(approx: PeriodicApproximant, cfg: EPWConfig, calc: str,
-        kmesh: tuple[int, int, int]) -> str:
+        kmesh: tuple[int, int, int], prefix: str) -> str:
     pd = cfg.resolved_pseudo_dir()
     kx, ky, kz = kmesh
     return (
         "&control\n"
         f"    calculation = '{calc}'\n"
-        f"    prefix = 'orme'\n"
+        f"    prefix = '{prefix}'\n"
         f"    pseudo_dir = '{pd}'\n"
         "    outdir = './'\n"
         "/\n"
@@ -67,15 +67,17 @@ def _pw(approx: PeriodicApproximant, cfg: EPWConfig, calc: str,
     )
 
 
-def scf_input(approx: PeriodicApproximant, cfg: EPWConfig) -> str:
-    return _pw(approx, cfg, "scf", cfg.k_coarse)
+def scf_input(approx: PeriodicApproximant, cfg: EPWConfig, prefix: str) -> str:
+    return _pw(approx, cfg, "scf", cfg.k_coarse, prefix)
 
 
-def nscf_input(approx: PeriodicApproximant, cfg: EPWConfig) -> str:
-    return _pw(approx, cfg, "nscf", cfg.k_fine)
+def nscf_input(approx: PeriodicApproximant, cfg: EPWConfig, prefix: str) -> str:
+    return _pw(approx, cfg, "nscf", cfg.k_fine, prefix)
 
 
 def ph_input(approx: PeriodicApproximant, cfg: EPWConfig, prefix: str) -> str:
+    # `approx` is intentionally unused here: real ph.x reads cell/species from
+    # the prefix save files written by scf, not from this deck.
     qx, qy, qz = cfg.q_coarse
     return (
         f"phonons for {prefix}\n"
@@ -91,6 +93,8 @@ def ph_input(approx: PeriodicApproximant, cfg: EPWConfig, prefix: str) -> str:
 
 
 def epw_input(approx: PeriodicApproximant, cfg: EPWConfig, prefix: str) -> str:
+    # `approx` is intentionally unused here: real epw.x reads cell/species from
+    # the prefix save files written by scf/nscf, not from this deck.
     kf = cfg.k_fine
     qf = cfg.q_fine
     kc = cfg.k_coarse

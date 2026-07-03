@@ -5,9 +5,11 @@ omega_log = exp[(2/lambda) int (alpha2F/omega) ln omega d omega]
 omega_2   = [(2/lambda) int alpha2F * omega d omega]^(1/2)
 
 Moments are returned in the SAME unit as the omega grid. Guards (G-SPEC): the
-1/omega factor and 0*ln0 term at omega<=omega_min are skipped; alpha2F is
-clipped to >= 0; a null positive spectrum returns (0,0,0), never NaN; negative
-(unstable) phonon frequencies set .unstable.
+full non-negative grid (including omega=0) is retained; only the divergent
+1/omega factor and 0*ln0 term at omega<=omega_min are zeroed in the integrand,
+not the grid points themselves; alpha2F is clipped to >= 0; a null positive
+spectrum returns (0,0,0), never NaN; negative (unstable) phonon frequencies set
+.unstable.
 """
 
 from __future__ import annotations

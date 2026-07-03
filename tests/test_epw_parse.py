@@ -25,3 +25,8 @@ def test_column_selection_out_of_range_raises():
     import pytest
     with pytest.raises(ValueError):
         parse_a2f(FIX.read_text(), column=11)   # only 10 smearing columns (2..11 -> 1..10)
+
+
+def test_parse_a2f_forwards_omega_min_and_unstable_tol():
+    ef = parse_a2f(FIX.read_text(), column=5, omega_min=2.5, unstable_tol=0.2)
+    assert ef.omega_min == 2.5 and ef.unstable_tol == 0.2

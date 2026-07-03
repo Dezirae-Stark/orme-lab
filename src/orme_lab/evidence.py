@@ -66,5 +66,9 @@ def candidate_evidence_level(ruled_out: bool) -> EvidenceLevel:
     prediction** (Level 3) — it tells you which measurement would be decisive —
     but it asserts nothing at Level 4+; that requires a real observation and,
     ultimately, independent replication.
+
+    Note: this function may return LABORATORY_PREDICTION (Level 3), but the
+    pipeline clamps the recorded ``evidence_level`` to ``LAB_CEILING``
+    (Level 2) via ``min(...)`` — see ``pipeline.evaluate_candidate``.
     """
     return EvidenceLevel.LABORATORY_PREDICTION if not ruled_out else EvidenceLevel.SIMULATION_CANDIDATE

@@ -1,4 +1,3 @@
-import os
 from orme_lab.epw.config import EPWConfig
 
 

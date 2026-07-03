@@ -91,9 +91,9 @@ class LiveEPWRunner:
             assert_stage_complete(stdout, require_convergence=converge)
             return stdout
 
-        _run(cfg.pw_x, qe_input.scf_input(approx, cfg), converge=True)
+        _run(cfg.pw_x, qe_input.scf_input(approx, cfg, prefix), converge=True)
         _run(cfg.ph_x, qe_input.ph_input(approx, cfg, prefix), converge=False)
-        _run(cfg.pw_x, qe_input.nscf_input(approx, cfg), converge=True)
+        _run(cfg.pw_x, qe_input.nscf_input(approx, cfg, prefix), converge=True)
         _run(cfg.epw_x, qe_input.epw_input(approx, cfg, prefix), converge=False)
 
         a2f_path = os.path.join(workdir, f"{prefix}.a2f")

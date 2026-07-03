@@ -16,7 +16,8 @@ MEV_TO_KELVIN = 11.604518          # 1 meV in Kelvin (1/k_B)
 _N_SMEARING = 10                   # columns 2..11
 
 
-def parse_a2f(text: str, column: int = 5) -> EliashbergFunction:
+def parse_a2f(text: str, column: int = 5, omega_min: float = 1e-6,
+              unstable_tol: float = 0.05) -> EliashbergFunction:
     if not (1 <= column <= _N_SMEARING):
         raise ValueError(f"smearing column {column} out of range 1..{_N_SMEARING}")
     omega: list[float] = []
@@ -35,4 +36,5 @@ def parse_a2f(text: str, column: int = 5) -> EliashbergFunction:
             continue
         omega.append(w_mev * MEV_TO_KELVIN)
         a2f.append(val)
-    return EliashbergFunction(omega=tuple(omega), a2f=tuple(a2f))
+    return EliashbergFunction(omega=tuple(omega), a2f=tuple(a2f),
+                              omega_min=omega_min, unstable_tol=unstable_tol)

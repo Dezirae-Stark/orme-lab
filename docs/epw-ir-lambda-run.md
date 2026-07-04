@@ -60,10 +60,54 @@ v1, flagged `lambda-delta 0.0` with a note). A run reaching DONE is a *survived
 triage*, not a validated result — fold the numbers in here and confirm those two
 by hand before citing any λ.
 
+## First live run (2026-07-04) — infra validated end-to-end; parked at the semicore Wannier gate
+
+The service ran clean through **provision (QE+EPW built in ~2.5 min), SCF, DFPT
+phonons, dvscf collection, and NSCF** for non-magnetic Ir, then reached the EPW
+stage. Two real issues surfaced (both the "PGM Wannier defaults need tuning" caveat
+made concrete); the first is fixed, the second is a human gate.
+
+**Surprise:** the 1-atom primitive cell runs the whole SCF→ph→nscf chain in ~3
+minutes, not the ½–1 day estimated (over-anchored to Pb). This is a minutes-scale
+run, which is why the tuning was done live rather than via the scheduled check-in.
+
+**Sanity (all real):** SCF converged in 8 iters, total energy −181.77 Ry, 29 k-pts,
+Methfessel-Paxton smearing. NSCF Fermi energy **E_F = 21.545 eV**.
+
+### Bug 1 (FIXED + codified): disentanglement window sat below the bands
+The default dis windows were absolute `[-8, 20]` eV, but QE reports **absolute**
+eigenvalues and Ir's E_F = 21.5 eV — so the window was entirely below the bands and
+Wannier90 failed *"Energy window contains fewer states than number of target WFs."*
+Fix: the EPW deck windows are now **Fermi-referenced** — `epw_input(..., fermi_ev=E_F)`
+adds E_F to the cfg offsets (outer `[-12,+20]`, frozen `[-2,+1]` around E_F). The
+supervisor parses E_F from `nscf.out` and regenerates `epw.in` before the EPW stage.
+Confirmed live: this got EPW past Wannierization into the elph interpolation.
+
+### Bug 2 (OPEN — human gate): semicore electron count vs the d+s manifold
+The SSSP pseudo `Ir_pbe_v1.2.uspp.F.UPF` carries **Z_valence = 15** (5p⁶ semicore +
+5d⁷6s²), but the `nbndsub = 6` (d+s) Wannier manifold holds only 12 electrons. EPW's
+fine-grid `efermig` then fails *"cannot bracket Ef"* — it did not exclude the 3 deep
+5p semicore bands (it warned *"dis_win_min is ignored"* → `ibndstart=1` →
+`nbndskip=0` → tried to place 15 e⁻ in 6 bands). In EPW 7.3.1 `nbndskip` is
+**auto-derived** from `ibndstart` (not a settable namelist var), so the exclusion has
+to be driven correctly, or the pseudo changed. Three resolution paths (a **decision**,
+because a mis-set Wannier subspace yields a confidently-wrong λ):
+
+1. **9-valence Ir pseudo** (5d⁷6s², no 5p semicore) → 6 bands hold 9 e⁻, EPW's happy
+   path, no exclusion needed. Cleanest; EPW also prefers norm-conserving over this
+   ultrasoft pseudo. Needs sourcing + verifying a trustworthy NC/9-val Ir UPF.
+2. **Force the semicore exclusion** so EPW sets `ibndstart=4` (skip 3 bands, −6 e⁻):
+   tune the nscf band count + dis window so the 5p bands are excluded and detected.
+3. **Widen the active space** to `nbndsub=9` (Ir:p,d,s) — physically muddies the
+   d+s-superconductivity picture; not preferred.
+
+The supervisor now parks with a precise reason at this exact gate (efermig/semicore
+and window-too-narrow are distinct, named park messages).
+
 ## Results
 
-_(filled when tiers complete — read `/opt/orme-epw/state/result_*.json`)_
+_(filled when the semicore gate is resolved — read `/opt/orme-epw/state/result_*.json`)_
 
-- Tier 0 (non-magnetic) λ: _pending_
-- Tier 1 capability verdict: _pending_
+- Tier 0 (non-magnetic) λ: **blocked at Bug 2 (semicore/efermig)** — awaiting pseudo/exclude-bands decision
+- Tier 1 capability verdict: _pending (after Tier 0 converges)_
 - Tier 2 (high-spin) λ: _pending / skipped_

@@ -33,18 +33,32 @@ _DECKS = {"scf": qe_input.scf_input, "nscf": qe_input.nscf_input,
           "ph": qe_input.ph_input, "epw": qe_input.epw_input}
 
 
-def write_decks(spin: str, workdir: str, pseudo_dir: str, upf: str) -> dict[str, str]:
-    """Write the four QE/EPW decks; return {name: path}."""
+def write_decks(spin: str, workdir: str, pseudo_dir: str, upf: str,
+                fermi_ev: float | None = None) -> dict[str, str]:
+    """Write the four QE/EPW decks; return {name: path}. ``fermi_ev`` shifts the
+    EPW disentanglement windows to bracket E_F (see qe_input.epw_input)."""
     os.makedirs(workdir, exist_ok=True)
     approx = ir.ir_approximant(spin)
     cfg = ir.ir_config(pseudo_dir=pseudo_dir, upf=upf)
     paths: dict[str, str] = {}
     for name, writer in _DECKS.items():
         path = os.path.join(workdir, f"{name}.in")
+        kw = {"fermi_ev": fermi_ev} if name == "epw" else {}
         with open(path, "w", encoding="utf-8") as fh:
-            fh.write(writer(approx, cfg, PREFIX))
+            fh.write(writer(approx, cfg, PREFIX, **kw))
         paths[name] = path
     return paths
+
+
+def write_epw_deck(spin: str, workdir: str, pseudo_dir: str, upf: str,
+                   fermi_ev: float) -> str:
+    """Regenerate ONLY epw.in with E_F-referenced windows (called after nscf)."""
+    approx = ir.ir_approximant(spin)
+    cfg = ir.ir_config(pseudo_dir=pseudo_dir, upf=upf)
+    path = os.path.join(workdir, "epw.in")
+    with open(path, "w", encoding="utf-8") as fh:
+        fh.write(qe_input.epw_input(approx, cfg, PREFIX, fermi_ev=fermi_ev))
+    return path
 
 
 def parse_lambda(workdir: str, smearing_column: int = 5) -> dict[str, float]:
@@ -63,8 +77,10 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--pseudo-dir", default="")
     p.add_argument("--upf", default="Ir.upf")
     p.add_argument("--deck-only", action="store_true")
+    p.add_argument("--epw-deck", action="store_true")
     p.add_argument("--parse", action="store_true")
     p.add_argument("--gate", action="store_true")
+    p.add_argument("--fermi", type=float, help="E_F (eV) to reference EPW dis windows")
     # gate inputs
     p.add_argument("--wannier-dev", type=float)
     p.add_argument("--lambda-delta", type=float)
@@ -74,8 +90,14 @@ def main(argv: list[str] | None = None) -> int:
     args = p.parse_args(argv)
 
     if args.deck_only:
-        paths = write_decks(args.spin, args.workdir, args.pseudo_dir, args.upf)
+        paths = write_decks(args.spin, args.workdir, args.pseudo_dir, args.upf, args.fermi)
         print(json.dumps({k: os.path.basename(v) for k, v in paths.items()}))
+        return 0
+    if args.epw_deck:
+        if args.fermi is None:
+            p.error("--epw-deck requires --fermi")
+        path = write_epw_deck(args.spin, args.workdir, args.pseudo_dir, args.upf, args.fermi)
+        print(json.dumps({"epw": os.path.basename(path)}))
         return 0
     if args.parse:
         print(json.dumps(parse_lambda(args.workdir)))

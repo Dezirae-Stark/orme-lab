@@ -39,6 +39,14 @@ def ir_config(pseudo_dir: str, upf: str,
               *, ecutwfc_ry: float = 60.0, ecutrho_ry: float = 480.0) -> EPWConfig:
     # ecutwfc/ecutrho default to the Pb-tuned 60/480; CONFIRM against the SSSP
     # recommendation for the chosen Ir UPF at provision time and override if needed.
+    #
+    # dis_* are FERMI-RELATIVE offsets (eV): the deck writer adds E_F (parsed from
+    # nscf) so the disentanglement window brackets the bands. Empirically fixed on
+    # the first live Ir run -- the absolute default [-8,20] landed entirely below
+    # E_F=21.5 eV and Wannier90 failed "fewer states than target WFs". These offsets
+    # (outer [-12,+20], frozen [-2,+1] around E_F) got EPW past Wannierization into
+    # the elph sum on real epw.x. Still a per-element default; confirm the Wannier
+    # band match by hand before trusting the lambda.
     return EPWConfig(
         pseudo_dir=pseudo_dir,
         pseudopotentials=(("Ir", upf),),
@@ -48,6 +56,10 @@ def ir_config(pseudo_dir: str, upf: str,
         q_coarse=(4, 4, 4),
         k_fine=(20, 20, 20),
         q_fine=(20, 20, 20),
-        nbndsub=6,          # 5 d + 1 s explicit active space
+        nbndsub=6,              # 5 d + 1 s explicit active space
+        dis_win_min_ev=-12.0,   # relative to E_F (added by epw_input via --fermi)
+        dis_win_max_ev=20.0,
+        dis_froz_min_ev=-2.0,
+        dis_froz_max_ev=1.0,
         mu_star=0.10,
     )

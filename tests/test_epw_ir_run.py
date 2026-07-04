@@ -78,3 +78,23 @@ def test_driver_deck_only_none_spin_is_nonmagnetic(tmp_path):
     run_ir_epw.write_decks(spin="none", workdir=str(tmp_path),
                            pseudo_dir="/pseudo", upf="Ir.upf")
     assert "nspin = 2" not in (tmp_path / "scf.in").read_text()
+
+
+def test_epw_windows_are_fermi_referenced(tmp_path):
+    # QE reports absolute eigenvalues; the deck must add E_F so the disentanglement
+    # window brackets the bands (the first live-run bug: [-8,20] sat below E_F=21.5).
+    run_ir_epw.write_epw_deck(spin="none", workdir=str(tmp_path),
+                              pseudo_dir="/p", upf="Ir.upf", fermi_ev=21.5)
+    epw = (tmp_path / "epw.in").read_text()
+    assert "dis_win_min = 9.5" in epw      # -12.0 + 21.5
+    assert "dis_win_max = 41.5" in epw     # +20.0 + 21.5
+    assert "dis_froz_min = 19.5" in epw    #  -2.0 + 21.5
+    assert "dis_froz_max = 22.5" in epw    #  +1.0 + 21.5
+
+
+def test_epw_windows_absolute_without_fermi(tmp_path):
+    # legacy path (no fermi) keeps absolute cfg values -- must not silently shift.
+    run_ir_epw.write_decks(spin="none", workdir=str(tmp_path),
+                           pseudo_dir="/p", upf="Ir.upf")
+    epw = (tmp_path / "epw.in").read_text()
+    assert "dis_win_min = -12.0" in epw

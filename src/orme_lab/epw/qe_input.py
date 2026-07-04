@@ -148,14 +148,28 @@ def ph_input(approx: PeriodicApproximant, cfg: EPWConfig, prefix: str) -> str:
     )
 
 
-def epw_input(approx: PeriodicApproximant, cfg: EPWConfig, prefix: str) -> str:
+def epw_input(approx: PeriodicApproximant, cfg: EPWConfig, prefix: str,
+              *, fermi_ev: float | None = None) -> str:
     """Full &inputepw for an elph -> a2f run. STRUCTURE validated vs real EPW
     (fcc Pb). The Wannier block (nbndsub/proj/dis windows) uses PGM defaults that
-    need per-element tuning -- documented in the module docstring and the wiki."""
+    need per-element tuning -- documented in the module docstring and the wiki.
+
+    Disentanglement windows: QE reports ABSOLUTE eigenvalues, and a transition
+    metal's E_F sits well above 0 (Ir: 21.5 eV), so a window written on a
+    Fermi-referenced assumption lands entirely below the bands and Wannier90 fails
+    with "Energy window contains fewer states than number of target WFs". When
+    ``fermi_ev`` is given, the cfg dis_* values are treated as offsets RELATIVE to
+    E_F (win = fermi_ev + offset); when None they are absolute (the legacy Pb path).
+    """
     kf, qf, kc, qc = cfg.k_fine, cfg.q_fine, cfg.k_coarse, cfg.q_coarse
     el = approx.element_symbol
     nw = _wannier_count(approx, cfg)
     mass = _atomic_mass(el)
+    shift = fermi_ev if fermi_ev is not None else 0.0
+    win_min = cfg.dis_win_min_ev + shift
+    win_max = cfg.dis_win_max_ev + shift
+    froz_min = cfg.dis_froz_min_ev + shift
+    froz_max = cfg.dis_froz_max_ev + shift
     return (
         "&inputepw\n"
         f"    prefix = '{prefix}'\n"
@@ -172,8 +186,8 @@ def epw_input(approx: PeriodicApproximant, cfg: EPWConfig, prefix: str) -> str:
         f"    nbndsub = {nw}\n"
         f"    num_iter = {cfg.wann_num_iter}\n"
         f"    proj(1) = '{el}:d'\n    proj(2) = '{el}:s'\n"
-        f"    dis_win_min = {cfg.dis_win_min_ev}\n    dis_win_max = {cfg.dis_win_max_ev}\n"
-        f"    dis_froz_min = {cfg.dis_froz_min_ev}\n    dis_froz_max = {cfg.dis_froz_max_ev}\n"
+        f"    dis_win_min = {win_min}\n    dis_win_max = {win_max}\n"
+        f"    dis_froz_min = {froz_min}\n    dis_froz_max = {froz_max}\n"
         # --- a2f / Eliashberg sampling ---
         f"    fsthick = {cfg.fsthick_ev}\n"
         f"    degaussw = {cfg.degaussw_ev}\n"

@@ -163,8 +163,23 @@ run_pipeline() { # $1 spin  $2 tag
   is_done "$tag.coll" || { collect_dvscf "$wd"; mark_done "$tag.coll"; }
   is_done "$tag.nscf" || { run_qe "$QE_BIN/pw.x"  "$wd/nscf.in" "$wd/nscf.out" "" || park "$tag nscf run error"; \
         need_out "$wd/nscf.out" "JOB DONE" "$tag nscf"; mark_done "$tag.nscf"; }
-  is_done "$tag.epw"  || { run_qe "$QE_BIN/epw.x" "$wd/epw.in"  "$wd/epw.out"  "-npool $NP" || park "$tag epw run error"; \
-        need_out "$wd/epw.out" "JOB DONE" "$tag epw"; mark_done "$tag.epw"; }
+  if ! is_done "$tag.epw"; then
+    # QE reports ABSOLUTE eigenvalues; reference the Wannier disentanglement windows
+    # to the parsed Fermi energy (else the window lands below the bands -> W90 fails).
+    local ef; ef=$(grep -i "the Fermi energy is" "$wd/nscf.out" | tail -1 | grep -oE "[0-9]+\.[0-9]+")
+    [ -n "$ef" ] || park "$tag: could not parse Fermi energy from nscf.out"
+    ( cd "$REPO" && python3 scripts/run_ir_epw.py --epw-deck --spin "$spin" --workdir "$wd" \
+        --pseudo-dir "$(dirname "$IR_UPF")" --upf "$(basename "$IR_UPF")" --fermi "$ef" ) \
+        || park "$tag epw deck (E_F=$ef) regeneration failed"
+    log "$tag: EPW dis windows referenced to E_F=$ef eV"
+    run_qe "$QE_BIN/epw.x" "$wd/epw.in" "$wd/epw.out" "-npool $NP" || true
+    if grep -qiE "cannot bracket Ef|efermig" "$wd/epw.out" 2>/dev/null; then
+      park "$tag EPW efermig 'cannot bracket Ef': the pseudo's valence electrons do not fit the nbndsub=6 (d+s) Wannier manifold -- semicore bands not excluded (needs an exclude-bands / lower nbndsub-valence pseudo decision; see docs/epw-ir-lambda-run.md). HUMAN GATE."
+    fi
+    grep -qiE "dis_windows: Energy window contains fewer states" "$wd/epw.out" 2>/dev/null && \
+      park "$tag EPW Wannier disentanglement window contains < nbndsub states (window/E_F mismatch). HUMAN GATE."
+    need_out "$wd/epw.out" "JOB DONE" "$tag epw"; mark_done "$tag.epw"
+  fi
 }
 
 gate() { # $1 tag  -> writes result_$tag.json; parks if not trustworthy

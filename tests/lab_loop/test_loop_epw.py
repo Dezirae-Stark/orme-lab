@@ -1,10 +1,9 @@
-from orme_lab.backends import EPWBackend
+from _fake_epw import FailingEPWBackend, UnavailableEPWBackend
 from orme_lab.lab_loop.avenue import (
     Avenue, ActionSpec, Tier, FalsificationCondition, Comparator,
 )
 from orme_lab.lab_loop.config import LoopConfig
 from orme_lab.lab_loop.loop import run_loop
-from _fake_epw import FailingEPWBackend
 
 
 def _av(use_epw):
@@ -27,7 +26,7 @@ class OneShot:
 
 
 def test_digest_flags_epw_unavailable():
-    rep = run_loop(OneShot([_av(use_epw=True)]), epw_backend=EPWBackend(),
+    rep = run_loop(OneShot([_av(use_epw=True)]), epw_backend=UnavailableEPWBackend(),
                    loop_config=LoopConfig(max_avenues=3, proposals_per_round=3,
                                           convergence_rounds=1))
     assert "epw" in rep.digest.lower()

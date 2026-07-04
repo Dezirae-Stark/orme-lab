@@ -39,12 +39,23 @@ def test_stub_adapters_implement_nothing_and_seams_raise():
 
 
 def test_availability_probes_dependencies():
-    # None of these tools are installed in the test env.
+    # Availability is a REAL probe of installed tools, not an environment
+    # assumption: ASE/PySCF need absent Python packages, so they are False
+    # regardless of what else is installed.
     assert ASEBackend.available() is False
     assert PySCFBackend.available() is False
-    assert available_backends() == []
     # the abstract base has no requirements and is never "available"
     assert DFTBackend.available() is False
+    # available_backends() reports EXACTLY those whose deps are present here
+    # (empty on a bare box; installing e.g. Quantum ESPRESSO flips entries on --
+    # see the available_backends docstring). Verify the mechanism, not the ambient
+    # state: every listed backend is genuinely available, and deps-absent ones are
+    # excluded.
+    avail = available_backends()
+    for name in avail:
+        assert BACKENDS[name].available() is True
+    assert "ase" not in avail
+    assert "pyscf" not in avail
 
 
 def test_unknown_backend_raises():

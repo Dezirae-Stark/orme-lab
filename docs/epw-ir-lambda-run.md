@@ -83,7 +83,26 @@ adds E_F to the cfg offsets (outer `[-12,+20]`, frozen `[-2,+1]` around E_F). Th
 supervisor parses E_F from `nscf.out` and regenerates `epw.in` before the EPW stage.
 Confirmed live: this got EPW past Wannierization into the elph interpolation.
 
-### Bug 2 (OPEN — human gate): semicore electron count vs the d+s manifold
+### Bug 2 (RESOLVED): semicore electron count vs the d+s manifold
+
+**Resolved via the pseudo decision + explicit band exclusion.** Verified honest
+finding: **no trustworthy 9-valence Ir pseudo exists** — SG15/PseudoDojo deliberately
+include the 5s5p semicore for 5d metals to avoid ghost states (SG15 Ir file confirmed
+Z_valence=17). So the semicore exclusion is unavoidable; switched to the SG15 ONCV
+**norm-conserving** scalar-relativistic Ir pseudo (Hamann v3.3.0), which EPW's
+Wannier/elph path prefers over the ultrasoft one anyway. Then EPW's own warning gave
+the fix: *"dis_win_min is ignored … use `bands_skipped = 'exclude_bands = ...'`"* — it
+does **not** exclude bands by energy window; you must name them. The 17-valence pseudo
+has 4 semicore bands (5s+5p), so `bands_skipped = 'exclude_bands = 1:4'` leaves the
+9 electrons (5d⁷6s²) the 6-band d+s manifold can hold. **Verified live:** *"Number of
+excluded bands is (4)"*, *"Fermi level will be determined with 9.00000 electrons"*,
+efermig succeeds, EPW computes the coupling (mass-enhancement λ accumulating ~0.5–0.9
+over the 8000-point fine q-grid). Codified: `EPWConfig.n_semicore_bands` → the deck;
+Ir sets it to 4. The three-fix chain that got Ir through real EPW:
+**(1) Fermi-referenced windows → (2) norm-conserving pseudo → (3) explicit
+`exclude_bands=1:4`.**
+
+### (superseded) Bug 2 original framing
 The SSSP pseudo `Ir_pbe_v1.2.uspp.F.UPF` carries **Z_valence = 15** (5p⁶ semicore +
 5d⁷6s²), but the `nbndsub = 6` (d+s) Wannier manifold holds only 12 electrons. EPW's
 fine-grid `efermig` then fails *"cannot bracket Ef"* — it did not exclude the 3 deep
@@ -108,6 +127,15 @@ and window-too-narrow are distinct, named park messages).
 
 _(filled when the semicore gate is resolved — read `/opt/orme-epw/state/result_*.json`)_
 
-- Tier 0 (non-magnetic) λ: **blocked at Bug 2 (semicore/efermig)** — awaiting pseudo/exclude-bands decision
+- Tier 0 (non-magnetic) λ: **EPW running to completion (cgroup-capped service) — computing the α²F over the 8000-pt fine q-grid (~40 min); mass-enhancement λ accumulating ~0.5–0.9. Final λ / ω_log / Allen-Dynes Tc pending JOB DONE.**
 - Tier 1 capability verdict: _pending (after Tier 0 converges)_
 - Tier 2 (high-spin) λ: _pending / skipped_
+
+**Reproducibility note:** the fix was proven on a hand-launched EPW run, then the
+resource-capped systemd service was restarted to run the final EPW from the codified
+`bands_skipped` deck — so the number, when it lands, comes from the managed pipeline,
+not a manual edit. A scheduled check-in (CronCreate, every 30 min) pings on stage
+transitions / DONE / PARK; it is session-only (the run's persistence is independent).
+
+**Timeline correction:** SCF→ph→NSCF is ~3 min, but the EPW phonon-self-energy over
+the 20³ fine q-grid is ~40 min — that stage, not DFPT, is the real per-element cost.

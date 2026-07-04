@@ -127,9 +127,11 @@ and window-too-narrow are distinct, named park messages).
 
 _(filled when the semicore gate is resolved — read `/opt/orme-epw/state/result_*.json`)_
 
-- Tier 0 (non-magnetic) λ: **EPW running to completion (cgroup-capped service) — computing the α²F over the 8000-pt fine q-grid (~40 min); mass-enhancement λ accumulating ~0.5–0.9. Final λ / ω_log / Allen-Dynes Tc pending JOB DONE.**
-- Tier 1 capability verdict: _pending (after Tier 0 converges)_
-- Tier 2 (high-spin) λ: _pending / skipped_
+- **Tier 0 (non-magnetic) — COMPLETE: λ = 1.106, ω_log = 91.8 K (7.9 meV), Allen-Dynes Tc = 7.9 K (μ*=0.10) / 6.9 K (μ*=0.13).** Cross-checked: EPW's own λ=1.1047 vs our α²F integration 1.106. Min phonon freq +2.93 cm⁻¹ (stable). GATE: trustworthy (wannier_match auto-proxy). **NOT a claim about Ir metal** — real Ir is a weak coupler (λ≈0.35, Tc=0.11 K); this λ is inflated by the counterfactual EXPANDED lattice (3.988 vs 3.839 Å) softening the phonons (ω_log 7.9 meV is very soft). λ∝1/ω². Level-2 counterfactual, no external check.
+- **Tier 1 capability verdict: no explicit spin-polarized-elph guard in EPW 5.8.1 source → proceeded to Tier 2.**
+- **Tier 2 (high-spin) — MOMENT COLLAPSED.** The imposed high-spin SCF (starting_magnetization=0.3) relaxed to **total mag = 0.00, absolute mag = 0.00 Bohr/cell** — bulk fcc Ir quenches the moment self-consistently (itinerant metal). So Tier 2 ≡ Tier 0 electronically (same λ≈1.10). **Meaning:** the bulk EPW approximant *cannot represent* the high-spin ORME state — bulk metals quench local moments — so this path does not test the ORME high-spin premise; a finite-cluster / localized treatment would be needed for that. A limitation of the approximant, not a refutation.
+
+**Harness bugs found + fixed (Tier 0 had actually completed but was parked):** EPW exits on benign IEEE_DENORMAL after writing the α²F + computing λ, without printing 'JOB DONE'; and names the file `ir.a2f.<smear>.<temp>` not bare `ir.a2f`. Completion is now detected by α²F-present + 'lambda :'; parser globs the suffixed file.
 
 **Reproducibility note:** the fix was proven on a hand-launched EPW run, then the
 resource-capped systemd service was restarted to run the final EPW from the codified

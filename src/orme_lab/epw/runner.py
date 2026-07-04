@@ -8,6 +8,7 @@ them to EPWResult.failed so one candidate's failure never aborts a screen.
 
 from __future__ import annotations
 
+import glob
 import hashlib
 import os
 import shutil
@@ -22,6 +23,44 @@ from .config import EPWConfig
 class EPWError(Exception):
     """A live EPW run failed (missing binary/pseudo, non-convergence, crash,
     timeout, or truncated output)."""
+
+
+def _read_nqpt(control_ph_xml: str) -> int:
+    """Number of irreducible q-points from ph.x's control_ph.xml (mirrors EPW's
+    pp.py get_nqpt: the count is on the line after the NUMBER_OF_Q_POINTS tag)."""
+    with open(control_ph_xml, encoding="utf-8") as fh:
+        lines = fh.readlines()
+    for i, ln in enumerate(lines):
+        if "NUMBER_OF_Q_POINTS" in ln:
+            return int(lines[i + 1])
+    raise EPWError(f"no NUMBER_OF_Q_POINTS in {control_ph_xml}")
+
+
+def collect_dvscf(workdir: str, prefix: str, cfg: EPWConfig) -> None:
+    """Gather ph.x's phonon perturbation potentials + dynamical matrices into the
+    EPW dvscf_dir (mirrors EPW's pp.py, parallel / no-XML / no-PAW branch). epw.x
+    reads dvscf_dir='./save' for the elph interpolation; without this stage it has
+    no phonon potentials. Validated on the fcc-Pb reference (docs/epw-live-...)."""
+    ph0 = os.path.join(workdir, "_ph0")
+    save = os.path.join(workdir, cfg.dvscf_dir)
+    os.makedirs(save, exist_ok=True)
+    nqpt = _read_nqpt(os.path.join(ph0, f"{prefix}.phsave", "control_ph.xml"))
+    for iq in range(1, nqpt + 1):
+        shutil.copy(os.path.join(workdir, f"{prefix}.dyn{iq}"),
+                    os.path.join(save, f"{prefix}.dyn_q{iq}"))
+        if iq == 1:
+            src = sorted(glob.glob(os.path.join(ph0, f"{prefix}.dvscf*")))
+            if not src:
+                raise EPWError(f"no dvscf potentials in {ph0} (did ph.x set fildvscf?)")
+            shutil.copy(src[0], os.path.join(save, f"{prefix}.dvscf_q1"))
+            dst = os.path.join(save, f"{prefix}.phsave")
+            if not os.path.exists(dst):
+                shutil.copytree(os.path.join(ph0, f"{prefix}.phsave"), dst)
+        else:
+            src = sorted(glob.glob(os.path.join(ph0, f"{prefix}.q_{iq}", f"{prefix}.dvscf*")))
+            if not src:
+                raise EPWError(f"no dvscf potentials for q{iq} in {ph0}")
+            shutil.copy(src[0], os.path.join(save, f"{prefix}.dvscf_q{iq}"))
 
 
 class EPWRunner(Protocol):
@@ -93,6 +132,7 @@ class LiveEPWRunner:
 
         _run(cfg.pw_x, qe_input.scf_input(approx, cfg, prefix), converge=True)
         _run(cfg.ph_x, qe_input.ph_input(approx, cfg, prefix), converge=False)
+        collect_dvscf(workdir, prefix, cfg)   # gather phonon potentials for epw.x
         # NSCF is non-self-consistent (calculation='nscf'): it reads the SCF
         # density and computes eigenvalues on the fine grid, reaching JOB DONE
         # but NEVER printing "convergence has been achieved". Requiring the SCF

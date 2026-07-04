@@ -46,31 +46,58 @@ the string `"convergence has been achieved"`. But NSCF is **non-self-consistent*
 (only `JOB DONE` / no-`CRASH` is the correct completion check). Verified: the live run now
 clears the NSCF seam.
 
-## 4. Remaining gap — the EPW final-stage deck is incomplete
+## 3b. REFERENCE VALIDATION PASSED — fcc Pb (2026-07-04)
 
-`qe_input.epw_input` writes a minimal `&inputepw` (`elph`/`epwwrite`/`a2f` + grids) that a real
-`epw.x` rejects. Grounded in the actual `epw.x` errors + EPW 5.8.1 source (`EPW/src/epw_readin.f90`):
+The full chain was run end-to-end on the EPW **fcc-Pb** reference example against the source-built
+binaries (reduced 3×3×3 q-grid, 16 cores): SCF → DFPT → **dvscf collection** → EPW-scf → EPW-nscf →
+EPW Wannier interpolation → α²F → λ → Tc. Result:
 
-1. **`phonselfen = .true.` is required** — `a2f` needs it (`epw_readin.f90:813`). Note QE's error
-   message says "phonoselfen" but the namelist variable is **`phonselfen`** (message typo).
-2. **Wannierization block missing** — without `wannierize = .true.` + `nbndsub` + projections
-   (`proj(1)=...`) + `dis_win_max`/`dis_froz_max`, EPW fails at `loadbm (77): error opening ukk
-   file` (it tries to read Wannier data that was never built). Projections are per-element
-   (d + s orbitals for the PGMs).
-3. **`dvscf_dir` + a phonon-collection stage missing** — EPW needs the phonon perturbation
-   potentials gathered into a `save/` dir (the standard EPW `pp.py` step). The runner has no such
-   stage between `ph.x` and `epw.x`.
+- **λ (total) = 1.192** — matches the published Pb (woSOC) value ≈ 1.1–1.2.
+- **Allen–Dynes Tc = 6.52 K** at μ\*=0.10 (experimental Pb Tc = 7.2 K; the ~0.7 K shortfall is the
+  known spin-orbit contribution this without-SOC run omits).
 
-Completing this is a scoped EPW-input-engineering task (per-element Wannier projections + the
-dvscf-collection pipeline stage), best done iteratively against the real `epw.x` here.
+This is the charter validation gate: the pipeline reproduces a **known superconductor's** electron-
+phonon coupling and Tc. It validates the source build, the full workflow, the dvscf collection, and
+that EPW's α²F output feeds `parse_a2f` correctly. (One flag gotcha found: `epw.x` requires
+`nprocs = npool × nimage`, so launch it as `mpirun -np N epw.x -npool N`.)
 
-## 5. Physical validation — not done, charter-gated
+## 4. EPW deck completion — DONE (structure validated), PGM Wannier params flagged
 
-Even once the deck runs end-to-end, **no `sc_*` value is validated** until the pipeline
-reproduces a published λ/Tc for a reference system (e.g. fcc Pb λ≈1.6 / Tc≈7 K, or Al). Per the
-charter, no result may be called "validated" without that primary-source comparison. Live EPW is
-also non-deterministic (MPI/BLAS) — the `sc_*` columns are not byte-reproducible (already noted
-in `pipeline.py`).
+`qe_input.epw_input` now writes the full `&inputepw` matching the validated Pb structure, and the
+runner has a `collect_dvscf` stage (mirrors EPW's `pp.py`, parallel/no-XML/no-PAW branch — the exact
+path the Pb run used). Fixes landed and tested (`tests/test_epw_deck_complete.py`):
+
+1. **`phonselfen = .true.`** added (`a2f` needs it; the QE error message's "phonoselfen" is a typo —
+   the namelist variable is `phonselfen`).
+2. **Wannierization block** added: `wannierize`, `nbndsub` (d+s = 6 default for PGMs), `proj('<El>:d')`
+   + `proj('<El>:s')`, `dis_win/froz` windows.
+3. **`dvscf_dir` + the collection stage** added — `collect_dvscf()` gathers `_ph0` potentials + dyn
+   matrices into `save/`, exactly the missing `pp.py` step.
+4. **Two more real bugs fixed in the same pass:** (a) `_atomic_blocks` wrote mass `1.0` for every
+   element — a **critical** phonon bug (ω ∝ 1/√mass); now uses real amu (`ATOMIC_MASS_AMU`). (b)
+   `nscf_input` used `K_POINTS automatic` (symmetry-reduced); EPW needs the **full uniform grid**,
+   now emitted via `_uniform_kpoints`.
+
+**STILL UNVALIDATED (honest):** the PGM-specific Wannier inputs (`nbndsub`, `proj`, `dis_win/froz`
+windows) are *grounded defaults*, NOT converged per element. The Pb STRUCTURE is validated; a given
+ORME PGM approximant's computed λ is **not** to be trusted until its Wannierization is tuned and
+converged against real `epw.x` (transition-metal d-band disentanglement is finicky). Legacy §4 gap
+detail retained below for provenance.
+
+<details><summary>Original §4 gap (pre-completion, retained)</summary>
+
+- `phonselfen` typo, Wannier block, and `dvscf_dir` + a phonon-collection stage were all missing.
+  EPW needs the phonon perturbation potentials gathered into a `save/` dir (the standard `pp.py` step);
+  the runner had no such stage between `ph.x` and `epw.x`.
+
+</details>
+
+## 5. Physical validation — reference DONE (Pb), per-ORME-candidate NOT
+
+The reference gate is **cleared** (§3b: Pb λ=1.19, Tc=6.5 K reproduced). But **no `sc_*` value for
+an ORME PGM approximant is validated** — each needs its Wannierization converged AND, ideally, a
+sanity-check against literature for that element before its λ is trusted. Live EPW is also
+non-deterministic (MPI/BLAS) — the `sc_*` columns are not byte-reproducible (noted in `pipeline.py`).
 
 ## 6. Test-suite impact (env-robust)
 

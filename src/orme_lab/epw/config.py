@@ -31,6 +31,20 @@ class EPWConfig:
     epw_x: str = "epw.x"
     scratch_root: str = "/tmp/orme-epw"
     timeout_s: int = 86400
+    tr2_ph: str = "1.0d-14"          # DFPT self-consistency threshold (ph.x)
+    # --- EPW Wannier / a2f knobs (structure validated vs QE 7.3.1/EPW 5.8.1 on
+    # fcc Pb, lam=1.19; the per-element PGM projection/windows below are DEFAULTS
+    # that need tuning + convergence against real epw.x before any lam is trusted).
+    nbndsub: int = 0                 # 0 = auto (d+s Wannier count from valence)
+    wann_num_iter: int = 300
+    dis_win_min_ev: float = -8.0
+    dis_win_max_ev: float = 20.0
+    dis_froz_min_ev: float = -8.0
+    dis_froz_max_ev: float = 10.0
+    fsthick_ev: float = 6.0
+    degaussw_ev: float = 0.05
+    temps_k: float = 0.3
+    dvscf_dir: str = "save"          # collected phonon-potential dir EPW reads
 
     def resolved_pseudo_dir(self) -> str:
         return self.pseudo_dir or os.environ.get("ESPRESSO_PSEUDO", "")

@@ -53,6 +53,7 @@ def write_decks(spin: str, workdir: str, pseudo_dir: str, upf: str,
 def write_epw_deck(spin: str, workdir: str, pseudo_dir: str, upf: str,
                    fermi_ev: float) -> str:
     """Regenerate ONLY epw.in with E_F-referenced windows (called after nscf)."""
+    os.makedirs(workdir, exist_ok=True)
     approx = ir.ir_approximant(spin)
     cfg = ir.ir_config(pseudo_dir=pseudo_dir, upf=upf)
     path = os.path.join(workdir, "epw.in")

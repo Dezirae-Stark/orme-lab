@@ -169,10 +169,10 @@ def epw_input(approx: PeriodicApproximant, cfg: EPWConfig, prefix: str,
     nw = _wannier_count(approx, cfg)
     mass = _atomic_mass(el)
     shift = fermi_ev if fermi_ev is not None else 0.0
-    win_min = cfg.dis_win_min_ev + shift
-    win_max = cfg.dis_win_max_ev + shift
-    froz_min = cfg.dis_froz_min_ev + shift
-    froz_max = cfg.dis_froz_max_ev + shift
+    win_min = round(cfg.dis_win_min_ev + shift, 4)   # round: avoid float-repr noise
+    win_max = round(cfg.dis_win_max_ev + shift, 4)   # (e.g. 20.0+22.4295=42.4295..04)
+    froz_min = round(cfg.dis_froz_min_ev + shift, 4)
+    froz_max = round(cfg.dis_froz_max_ev + shift, 4)
     return (
         "&inputepw\n"
         f"    prefix = '{prefix}'\n"

@@ -43,6 +43,7 @@ METRIC_RANGES: dict[str, tuple[float, float]] = {
     "max_structural_stability": (0.0, 1.0),
     "max_carrier_proxy": (0.0, 1.0),
     "n_isolated": (0.0, 1000.0),
+    "max_em_coherence_score": (0.0, 1.0),
 }
 
 

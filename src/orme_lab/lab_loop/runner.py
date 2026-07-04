@@ -59,6 +59,7 @@ _METRIC_KEYS = (
     # anisotropy/stability/carrier/isolation hypotheses (H1/H2/H3/H5/H6), not
     # just the SC-gate aggregate. All are toy-model quantities → Level-2 triage.
     "max_anisotropy", "max_structural_stability", "max_carrier_proxy", "n_isolated",
+    "max_em_coherence_score",
 )
 
 
@@ -81,6 +82,7 @@ def _metrics(records: tuple[CandidateRecord, ...]) -> dict[str, float]:
         "max_structural_stability": _max("structural_stability"),
         "max_carrier_proxy": _max("carrier_proxy"),
         "n_isolated": float(sum(1 for r in records if r.isolated)),
+        "max_em_coherence_score": _max("em_coherence_score"),
     }
 
 
@@ -97,7 +99,10 @@ def run_avenue(
     """
     action = avenue.action
     run_config = replace(
-        config, applied_field_t=action.applied_field_t, temperature_k=action.temperature_k,
+        config,
+        applied_field_t=action.applied_field_t,
+        temperature_k=action.temperature_k,
+        compute_em_coherence=action.use_em,
     )
     elements = [get_element(sym) for sym in action.elements]
 

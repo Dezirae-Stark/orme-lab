@@ -37,6 +37,7 @@
       <div class="tabbar" role="tablist" aria-label="View">
         <button class="tab active" data-tab="lab" role="tab" aria-selected="true">Lab</button>
         <button class="tab" data-tab="registry" role="tab" aria-selected="false">Registry</button>
+        <button class="tab" data-tab="loop" role="tab" aria-selected="false">Loop</button>
       </div>
 
       <div class="group">
@@ -229,6 +230,46 @@
           <button id="regClose" class="chip">← back to lab</button>
         </header>
         <div id="regBody"></div>
+      </div>
+    </div>
+
+    <!-- AUTONOMOUS LAB-SCIENTIST LOOP -->
+    <div id="loop" class="reg-overlay" hidden>
+      <div class="reg-inner">
+        <header class="reg-head">
+          <div>
+            <div class="reg-eyebrow">Autonomous triage</div>
+            <h2 class="reg-title display">Lab-Scientist Loop</h2>
+            <p class="reg-sub">A bounded, self-driving loop that <strong>proposes</strong> research avenues, <strong>runs</strong> the simulated screens itself, <strong>triages</strong> them honestly, and <strong>acts</strong> on its own suggestions — while never conflating <em>“survived triage”</em> with <em>“validated.”</em> It runs in the Python package (<code>orme_lab.lab_loop</code>); a real sample digest is shown below.</p>
+          </div>
+          <button id="loopClose" class="chip">← back to lab</button>
+        </header>
+
+        <div class="loop-grid">
+          <div class="loop-card">
+            <h3 class="loop-h">The split that keeps it honest</h3>
+            <p>A <b>creative generator</b> (the <code>orme-lab-scientist</code> subagent) <b>proposes</b> avenues; a <b>deterministic core</b> <b>judges</b> them. They never swap roles — an LLM ranking its own conjectures is idea-triage, not evidence.</p>
+          </div>
+          <div class="loop-card">
+            <h3 class="loop-h">Anti-tautology gate</h3>
+            <p>An avenue is a finding only if its predictors reference an <b>off-gate</b> signal — something not re-derivable from the AND-gate’s own inputs. Otherwise it’s flagged <code>TAUTOLOGICAL</code> before it can score.</p>
+          </div>
+          <div class="loop-card">
+            <h3 class="loop-h">Must be able to fail</h3>
+            <p>Retiring a hypothesis is a <b>success</b>. Every avenue carries a falsification condition that <em>can</em> fire; a verdict of <code>KILLED_HYPOTHESIS</code> is progress, not failure.</p>
+          </div>
+          <div class="loop-card">
+            <h3 class="loop-h">Honesty by type</h3>
+            <p>The verdict vocabulary is <code>KILLED_HYPOTHESIS / SURVIVED / TAUTOLOGICAL / INCONCLUSIVE</code> — there is <b>no “VALIDATED” member</b>. Tier-3 “invent a new mechanism” avenues are quarantined, never run. Everything is clamped to <b>Level 2</b>.</p>
+          </div>
+        </div>
+
+        <h3 class="loop-h" style="margin-top:26px">Scoped hypotheses</h3>
+        <p class="reg-sub" style="margin-bottom:14px">Some claims are element- or geometry-specific, so the loop splits them so they retire independently: <code>H1-open-shell</code> {Ir, Os, Pt, Rh, Ru} vs <code>H1-closed-shell</code> {Ag, Au, Pd}, and <code>H3-cluster</code> vs <code>H3-monomer</code>. The boundary is the real <code>d_shell_vacancies</code> property, which exactly predicts the toy anisotropy — so killing the closed-shell claim never touches the open-shell one.</p>
+
+        <h3 class="loop-h" style="margin-top:22px">A real digest</h3>
+        <p class="reg-sub" style="margin-bottom:12px">Output of the offline generator over the default screen (24 avenues). Note the Level-2 ceiling, the killed hypothesis as a <em>success</em>, and leads framed as “worth measuring,” never as evidence.</p>
+        <pre id="loopDigest" class="loop-digest"></pre>
       </div>
     </div>
 

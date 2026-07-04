@@ -377,14 +377,30 @@ async function refreshProxyStatus() {
 
 // ---- view tabs (Lab | Registry) ------------------------------------------
 function setTab(name) {
-  const isRegistry = name === "registry";
-  $("registry").hidden = !isRegistry;
+  $("registry").hidden = name !== "registry";
+  $("loop").hidden = name !== "loop";
   document.querySelectorAll(".tab").forEach((t) => {
     const active = t.dataset.tab === name;
     t.classList.toggle("active", active);
     t.setAttribute("aria-selected", String(active));
   });
 }
+
+// A real digest from the offline generator (orme_lab.lab_loop), embedded so the
+// static page shows genuine loop output — the page can't run the Python loop.
+const LOOP_DIGEST = `# Autonomous lab-loop digest
+
+_Stopped: budget reached. Evidence ceiling: Level 2/6 — simulation candidate._
+_Nothing here is confirmed. A surviving lead is a screening/triage signal,_
+_not evidence of superconductivity; independent verification requires physical Level 4-6._
+
+## Hypotheses retired (killed in-sim)
+- H5 — by avenue H-Ir-monomer
+
+## Screening leads (NOT RULED OUT — Level <=2 triage signal, not evidence of superconductivity)
+- H-Ir-dimer (targeted H5) — worth real computation/measurement, not evidence of SC
+- H-Ir-linear_chain (targeted H5) — worth real computation/measurement, not evidence of SC
+- H-Ir-compact_cluster (targeted H5) — worth real computation/measurement, not evidence of SC`;
 
 // ---- eigenstate mode controls --------------------------------------------
 function eigenRepopulateM() {
@@ -494,11 +510,15 @@ function wireEigenToggle() {
 
 function wireTabs() {
   renderRegistry($("regBody"));
+  const digestEl = $("loopDigest");
+  if (digestEl) digestEl.textContent = LOOP_DIGEST;   // real loop output
   document.querySelectorAll(".tab").forEach((t) =>
     t.addEventListener("click", () => setTab(t.dataset.tab)));
   $("regClose").addEventListener("click", () => setTab("lab"));
+  const loopClose = $("loopClose");
+  if (loopClose) loopClose.addEventListener("click", () => setTab("lab"));
   document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape" && !$("registry").hidden) setTab("lab");
+    if (e.key === "Escape" && (!$("registry").hidden || !$("loop").hidden)) setTab("lab");
   });
 }
 

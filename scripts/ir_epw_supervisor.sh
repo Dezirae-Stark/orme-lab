@@ -268,7 +268,6 @@ provision() {
     || park "could not compute semicore count for $ELEMENT from $PSEUDO"
   echo "$NSEMI" > "$STATE/nsemi"
   log "provision: $ELEMENT pseudo=$PSEUDO, semicore skip=$NSEMI bands"
-  log "provision: OK  (Ir pseudo: $upf)"
   mark_done provision
 }
 

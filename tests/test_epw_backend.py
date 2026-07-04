@@ -4,7 +4,6 @@ from orme_lab.elements import get_element
 from orme_lab.geometry import make_compact_cluster, make_monomer
 from orme_lab.spin_states import high_spin_state
 from orme_lab.epw.spectral import EliashbergFunction
-from orme_lab.epw.config import EPWConfig
 
 
 class FakeRunner:

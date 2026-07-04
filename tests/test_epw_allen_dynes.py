@@ -1,5 +1,4 @@
 import math
-import pytest
 from orme_lab.epw.allen_dynes import allen_dynes_tc, bcs_gap_mev
 from orme_lab.epw.spectral import EliashbergFunction
 

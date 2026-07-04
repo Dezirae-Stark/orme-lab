@@ -26,7 +26,7 @@ from __future__ import annotations
 
 import math
 
-from .config import BOHR_MAGNETON, BOLTZMANN
+from .config import BOLTZMANN
 from .spin_states import SpinState
 
 

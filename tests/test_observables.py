@@ -23,7 +23,7 @@ from orme_lab.pipeline import (
     run_screen,
     structural_stability_proxy,
 )
-from orme_lab.spin_states import high_spin_state, low_spin_state
+from orme_lab.spin_states import high_spin_state
 from orme_lab.superconductivity import superconductivity_plausibility_score
 
 TH = ModelThresholds()

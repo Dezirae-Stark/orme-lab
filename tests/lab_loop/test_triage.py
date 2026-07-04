@@ -2,7 +2,7 @@ from orme_lab.lab_loop.avenue import (
     Avenue, ActionSpec, Tier, FalsificationCondition, Comparator,
 )
 from orme_lab.lab_loop.runner import AvenueResult
-from orme_lab.lab_loop.triage import Verdict, triage, TriageOutcome
+from orme_lab.lab_loop.triage import Verdict, triage
 
 
 def _avenue(predictors, metric="max_coupling", comp=Comparator.LT, thr=0.2, hyp="H5"):

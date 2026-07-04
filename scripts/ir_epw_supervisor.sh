@@ -36,7 +36,11 @@ MAX_BACKOFF_S="${ORME_MAX_BACKOFF_S:-2400}"   # park if throttled this long cont
 MAX_TUNE="${ORME_MAX_TUNE:-3}"                # bounded Wannier-window auto-retries
 
 mkdir -p "$STATE" "$SCRATCH"
-IR_UPF=""; [ -f "$STATE/ir_upf.path" ] && IR_UPF="$(cat "$STATE/ir_upf.path")"
+# ORME_IR_UPF pins an explicit pseudopotential (absolute path); else use whatever
+# provision discovered. The run is validated with the SG15 ONCV NC scalar-relativistic
+# Ir pseudo (Z=17, semicore) -- norm-conserving is preferred for EPW's Wannier/elph.
+IR_UPF="${ORME_IR_UPF:-}"
+[ -z "$IR_UPF" ] && [ -f "$STATE/ir_upf.path" ] && IR_UPF="$(cat "$STATE/ir_upf.path")"
 
 ts()  { date -u +%Y-%m-%dT%H:%M:%SZ; }
 log() { echo "[$(ts)] $*"; echo "[$(ts)] $*" >> "$STATE/supervisor.log"; }
@@ -221,9 +225,10 @@ capability_gate() {
 }
 
 provision() {
-  is_done provision && { IR_UPF="$(cat "$STATE/ir_upf.path")"; return 0; }
+  is_done provision && { [ -z "$IR_UPF" ] && IR_UPF="$(cat "$STATE/ir_upf.path")"; echo "$IR_UPF" > "$STATE/ir_upf.path"; return 0; }
   write_status "provision" "toolchain + QE/EPW build + pseudo"
   if [ "$DRY_RUN" = "1" ]; then echo "/dry/Ir.UPF" > "$STATE/ir_upf.path"; IR_UPF="/dry/Ir.UPF"; mkdir -p "$QE_BIN"; mark_done provision; return 0; fi
+  if [ -n "$IR_UPF" ]; then echo "$IR_UPF" > "$STATE/ir_upf.path"; log "provision: using pinned pseudo $IR_UPF"; fi
   export DEBIAN_FRONTEND=noninteractive
   log "provision: apt toolchain"
   apt-get update -qq >> "$STATE/provision.log" 2>&1
@@ -241,9 +246,11 @@ provision() {
     make -j"$NP" epw >> "$STATE/build_epw.log" 2>&1 || park "QE make epw failed (see build_epw.log)"
   fi
   for b in pw.x ph.x epw.x; do [ -x "$QE_BIN/$b" ] || park "binary $b missing after build"; done
-  local upf; upf=$(find /usr/share /usr/lib -iname 'Ir*.UPF' -o -iname 'Ir*.upf' 2>/dev/null | head -1)
-  [ -n "$upf" ] || park "no Ir pseudopotential (.UPF) found after installing SSSP data"
-  echo "$upf" > "$STATE/ir_upf.path"; IR_UPF="$upf"
+  if [ -z "$IR_UPF" ]; then
+    IR_UPF=$(find /usr/share /usr/lib -iname 'Ir*.UPF' -o -iname 'Ir*.upf' 2>/dev/null | head -1)
+    [ -n "$IR_UPF" ] || park "no Ir pseudopotential (.UPF) found after installing SSSP data"
+  fi
+  echo "$IR_UPF" > "$STATE/ir_upf.path"
   log "provision: OK  (Ir pseudo: $upf)"
   mark_done provision
 }

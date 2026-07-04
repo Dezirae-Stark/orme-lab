@@ -117,8 +117,11 @@ def _wannier_count(approx: PeriodicApproximant, cfg: EPWConfig) -> int:
 
 
 def nscf_input(approx: PeriodicApproximant, cfg: EPWConfig, prefix: str) -> str:
-    # nbnd headroom: enough bands to span the Wannier subspace + conduction slack.
-    nbnd = _wannier_count(approx, cfg) + 8
+    # nbnd headroom: enough bands to span the Wannier subspace + conduction slack,
+    # AND the deep semicore bands (5s/5p for the trustworthy 5d-metal pseudos, which
+    # are 15-17 valence -- no 9-valence NC Ir exists without ghost states) so EPW can
+    # exclude them and set nbndskip. +14 covers Ir's 4 semicore bands + the d+s window.
+    nbnd = _wannier_count(approx, cfg) + 14
     return (
         f"{_control('nscf', prefix, cfg.resolved_pseudo_dir())}"
         f"{_system(approx, cfg, nbnd=nbnd)}\n"

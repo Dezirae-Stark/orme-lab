@@ -48,11 +48,11 @@ class EPWConfig:
     degaussw_ev: float = 0.05
     temps_k: float = 0.3
     dvscf_dir: str = "save"          # collected phonon-potential dir EPW reads
-    lifc: bool = True                # interpolate phonons via real-space IFCs so the
-    asr_typ: str = "crystal"         # crystal acoustic sum rule is enforced (matdyn-
-                                     # style): Gamma acoustic modes -> 0. Without it,
-                                     # EPW's 'simple' ASR left them at +-few cm-1 and
-                                     # the a2f/stability were corrupted (Pt Tier-0).
+    lifc: bool = False               # crystal ASR via real-space IFCs. REQUIRES a
+    asr_typ: str = "crystal"         # q2r.x-generated IFC file (EPW's read_ifc_epw);
+                                     # keep OFF until that stage is wired, else EPW
+                                     # aborts. asr_typ only applies when lifc=True;
+                                     # with lifc=False EPW uses the 'simple' sum rule.
 
     def resolved_pseudo_dir(self) -> str:
         return self.pseudo_dir or os.environ.get("ESPRESSO_PSEUDO", "")

@@ -103,14 +103,25 @@ def test_parse_lambda_finds_suffixed_a2f(tmp_path):
     assert got.endswith("ir.a2f.01.0.300")
 
 
-def test_epw_deck_enforces_crystal_asr(tmp_path):
-    # lifc + asr_typ='crystal' -> Gamma acoustic modes = 0 (else the a2f/stability
-    # are corrupted by the acoustic-sum-rule artifact; found on the Pt Tier-0 run).
+def test_epw_deck_lifc_off_by_default_no_asr_block(tmp_path):
+    # lifc needs a q2r-generated IFC file; OFF by default so EPW doesn't abort. When
+    # off, the deck must NOT emit lifc/asr_typ (EPW falls back to the simple sum rule).
     run_ir_epw.write_epw_deck(spin="none", workdir=str(tmp_path),
                               pseudo_dir="/p", upf="Ir.upf", fermi_ev=21.5)
     epw = (tmp_path / "epw.in").read_text()
-    assert "lifc = .true." in epw
-    assert "asr_typ = 'crystal'" in epw
+    assert "lifc" not in epw
+
+
+def test_epw_deck_emits_crystal_asr_when_lifc_enabled():
+    # the capability exists for when the q2r/IFC stage is wired.
+    from dataclasses import replace
+
+    from orme_lab.epw import qe_input
+    from orme_lab.epw.runs import pgm
+    ap = pgm.pgm_approximant("Ir", "none")
+    cfg = replace(pgm.pgm_config("Ir", "/p", "Ir.upf", n_semicore=4), lifc=True)
+    epw = qe_input.epw_input(ap, cfg, "ir", fermi_ev=21.5)
+    assert "lifc = .true." in epw and "asr_typ = 'crystal'" in epw
 
 
 def test_epw_windows_absolute_without_fermi(tmp_path):

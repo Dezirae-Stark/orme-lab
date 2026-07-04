@@ -79,6 +79,31 @@ def plasmon_energy_ev(number_density_m3: float, effective_mass_ratio: float = 1.
     return HBAR * omega_p / EV_IN_JOULES
 
 
+def free_electron_density(element) -> float:
+    """Free-electron carrier density n (electrons per cubic metre), toy estimate.
+
+    n = conduction_electrons / V_atom, with conduction_electrons = the valence
+    s-electron count (the nearly-free carriers of the free-electron model) and
+    V_atom the volume of a sphere of the covalent radius.
+
+    This is the textbook metal plasmon density: Au (s=1, r=1.36 A) -> ~9.5e28 /m^3
+    -> plasmon ~9 eV, matching real gold.
+
+    HONEST LIMITATION: a d-band metal with no valence s-electron (Pd, [Kr]4d10)
+    returns n = 0 -> the EM channel is dark for it, because the free-electron
+    model genuinely does not apply. That is a real caveat, not a fudge. Flagged
+    toy, like every model in this package.
+    """
+    conduction_electrons = element.s_electrons
+    if conduction_electrons <= 0:
+        return 0.0
+    radius_m = element.covalent_radius_ang * 1e-10
+    v_atom = (4.0 / 3.0) * math.pi * radius_m**3
+    if v_atom <= 0:
+        return 0.0
+    return conduction_electrons / v_atom
+
+
 def anisotropic_plasmon_energies(
     base_energy_ev: float, anisotropy_score: float
 ) -> tuple[float, float]:

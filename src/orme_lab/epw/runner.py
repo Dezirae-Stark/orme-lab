@@ -93,7 +93,12 @@ class LiveEPWRunner:
 
         _run(cfg.pw_x, qe_input.scf_input(approx, cfg, prefix), converge=True)
         _run(cfg.ph_x, qe_input.ph_input(approx, cfg, prefix), converge=False)
-        _run(cfg.pw_x, qe_input.nscf_input(approx, cfg, prefix), converge=True)
+        # NSCF is non-self-consistent (calculation='nscf'): it reads the SCF
+        # density and computes eigenvalues on the fine grid, reaching JOB DONE
+        # but NEVER printing "convergence has been achieved". Requiring the SCF
+        # convergence string here fails every valid NSCF run (found live vs real
+        # QE 7.3.1). Only JOB DONE / no-CRASH is the correct completion check.
+        _run(cfg.pw_x, qe_input.nscf_input(approx, cfg, prefix), converge=False)
         _run(cfg.epw_x, qe_input.epw_input(approx, cfg, prefix), converge=False)
 
         a2f_path = os.path.join(workdir, f"{prefix}.a2f")

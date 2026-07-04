@@ -1,9 +1,8 @@
-from orme_lab.backends import EPWBackend
 from orme_lab.lab_loop.avenue import (
     Avenue, ActionSpec, Tier, FalsificationCondition, Comparator,
 )
 from orme_lab.lab_loop.runner import run_avenue
-from _fake_epw import FakeEPWBackend, FailingEPWBackend
+from _fake_epw import FakeEPWBackend, FailingEPWBackend, UnavailableEPWBackend
 
 
 def _epw_avenue(use_epw):
@@ -29,9 +28,11 @@ def test_ran_with_fake_backend():
     assert any(r.sc_lambda is not None for r in res.records)
 
 
-def test_unavailable_when_real_backend_and_no_binaries():
-    # Real EPWBackend: available() hard-checks pw.x/ph.x/epw.x, absent here.
-    res = run_avenue(_epw_avenue(use_epw=True), epw_backend=EPWBackend())
+def test_unavailable_when_backend_reports_unavailable():
+    # A backend whose available() is False (binaries absent, or unusable) must
+    # never run EPW; epw_status is "unavailable" and sc_* stay None. Uses an
+    # explicitly-unavailable backend so this holds even where real QE is installed.
+    res = run_avenue(_epw_avenue(use_epw=True), epw_backend=UnavailableEPWBackend())
     assert res.epw_status == "unavailable"
     assert all(r.sc_lambda is None for r in res.records)
 

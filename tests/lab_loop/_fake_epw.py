@@ -30,6 +30,15 @@ class FakeEPWBackend(EPWBackend):
         return True
 
 
+class UnavailableEPWBackend(EPWBackend):
+    """EPW backend that is unavailable regardless of environment (binaries may or
+    may not be installed). Exercises the 'unavailable' status/path deterministically
+    without depending on the ambient absence of pw.x/ph.x/epw.x."""
+    @classmethod
+    def available(cls) -> bool:
+        return False
+
+
 class FailingEPWRunner:
     """Runner that raises EPWError -- superconducting_gap catches it and returns
     EPWResult.failed (source 'epw:failed'), exercising the honest 'failed' status."""

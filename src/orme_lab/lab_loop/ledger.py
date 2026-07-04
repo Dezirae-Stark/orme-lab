@@ -9,12 +9,9 @@ import json
 from dataclasses import dataclass
 
 from .avenue import Avenue, MechanismProposal
+from .hypotheses import HYPOTHESES
 from .objective import action_key
 from .triage import TriageOutcome, Verdict
-
-#: The hypotheses the loop can retire (charter core + the load-bearing extended
-#: reframing). See docs/hypothesis_matrix.md.
-HYPOTHESES: tuple[str, ...] = ("H1", "H2", "H3", "H4", "H5", "H6", "H7", "H12", "H16")
 
 
 @dataclass(frozen=True)

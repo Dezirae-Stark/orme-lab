@@ -37,6 +37,12 @@ METRIC_RANGES: dict[str, tuple[float, float]] = {
     "n_survivors": (0.0, 1000.0),
     "max_sc_tc_kelvin": (0.0, 1000.0),
     "max_sc_lambda": (0.0, 10.0),
+    # Real screen quantities (toy-model, gate-internal) exposed for faithful
+    # falsification of the anisotropy/stability/carrier/isolation hypotheses.
+    "max_anisotropy": (0.0, 1.0),
+    "max_structural_stability": (0.0, 1.0),
+    "max_carrier_proxy": (0.0, 1.0),
+    "n_isolated": (0.0, 1000.0),
 }
 
 

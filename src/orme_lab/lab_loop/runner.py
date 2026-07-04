@@ -52,13 +52,19 @@ class AvenueResult:
     metrics: dict[str, float]
 
 
+_METRIC_KEYS = (
+    "max_sc_plausibility", "max_coupling", "max_field_suppression", "n_survivors",
+    "max_sc_tc_kelvin", "max_sc_lambda",
+    # Real screen quantities exposed so falsifiers can faithfully test the
+    # anisotropy/stability/carrier/isolation hypotheses (H1/H2/H3/H5/H6), not
+    # just the SC-gate aggregate. All are toy-model quantities → Level-2 triage.
+    "max_anisotropy", "max_structural_stability", "max_carrier_proxy", "n_isolated",
+)
+
+
 def _metrics(records: tuple[CandidateRecord, ...]) -> dict[str, float]:
     if not records:
-        return {
-            "max_sc_plausibility": 0.0, "max_coupling": 0.0,
-            "max_field_suppression": 0.0, "n_survivors": 0.0,
-            "max_sc_tc_kelvin": 0.0, "max_sc_lambda": 0.0,
-        }
+        return {k: 0.0 for k in _METRIC_KEYS}
 
     def _max(attr: str) -> float:
         vals = [getattr(r, attr) for r in records if getattr(r, attr) is not None]
@@ -71,6 +77,10 @@ def _metrics(records: tuple[CandidateRecord, ...]) -> dict[str, float]:
         "n_survivors": float(sum(1 for r in records if not r.ruled_out)),
         "max_sc_tc_kelvin": _max("sc_tc_kelvin"),
         "max_sc_lambda": _max("sc_lambda"),
+        "max_anisotropy": _max("anisotropy"),
+        "max_structural_stability": _max("structural_stability"),
+        "max_carrier_proxy": _max("carrier_proxy"),
+        "n_isolated": float(sum(1 for r in records if r.isolated)),
     }
 
 

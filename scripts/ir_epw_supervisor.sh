@@ -138,12 +138,20 @@ cfg=pgm_config('$ELEMENT', os.path.dirname('$PSEUDO'), os.path.basename('$PSEUDO
 collect_dvscf('$1','$SYM',cfg)" ) || park "dvscf collection failed"
 }
 
-min_phonon_freq_cm() { # $1 workdir -> min cm-1 across freq lines (imaginary detection)
+min_phonon_freq_cm() { # $1 workdir -> min cm-1 EXCLUDING the q=Gamma block
+  # ph.out is raw DFPT (not ASR-corrected), so the Gamma acoustic modes carry a
+  # +-few cm-1 acoustic-sum-rule artifact (they are 0 by symmetry). Excluding the
+  # Gamma block makes the stability check reflect real (off-Gamma) imaginary modes.
+  # NOTE: correct for monatomic fcc (no Gamma optical modes); an hcp/multi-atom cell
+  # would need to exclude only the 3 acoustic branches at Gamma, not the whole block.
   local wd=$1
   if [ "$DRY_RUN" = "1" ]; then echo "120.0"; return; fi
   local m
-  m=$(grep -hE "freq \(" "$wd"/*.out 2>/dev/null | grep -oE "= *-?[0-9]+\.[0-9]+ \[cm-1\]" \
-      | grep -oE "\-?[0-9]+\.[0-9]+" | sort -g | head -1)
+  m=$(awk '
+    /q *= *\(/ { g = ($4+0==0 && $5+0==0 && $6+0==0) }
+    /freq *\(/ && $NF=="[cm-1]" && !g { v=$(NF-1)+0; if (seen++==0 || v<min) min=v }
+    END { if (seen) printf "%.4f", min; else print "NA" }
+  ' "$wd"/ph.out 2>/dev/null)
   [ -n "$m" ] && echo "$m" || echo "NA"
 }
 

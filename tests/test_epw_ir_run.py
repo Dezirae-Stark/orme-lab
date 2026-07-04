@@ -103,6 +103,16 @@ def test_parse_lambda_finds_suffixed_a2f(tmp_path):
     assert got.endswith("ir.a2f.01.0.300")
 
 
+def test_epw_deck_enforces_crystal_asr(tmp_path):
+    # lifc + asr_typ='crystal' -> Gamma acoustic modes = 0 (else the a2f/stability
+    # are corrupted by the acoustic-sum-rule artifact; found on the Pt Tier-0 run).
+    run_ir_epw.write_epw_deck(spin="none", workdir=str(tmp_path),
+                              pseudo_dir="/p", upf="Ir.upf", fermi_ev=21.5)
+    epw = (tmp_path / "epw.in").read_text()
+    assert "lifc = .true." in epw
+    assert "asr_typ = 'crystal'" in epw
+
+
 def test_epw_windows_absolute_without_fermi(tmp_path):
     # legacy path (no fermi) keeps absolute cfg values -- must not silently shift.
     run_ir_epw.write_decks(spin="none", workdir=str(tmp_path),

@@ -179,6 +179,11 @@ def epw_input(approx: PeriodicApproximant, cfg: EPWConfig, prefix: str,
         "    outdir = './'\n"
         f"    amass(1) = {mass}\n"
         "    elph = .true.\n"
+        # Enforce the crystal acoustic sum rule via real-space IFC interpolation, so
+        # the Gamma acoustic modes are 0 (not the +-few cm-1 ASR noise that corrupts
+        # the a2f/stability). lifc=.true. + asr_typ='crystal' == matdyn-style ASR.
+        + (f"    lifc = .true.\n    asr_typ = '{cfg.asr_typ}'\n" if cfg.lifc else "")
+        +
         "    epbwrite = .true.\n    epbread = .false.\n"
         "    epwwrite = .true.\n    epwread = .false.\n"
         "    phonselfen = .true.\n"

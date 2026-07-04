@@ -125,6 +125,23 @@ export const HYPOTHESES = [
   },
 ];
 
+// Provenance of the claim space these hypotheses formalize. Recorded as ORIGIN,
+// not endorsement: the H-series renders testable a set of claims that originate
+// OUTSIDE science, so the notebook names where they come from and their true
+// standing (Level 0, unfalsifiable as stated). The lab's job is translation into
+// falsifiable tests — never crediting the source.
+export const PROVENANCE = {
+  claim: "High-spin monatomic platinum-group-metal / gold → superconductivity (“ORME”).",
+  origin:
+    "David Radius Hudson's “Orbitally Rearranged Monatomic Elements” claims " +
+    "(1995 lecture), recompiled in esoteric secondary sources — e.g. halexandria.org " +
+    "(D. S. Ward, 2003), which frames it via consciousness and biblical “Manna.”",
+  standing:
+    "Level 0 — concept, unfalsifiable as originally stated; mixed with non-scientific " +
+    "framing. The “nuclear superconductivity” variant is out of this lab's " +
+    "electron-phonon model. Logged as provenance, moves no candidate on the ladder.",
+};
+
 // Each hypothesis links to the live metric that most directly bears on it
 // (a key in metrics.js). Drives the registry ↔ lab cross-link.
 const METRIC_FOR = {
@@ -175,5 +192,9 @@ export function renderRegistry(el) {
     `<div class="reg-section-label">Core hypotheses · H-01–H-07 <span>the project spec</span></div>` +
     `<div class="hyp-grid">${core.map(card).join("")}</div>` +
     `<div class="reg-section-label">Extended hypotheses · H-12–H-20 <span>from the source research thread</span></div>` +
-    `<div class="hyp-grid">${ext.map(card).join("")}</div>`;
+    `<div class="hyp-grid">${ext.map(card).join("")}</div>` +
+    `<div class="reg-section-label">Provenance <span>where these claims originate</span></div>` +
+    `<p class="reg-provenance"><strong>Claim:</strong> ${PROVENANCE.claim}<br>` +
+    `<strong>Origin:</strong> ${PROVENANCE.origin}<br>` +
+    `<strong>Standing:</strong> ${PROVENANCE.standing}</p>`;
 }

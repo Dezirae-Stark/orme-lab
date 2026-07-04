@@ -167,6 +167,9 @@ input[type=range]::-moz-range-thumb {
 .reg-section-label { font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--gold);
   margin: 28px 0 12px; }
 .reg-section-label span { color: var(--muted-2); letter-spacing: 0.04em; text-transform: none; }
+.reg-provenance { font-size: 13px; line-height: 1.65; color: var(--muted-2); max-width: 760px;
+  border-left: 2px solid var(--line); padding: 4px 0 4px 14px; }
+.reg-provenance strong { color: var(--gold); font-weight: 600; }
 .hyp-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 14px; }
 .hyp { background: linear-gradient(180deg, var(--panel) 0%, var(--void-2) 100%);
   border: 1px solid var(--line); border-radius: 6px; padding: 15px 16px; }

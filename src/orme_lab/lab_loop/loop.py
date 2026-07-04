@@ -19,6 +19,7 @@ from .avenue import Avenue, ActionSpec, Comparator, FalsificationCondition, Mech
 from .config import DEFAULT_LOOP_CONFIG, LoopConfig
 from .ledger import Ledger
 from .objective import action_key, score_avenue
+from .hypotheses import validate_scope
 from .runner import run_avenue, validate_runnable
 from .triage import Verdict, triage
 
@@ -105,7 +106,7 @@ def _digest(ledger: Ledger, stopped_reason: str,
             lines.append(f"- {p.id}: {p.description}")
     if skipped:
         lines.append("")
-        lines.append("## Skipped (malformed proposals — not run, not findings)")
+        lines.append("## Skipped (not run, not findings — malformed or scope-mismatched)")
         for aid, reason in skipped:
             lines.append(f"- {aid}: {reason}")
     if epw_unavailable:
@@ -179,6 +180,13 @@ def run_loop(
                     if av.id not in skipped_ids:
                         skipped_ids.add(av.id)
                         skipped.append((av.id, reason))
+                    continue
+                # Reject scope-mismatched avenues (mislabeled scoped hypothesis).
+                ok_scope, scope_reason = validate_scope(av)
+                if not ok_scope:
+                    if av.id not in skipped_ids:
+                        skipped_ids.add(av.id)
+                        skipped.append((av.id, scope_reason))
                     continue
                 # Drop unfalsifiable / already-run / already-buffered; buffer the rest.
                 key = action_key(av)

@@ -13,13 +13,23 @@ survive.
 
 | # | Hypothesis (charitable reconstruction) | Encoded in | Toy score | Rejected when… |
 |---|----------------------------------------|-----------|-----------|----------------|
-| H1 | PGM atoms/clusters can enter unusual metastable electronic configurations | `spin_states.py` | `spin_polarization_score` | No configuration with elevated multiplicity exists for the element (closed shell, e.g. Pd d¹⁰) |
+| H1-open-shell | High-spin **open-shell** PGM units (d_shell_vacancies > 0: Ir, Os, Pt, Rh, Ru) show prolate rice-bean anisotropy | Anisotropy ~0 for an open-shell high-spin element | open |
+| H1-closed-shell | High-spin **closed-shell** PGM units (d¹⁰: Ag, Au, Pd) show prolate anisotropy | Anisotropy > 0 for any closed-shell element (in the toy model it is 0 — this variant is expected to be refuted) | open |
 | H2 | High-spin states deform electron density into anisotropic shapes | `electron_density.py` | `electron_density_anisotropy_score` | Anisotropy score stays ~0 across all accessible spin states |
-| H3 | The "rice-bean" shape ≈ electron-density anisotropy / MO density / cluster geometry | `electron_density.py`, `geometry.py` | `ricebean_score`, ellipsoid `is_prolate` | Anisotropy never enters the prolate rice-bean band for any candidate |
+| H3-cluster | Compact clusters are structurally stable (compactness controls stability) | A compact cluster scores unstable | open |
+| H3-monomer | Isolated monomers carry structural stability | A monomer scores stable (in the toy model stability is 0 — expected refuted) | open |
 | H4 | **Bulk** superconductivity requires an inter-unit coupling channel | `coupling.py` | `inter_unit_coupling_score` | (structural premise — encoded as a *necessary gate*, not tested for rejection) |
 | H5 | If units are truly electronically isolated, superconductivity fails | `coupling.py`, `superconductivity.py` | `is_electronically_isolated` + plausibility gate | A monomer/isolated unit is scored as a viable bulk SC candidate (would signal a **model bug**, not a discovery) |
 | H6 | Alternatives: nanoclusters, granular Josephson networks, plasmonic/polaritonic coherence, oxide/hydroxide/salt phases, measurement artifacts | all modules + `validation_tests.md` | routing via `predict_resistance_regime`, `meissner_screening_proxy` | An alternative is ruled out only by the specific discriminating measurement in `validation_tests.md` |
 | H7 | Magnetic fields stabilize / perturb / suppress / destroy the state, depending on phase | `magnetic_field.py` | `magnetic_field_suppression_factor`, `high_spin_field_stabilization` | The candidate shows no field dependence of any observable |
+
+**Why H1/H3 are element/geometry-scoped (measured):** `d_shell_vacancies` exactly predicts the
+toy anisotropy — closed-shell (d¹⁰: Ag, Au, Pd) → 0.000 in both spin states; open-shell (Ir, Os,
+Pt, Rh, Ru) → 0.165–0.458 in high-spin. A single binary H1 would be retired globally by the first
+closed-shell counterexample even though it holds for open-shell elements; the scoped variants retire
+independently. H3 splits the same way by geometry (compact_cluster stability 0.333 vs monomer 0.000).
+The lab loop's `HYPOTHESES` registry (`src/orme_lab/lab_loop/hypotheses.py`) carries the scoped ids;
+avenues target a scoped variant and a mislabeled one (wrong element/geometry class) is skipped.
 
 ## How the hypotheses chain together
 

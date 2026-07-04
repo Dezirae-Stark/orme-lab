@@ -100,48 +100,50 @@ def run_loop(
     rounds = 0
     rounds_since_kill = 0
     stopped_reason = "budget reached"
+    candidates_buffer: list[Avenue] = []  # persistent buffer across rounds
 
     while len(ledger.records) < loop_config.max_avenues:
         rounds += 1
         proposed = generator.propose(
             ledger.open_hypotheses, ledger.seen_actions, loop_config.proposals_per_round,
         )
-        if not proposed:
-            stopped_reason = "generator exhausted"
+
+        # Process newly proposed avenues even if generator exhausted
+        if proposed:
+            # Quarantine tier-3 (reserved boundary); never run.
+            runnable: list[Avenue] = []
+            for av in proposed:
+                if touches_reserved_boundary(av):
+                    ledger.quarantine(MechanismProposal(
+                        id=av.id, description=av.description,
+                        rationale=f"tier-{int(av.tier)} avenue targeting {av.targeted_hypothesis}",
+                        provenance=av.provenance,
+                    ))
+                else:
+                    runnable.append(av)
+
+            # Drop unfalsifiable and already-seen; add the rest to buffer.
+            for av in runnable:
+                if av.falsification.fireable() and not ledger.is_seen(av):
+                    candidates_buffer.append(av)
+
+        # If buffer is empty and generator is exhausted, stop.
+        if not candidates_buffer:
+            if not proposed:
+                stopped_reason = "generator exhausted"
+            else:
+                stopped_reason = "converged (no runnable avenues)"
             break
 
-        # Quarantine tier-3 (reserved boundary); never run.
-        runnable: list[Avenue] = []
-        for av in proposed:
-            if touches_reserved_boundary(av):
-                ledger.quarantine(MechanismProposal(
-                    id=av.id, description=av.description,
-                    rationale=f"tier-{int(av.tier)} avenue targeting {av.targeted_hypothesis}",
-                    provenance=av.provenance,
-                ))
-            else:
-                runnable.append(av)
-
-        # Drop unfalsifiable and already-seen; rank the rest.
-        candidates = [
-            av for av in runnable
-            if av.falsification.fireable() and not ledger.is_seen(av)
-        ]
-        if not candidates:
-            rounds_since_kill += 1
-            if rounds_since_kill >= loop_config.convergence_rounds:
-                stopped_reason = "converged (no runnable avenues)"
-                break
-            continue
-
-        candidates.sort(
+        # Rank and pick the best from the persistent buffer.
+        candidates_buffer.sort(
             key=lambda av: (
                 -score_avenue(av, ledger.open_hypotheses, ledger.seen_actions,
                               loop_config.weights),
                 av.id,
             )
         )
-        best = candidates[0]
+        best = candidates_buffer.pop(0)
 
         result = run_avenue(best, config=config, backend=backend, screen_fn=screen_fn)
         outcome = triage(result, ledger.open_hypotheses)

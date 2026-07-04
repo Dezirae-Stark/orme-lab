@@ -15,7 +15,7 @@ from typing import Protocol
 from ..config import DEFAULT_CONFIG, LabConfig
 from ..evidence import LAB_CEILING, badge
 from ..pipeline import run_screen
-from .avenue import Avenue, MechanismProposal, Tier
+from .avenue import Avenue, ActionSpec, Comparator, FalsificationCondition, MechanismProposal, Tier
 from .config import DEFAULT_LOOP_CONFIG, LoopConfig
 from .ledger import Ledger
 from .objective import score_avenue
@@ -157,3 +157,43 @@ def run_loop(
 
     return LoopReport(ledger=ledger, rounds=rounds, stopped_reason=stopped_reason,
                       digest=_digest(ledger, stopped_reason))
+
+
+class HeuristicGenerator:
+    """Deterministic offline generator: enumerates tier-1 coverage avenues over
+    (element x geometry-kind), each targeting H5 with an off-gate predictor and a
+    fireable falsification. Not creative — a floor so the loop runs with no LLM.
+    The production generator is the orme-lab-scientist subagent."""
+
+    _GEOMS = ("monomer", "dimer", "linear_chain", "compact_cluster")
+
+    def __init__(self, elements: tuple[str, ...] = ("Pd", "Ir", "Rh", "Os", "Pt", "Au")):
+        self._elements = elements
+
+    def propose(self, open_hypotheses, seen_actions, k):
+        from ..config import ModelThresholds
+        thr = ModelThresholds().min_coupling_for_bulk
+        out: list[Avenue] = []
+        for el in self._elements:
+            for geom in self._GEOMS:
+                av = Avenue(
+                    id=f"H-{el}-{geom}", tier=Tier.TIER1,
+                    description=f"{el} {geom}: does coupling clear the bulk gate?",
+                    targeted_hypothesis="H5",
+                    action=ActionSpec(
+                        elements=(el,), geometry_kinds=(geom,), spin_labels=("high_spin",),
+                        applied_field_t=0.0, temperature_k=298.15,
+                        use_epw=False, use_em=False, coupling_channel=None,
+                    ),
+                    falsification=FalsificationCondition(
+                        "max_coupling",
+                        Comparator.LT,
+                        thr,
+                    ),
+                    predictor_invariants=("sc_lambda",), provenance="HeuristicGenerator",
+                )
+                if av.action.elements + av.action.geometry_kinds not in seen_actions:
+                    out.append(av)
+                if len(out) >= k:
+                    return out
+        return out

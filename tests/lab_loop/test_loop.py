@@ -77,3 +77,33 @@ def test_digest_never_claims_validation():
     low = rep.digest.lower()
     for word in ("validated", "confirmed superconductor", "proven superconductor"):
         assert word not in low
+
+
+def test_digest_does_not_blame_tautology_when_nothing_ran():
+    # Only a tier-3 avenue: it is quarantined, zero avenues run. The digest must
+    # say no avenue ran — NOT falsely claim every avenue was tautological.
+    gen = ScriptedGenerator([_av("T3", tier=Tier.TIER3)])
+    rep = run_loop(gen, loop_config=LoopConfig(max_avenues=9, proposals_per_round=9,
+                                               convergence_rounds=1))
+    low = rep.digest.lower()
+    assert "no independent avenue" in low
+    assert "every avenue run was tautological" not in low  # would be a false reason
+
+    # Same guarantee for an all-unfalsifiable batch (dropped before running).
+    gen2 = ScriptedGenerator([_av("U1", thr=0.0)])
+    rep2 = run_loop(gen2, loop_config=LoopConfig(max_avenues=9, proposals_per_round=9,
+                                                 convergence_rounds=1))
+    low2 = rep2.digest.lower()
+    assert "no independent avenue" in low2
+    assert "every avenue run was tautological" not in low2
+
+
+def test_digest_blames_tautology_only_when_avenues_actually_ran_tautological():
+    # A genuinely tautological avenue DOES get run and recorded TAUTOLOGICAL; here
+    # the "every avenue run was tautological" reason is accurate and expected.
+    gen = ScriptedGenerator([_av("C1", predictors=("coupling",))])
+    rep = run_loop(gen, loop_config=LoopConfig(max_avenues=9, proposals_per_round=9,
+                                               convergence_rounds=1))
+    low = rep.digest.lower()
+    assert "no independent avenue" in low
+    assert "every avenue run was tautological" in low

@@ -1,6 +1,8 @@
 """The bounded orchestrator. Each round: the generator PROPOSES avenues; the
-deterministic core drops the unfalsifiable and the tautological, ranks the rest,
-runs the top, triages, and records — retiring killed hypotheses. Tier-3 avenues
+deterministic core drops the unfalsifiable and the already-seen, ranks the rest,
+runs the top, triages, and records — retiring killed hypotheses. Tautological
+avenues are NOT dropped pre-run: they rank last (score 0.0) and, if run, are
+recorded as TAUTOLOGICAL by triage and never counted as a kill. Tier-3 avenues
 are quarantined, never run. The loop halts and surfaces at any operator-reserved
 boundary. It never claims validation.
 """
@@ -62,12 +64,22 @@ def _digest(ledger: Ledger, stopped_reason: str) -> str:
     else:
         lines.append("## Hypotheses retired: none this run")
     lines.append("")
+    tautological = [r for r in ledger.records
+                    if r.verdict == Verdict.TAUTOLOGICAL.value]
     independent = [r for r in ledger.records
                    if r.verdict != Verdict.TAUTOLOGICAL.value]
     if not independent:
-        lines.append("No independent avenue found — every proposed avenue was "
-                     "tautological (re-derivable from the AND-gate's own inputs). "
-                     "No findings.")
+        if tautological:
+            # Avenues were run, but every one was tautological.
+            lines.append("No independent avenue found — every avenue run was "
+                         "tautological (re-derivable from the AND-gate's own "
+                         "inputs). No findings.")
+        else:
+            # No avenue was ever run (all quarantined, dropped as unfalsifiable,
+            # or the generator proposed nothing). Do NOT blame tautology.
+            lines.append("No independent avenue found — no avenue was run this "
+                         "session (all proposals were quarantined, dropped as "
+                         "unfalsifiable, or none were offered). No findings.")
     if ledger.proposals:
         lines.append("")
         lines.append("## Tier-3 mechanism proposals (QUARANTINED — pending "

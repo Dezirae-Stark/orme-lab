@@ -349,3 +349,17 @@ input[type=range]::-moz-range-thumb {
   #stage { grid-column: 1; grid-row: 2; }
   #verdict { grid-column: 1; grid-row: auto; }
 }
+
+/* ---- Autonomous lab-loop tab -------------------------------------------- */
+.loop-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-top: 8px; }
+.loop-card { background: var(--void-2); border: 1px solid var(--line); border-radius: 5px;
+  padding: 14px 16px; }
+.loop-card p { color: var(--muted); font-size: 12.5px; line-height: 1.6; margin: 6px 0 0; }
+.loop-card code, .loop-digest, #loop code { font-family: "IBM Plex Mono", ui-monospace, monospace; }
+.loop-card code, #loop code { font-size: 11.5px; color: var(--gold); }
+.loop-h { font-family: "Space Grotesk", sans-serif; font-size: 13px; font-weight: 600;
+  letter-spacing: 0.01em; color: var(--platinum); margin: 0; }
+.loop-digest { background: var(--void); border: 1px solid var(--line-soft); border-radius: 5px;
+  padding: 16px 18px; color: var(--muted); font-size: 12px; line-height: 1.65;
+  white-space: pre-wrap; overflow-x: auto; max-width: 780px; }
+@media (max-width: 720px) { .loop-grid { grid-template-columns: 1fr; } }

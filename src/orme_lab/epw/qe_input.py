@@ -37,7 +37,7 @@ def _system(approx: PeriodicApproximant, cfg: EPWConfig, *, nbnd: int | None = N
     lines = [
         "&system",
         _cell(approx),
-        "    nat = 1",
+        f"    nat = {approx.n_atoms}",
         "    ntyp = 1",
         f"    ecutwfc = {cfg.ecutwfc_ry}",
         f"    ecutrho = {cfg.ecutrho_ry}",
@@ -61,11 +61,15 @@ def _atomic_mass(symbol: str) -> float:
 def _atomic_blocks(approx: PeriodicApproximant, cfg: EPWConfig) -> str:
     upf = cfg.pseudo_for(approx.element_symbol) or f"{approx.element_symbol}.upf"
     mass = _atomic_mass(approx.element_symbol)
+    positions = "".join(
+        f" {approx.element_symbol} {x:.8f} {y:.8f} {z:.8f}\n"
+        for (x, y, z) in approx.basis
+    )
     return (
         "ATOMIC_SPECIES\n"
         f" {approx.element_symbol} {mass} {upf}\n"
         "ATOMIC_POSITIONS crystal\n"
-        f" {approx.element_symbol} 0.0 0.0 0.0\n"
+        f"{positions}"
     )
 
 

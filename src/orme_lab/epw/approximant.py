@@ -34,6 +34,13 @@ class PeriodicApproximant:
     spin_polarized: bool
     starting_magnetization: float
     label: str
+    #: fractional atomic positions in the cell. fcc = 1 atom; hcp = 2 atoms
+    #: (the true hcp basis) -- a 1-atom hexagonal cell is NOT hcp.
+    basis: tuple[tuple[float, float, float], ...] = ((0.0, 0.0, 0.0),)
+
+    @property
+    def n_atoms(self) -> int:
+        return len(self.basis)
 
     @property
     def ibrav(self) -> int:
@@ -57,6 +64,10 @@ def build_approximant(element: Element, geometry: ClusterGeometry,
     bravais = "hcp" if hcp else "fcc"
     a = d if hcp else d * math.sqrt(2.0)          # fcc nn = a/sqrt(2)
     c_over_a = IDEAL_C_OVER_A if hcp else None
+    # true hcp has a 2-atom basis; fcc is monatomic. A 1-atom hexagonal cell would
+    # be simple-hexagonal, a different (wrong) structure.
+    basis = (((0.0, 0.0, 0.0), (1.0 / 3.0, 2.0 / 3.0, 0.5)) if hcp
+             else ((0.0, 0.0, 0.0),))
     unpaired = spin_state.unpaired_electrons
     return PeriodicApproximant(
         element_symbol=element.symbol,
@@ -66,4 +77,5 @@ def build_approximant(element: Element, geometry: ClusterGeometry,
         spin_polarized=unpaired > 0,
         starting_magnetization=min(1.0, unpaired / 10.0),
         label=f"{element.symbol}-{bravais}-{geometry.label or 'cluster'}",
+        basis=basis,
     )

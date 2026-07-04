@@ -68,11 +68,13 @@ def pgm_approximant(symbol: str, spin: str) -> PeriodicApproximant:
     return build_approximant(el, geom, state)
 
 
-def pgm_config(symbol: str, pseudo_dir: str, upf: str, *, n_semicore: int,
+def pgm_config(symbol: str, pseudo_dir: str, upf: str, *,
+               n_semicore_per_atom: int, n_atoms: int = 1,
                ecutwfc_ry: float = 60.0, ecutrho_ry: float = 480.0) -> EPWConfig:
-    """Element-generic EPW config. ``n_semicore`` is REQUIRED (compute it via
-    ``semicore_for_pseudo`` when the pseudo file is available); the dis_* values
-    are Fermi-relative offsets the deck writer shifts by E_F."""
+    """Element-generic EPW config. The Wannier count (d+s = 6 per atom) and the
+    semicore-skip count both scale with the number of atoms in the cell -- so an
+    hcp 2-atom cell gets nbndsub=12 and exclude_bands=1:(2*per-atom). ``n_semicore_
+    per_atom`` comes from ``semicore_for_pseudo``; dis_* are Fermi-relative offsets."""
     return EPWConfig(
         pseudo_dir=pseudo_dir,
         pseudopotentials=((symbol, upf),),
@@ -82,11 +84,11 @@ def pgm_config(symbol: str, pseudo_dir: str, upf: str, *, n_semicore: int,
         q_coarse=(4, 4, 4),
         k_fine=(20, 20, 20),
         q_fine=(20, 20, 20),
-        nbndsub=6,
+        nbndsub=6 * n_atoms,
         dis_win_min_ev=-12.0,
         dis_win_max_ev=20.0,
         dis_froz_min_ev=-2.0,
         dis_froz_max_ev=1.0,
-        n_semicore_bands=n_semicore,
+        n_semicore_bands=n_semicore_per_atom * n_atoms,
         mu_star=0.10,
     )

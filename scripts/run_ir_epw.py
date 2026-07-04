@@ -34,14 +34,18 @@ _DECKS = {"scf": qe_input.scf_input, "nscf": qe_input.nscf_input,
           "epw": qe_input.epw_input}
 
 
-def _resolve(element: str, pseudo_dir: str, upf: str, n_semicore: int | None):
-    """Return (prefix, approximant-builder-args, cfg) for an element. n_semicore
-    defaults to Ir's 4 (no file read) or is computed from the pseudo for others."""
+def _resolve(element: str, spin: str, pseudo_dir: str, upf: str,
+             n_semicore: int | None):
+    """Build the approximant and its EPW config. ``n_semicore`` is PER-ATOM (Ir=4,
+    else computed from the pseudo); nbndsub and exclude_bands scale with n_atoms
+    inside pgm_config, so hcp (2-atom) cells get 12 / 1:(2*per-atom) automatically."""
+    approx = pgm.pgm_approximant(element, spin)
     if n_semicore is None:
         n_semicore = ir.IR_SEMICORE_BANDS if element == "Ir" \
             else pgm.semicore_for_pseudo(element, pseudo_dir, upf)
-    cfg = pgm.pgm_config(element, pseudo_dir, upf, n_semicore=n_semicore)
-    return element.lower(), cfg
+    cfg = pgm.pgm_config(element, pseudo_dir, upf,
+                         n_semicore_per_atom=n_semicore, n_atoms=approx.n_atoms)
+    return approx, element.lower(), cfg
 
 
 def write_decks(spin: str, workdir: str, pseudo_dir: str, upf: str,
@@ -49,8 +53,7 @@ def write_decks(spin: str, workdir: str, pseudo_dir: str, upf: str,
                 n_semicore: int | None = None) -> dict[str, str]:
     """Write the four QE/EPW decks; return {name: path}."""
     os.makedirs(workdir, exist_ok=True)
-    prefix, cfg = _resolve(element, pseudo_dir, upf, n_semicore)
-    approx = pgm.pgm_approximant(element, spin)
+    approx, prefix, cfg = _resolve(element, spin, pseudo_dir, upf, n_semicore)
     paths: dict[str, str] = {}
     for name, writer in _DECKS.items():
         path = os.path.join(workdir, f"{name}.in")
@@ -66,8 +69,7 @@ def write_epw_deck(spin: str, workdir: str, pseudo_dir: str, upf: str,
                    n_semicore: int | None = None) -> str:
     """Regenerate ONLY epw.in with E_F-referenced windows (called after nscf)."""
     os.makedirs(workdir, exist_ok=True)
-    prefix, cfg = _resolve(element, pseudo_dir, upf, n_semicore)
-    approx = pgm.pgm_approximant(element, spin)
+    approx, prefix, cfg = _resolve(element, spin, pseudo_dir, upf, n_semicore)
     path = os.path.join(workdir, "epw.in")
     with open(path, "w", encoding="utf-8") as fh:
         fh.write(qe_input.epw_input(approx, cfg, prefix, fermi_ev=fermi_ev))
@@ -80,6 +82,41 @@ def _find_a2f(workdir: str, element: str = "Ir") -> str:
     prefix = element.lower()
     hits = sorted(glob.glob(os.path.join(workdir, f"{prefix}.a2f.*")))
     return hits[0] if hits else os.path.join(workdir, f"{prefix}.a2f")
+
+
+def parse_min_phonon_freq(workdir: str, ph_out: str = "ph.out") -> float | None:
+    """Minimum phonon frequency (cm-1) for the dynamical-stability gate, EXCLUDING
+    the 3 acoustic modes at Gamma (they are 0 by symmetry and carry a +-few cm-1
+    acoustic-sum-rule artifact in the raw ph.out). Works for any cell: at Gamma it
+    drops up to 3 near-zero (|f|<30) modes as acoustic and keeps everything else --
+    so an hcp cell's Gamma OPTICAL modes (real stability indicators) are retained.
+    Per-mode 'freq' lines are matched by their [THz]=[cm-1] form (the grouped
+    summary lines carry only [cm-1] and are skipped to avoid double counting)."""
+    import re
+    path = os.path.join(workdir, ph_out)
+    if not os.path.exists(path):
+        return None
+    q_re = re.compile(r"q\s*=\s*\(\s*(-?\d+\.\d+)\s+(-?\d+\.\d+)\s+(-?\d+\.\d+)")
+    f_re = re.compile(r"\[THz\].*=\s*(-?\d+\.\d+)\s*\[cm-1\]")
+    gamma: list[float] = []
+    other: list[float] = []
+    at_gamma = False
+    for line in open(path, encoding="utf-8"):
+        qm = q_re.search(line)
+        if qm:
+            at_gamma = all(abs(float(qm.group(i))) < 1e-6 for i in (1, 2, 3))
+            continue
+        fm = f_re.search(line)
+        if fm:
+            (gamma if at_gamma else other).append(float(fm.group(1)))
+    gamma.sort()
+    dropped = 0
+    for v in gamma:                       # drop up to 3 near-zero acoustic modes
+        if dropped < 3 and abs(v) < 30.0:
+            dropped += 1
+        else:
+            other.append(v)
+    return min(other) if other else None
 
 
 def parse_lambda(workdir: str, smearing_column: int = 5,
@@ -102,6 +139,8 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--deck-only", action="store_true")
     p.add_argument("--epw-deck", action="store_true")
     p.add_argument("--parse", action="store_true")
+    p.add_argument("--min-freq-mode", action="store_true",
+                   help="print min phonon freq (cm-1) excluding acoustic-Gamma modes")
     p.add_argument("--gate", action="store_true")
     p.add_argument("--fermi", type=float, help="E_F (eV) to reference EPW dis windows")
     # gate inputs
@@ -126,6 +165,10 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     if args.parse:
         print(json.dumps(parse_lambda(args.workdir, element=args.element)))
+        return 0
+    if args.min_freq_mode:
+        v = parse_min_phonon_freq(args.workdir)
+        print("NA" if v is None else f"{v:.4f}")
         return 0
     if args.gate:
         rep = ConvergenceReport(

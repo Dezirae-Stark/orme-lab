@@ -146,20 +146,13 @@ run_q2r() { # $1 workdir -- crystal-ASR real-space IFCs -> save/ifc.q2r (EPW lif
   log "q2r: crystal-ASR IFCs written to save/ifc.q2r"
 }
 
-min_phonon_freq_cm() { # $1 workdir -> min cm-1 EXCLUDING the q=Gamma block
-  # ph.out is raw DFPT (not ASR-corrected), so the Gamma acoustic modes carry a
-  # +-few cm-1 acoustic-sum-rule artifact (they are 0 by symmetry). Excluding the
-  # Gamma block makes the stability check reflect real (off-Gamma) imaginary modes.
-  # NOTE: correct for monatomic fcc (no Gamma optical modes); an hcp/multi-atom cell
-  # would need to exclude only the 3 acoustic branches at Gamma, not the whole block.
+min_phonon_freq_cm() { # $1 workdir -> min cm-1 excluding the 3 acoustic Gamma modes
+  # Delegated to the driver's tested parser: it drops up to 3 near-zero acoustic
+  # modes at Gamma (the raw-ph.out ASR artifact) but KEEPS Gamma optical modes, so
+  # this is correct for hcp/multi-atom cells too, not just monatomic fcc.
   local wd=$1
-  if [ "$DRY_RUN" = "1" ]; then echo "120.0"; return; fi
-  local m
-  m=$(awk '
-    /q *= *\(/ { g = ($4+0==0 && $5+0==0 && $6+0==0) }
-    /freq *\(/ && $NF=="[cm-1]" && !g { v=$(NF-1)+0; if (seen++==0 || v<min) min=v }
-    END { if (seen) printf "%.4f", min; else print "NA" }
-  ' "$wd"/ph.out 2>/dev/null)
+  [ "$DRY_RUN" = "1" ] && { echo "120.0"; return; }
+  local m; m=$( cd "$REPO" && python3 scripts/run_ir_epw.py --min-freq-mode --workdir "$wd" 2>/dev/null )
   [ -n "$m" ] && echo "$m" || echo "NA"
 }
 

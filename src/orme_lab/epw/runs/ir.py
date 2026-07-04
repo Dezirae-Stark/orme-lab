@@ -28,5 +28,5 @@ def ir_approximant(spin: str) -> PeriodicApproximant:
 
 def ir_config(pseudo_dir: str, upf: str,
               *, ecutwfc_ry: float = 60.0, ecutrho_ry: float = 480.0) -> EPWConfig:
-    return pgm_config("Ir", pseudo_dir, upf, n_semicore=IR_SEMICORE_BANDS,
-                      ecutwfc_ry=ecutwfc_ry, ecutrho_ry=ecutrho_ry)
+    return pgm_config("Ir", pseudo_dir, upf, n_semicore_per_atom=IR_SEMICORE_BANDS,
+                      n_atoms=1, ecutwfc_ry=ecutwfc_ry, ecutrho_ry=ecutrho_ry)

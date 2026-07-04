@@ -18,7 +18,7 @@ from ..pipeline import run_screen
 from .avenue import Avenue, ActionSpec, Comparator, FalsificationCondition, MechanismProposal, Tier
 from .config import DEFAULT_LOOP_CONFIG, LoopConfig
 from .ledger import Ledger
-from .objective import score_avenue
+from .objective import action_key, score_avenue
 from .runner import run_avenue
 from .triage import Verdict, triage
 
@@ -100,7 +100,17 @@ def run_loop(
     rounds = 0
     rounds_since_kill = 0
     stopped_reason = "budget reached"
-    candidates_buffer: list[Avenue] = []  # persistent buffer across rounds
+    # Proposed-but-unrun runnable avenues persist across rounds so a generator
+    # that emits a fixed batch once (ScriptedGenerator, HeuristicGenerator) still
+    # gets every avenue processed, not just the top of round one.
+    candidates_buffer: list[Avenue] = []
+    # Dedup at the proposal boundary: a runnable avenue is buffered at most once
+    # (by action identity), and a tier-3 avenue is quarantined at most once (by
+    # id). Without this, a generator that re-proposes each round bloats the buffer
+    # with duplicates (→ redundant screen runs) and re-quarantines the same
+    # proposal repeatedly.
+    buffered_keys: set = set()
+    quarantined_ids: set = set()
 
     while len(ledger.records) < loop_config.max_avenues:
         rounds += 1
@@ -108,26 +118,27 @@ def run_loop(
             ledger.open_hypotheses, ledger.seen_actions, loop_config.proposals_per_round,
         )
 
-        # Process newly proposed avenues even if generator exhausted
+        # Process newly proposed avenues even if the generator is now exhausted.
         if proposed:
-            # Quarantine tier-3 (reserved boundary); never run.
-            runnable: list[Avenue] = []
             for av in proposed:
                 if touches_reserved_boundary(av):
-                    ledger.quarantine(MechanismProposal(
-                        id=av.id, description=av.description,
-                        rationale=f"tier-{int(av.tier)} avenue targeting {av.targeted_hypothesis}",
-                        provenance=av.provenance,
-                    ))
-                else:
-                    runnable.append(av)
-
-            # Drop unfalsifiable and already-seen; add the rest to buffer.
-            for av in runnable:
-                if av.falsification.fireable() and not ledger.is_seen(av):
+                    # Quarantine tier-3 (reserved boundary); never run. Dedup by id.
+                    if av.id not in quarantined_ids:
+                        quarantined_ids.add(av.id)
+                        ledger.quarantine(MechanismProposal(
+                            id=av.id, description=av.description,
+                            rationale=f"tier-{int(av.tier)} avenue targeting {av.targeted_hypothesis}",
+                            provenance=av.provenance,
+                        ))
+                    continue
+                # Drop unfalsifiable / already-run / already-buffered; buffer the rest.
+                key = action_key(av)
+                if (av.falsification.fireable() and not ledger.is_seen(av)
+                        and key not in buffered_keys):
+                    buffered_keys.add(key)
                     candidates_buffer.append(av)
 
-        # If buffer is empty and generator is exhausted, stop.
+        # If nothing is buffered, stop with the honest reason.
         if not candidates_buffer:
             if not proposed:
                 stopped_reason = "generator exhausted"
@@ -194,7 +205,10 @@ class HeuristicGenerator:
                     ),
                     predictor_invariants=("sc_lambda",), provenance="HeuristicGenerator",
                 )
-                if av.action.elements + av.action.geometry_kinds not in seen_actions:
+                # Skip avenues already run (seen_actions holds action_key tuples).
+                # The loop dedups the rest; across rounds this advances through the
+                # full (element x geometry) universe as run avenues become seen.
+                if action_key(av) not in seen_actions:
                     out.append(av)
                 if len(out) >= k:
                     return out

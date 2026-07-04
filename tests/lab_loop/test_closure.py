@@ -26,6 +26,7 @@ def test_offgate_set_is_pinned_exactly():
     # of the closure oracle (spec §8.1). Update deliberately, never by accident.
     assert OFF_GATE_INVARIANTS == frozenset({
         "sc_tc_kelvin", "sc_lambda", "sc_omega_log_k", "sc_gap_mev", "sc_mu_star",
+        "em_coherence_score", "em_regime", "em_rabi_ev", "em_lifetime_fs",
     })
 
 
@@ -50,3 +51,16 @@ def test_predictor_only_in_closure_is_not_independent():
 
 def test_empty_predictors_is_not_independent():
     assert is_independent(()) is False
+
+
+def test_em_observables_are_off_gate():
+    from orme_lab.lab_loop.closure import OFF_GATE_INVARIANTS, GATE_INPUT_CLOSURE
+    for f in ("em_coherence_score", "em_regime", "em_rabi_ev", "em_lifetime_fs"):
+        assert f in OFF_GATE_INVARIANTS
+    # EM is a distinct channel from the SC gate -> must stay disjoint.
+    assert GATE_INPUT_CLOSURE.isdisjoint(OFF_GATE_INVARIANTS)
+
+
+def test_em_predictor_is_independent():
+    from orme_lab.lab_loop.closure import is_independent
+    assert is_independent(("em_coherence_score",)) is True

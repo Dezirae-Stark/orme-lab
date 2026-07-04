@@ -4,9 +4,9 @@ The superconductivity AND-gate consumes five inputs — coupling, carrier proxy,
 field suppression, structural stability, observable signal — each a deterministic
 function of a small set of upstream quantities. Any predictor drawn only from
 this closure is, by construction, re-derivable from the gate's own inputs: a
-'finding' expressed in those terms is a tautology. The only genuinely off-gate
-signal today is the EPW electron-phonon block (an external computation, not a
-function of the gate inputs).
+'finding' expressed in those terms is a tautology. Genuinely off-gate signals
+today are the EPW electron-phonon block (an external computation) and the
+EM-coherence channel (a distinct physical signal, independent of the SC gate).
 
 This set is PINNED. If the model changes so the gate consumes a new field, the
 golden test in ``test_closure.py`` breaks loudly — which is the point.
@@ -28,9 +28,13 @@ GATE_INPUT_CLOSURE: frozenset[str] = frozenset({
 })
 
 #: Fields NOT reachable from the gate inputs — genuinely independent signal.
-#: Today: the EPW electron-phonon block only.
+#: The EPW electron-phonon block and the EM-coherence channel.
 OFF_GATE_INVARIANTS: frozenset[str] = frozenset({
     "sc_tc_kelvin", "sc_lambda", "sc_omega_log_k", "sc_gap_mev", "sc_mu_star",
+    # Electromagnetic-coherence channel (H12/H16): a distinct, independent signal
+    # from the SC AND-gate. This is what makes H12/H16 genuinely (not formally)
+    # testable in the lab loop.
+    "em_coherence_score", "em_regime", "em_rabi_ev", "em_lifetime_fs",
 })
 
 

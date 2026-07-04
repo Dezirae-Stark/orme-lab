@@ -143,3 +143,54 @@ transitions / DONE / PARK; it is session-only (the run's persistence is independ
 
 **Timeline correction:** SCF→ph→NSCF is ~3 min, but the EPW phonon-self-energy over
 the 20³ fine q-grid is ~40 min — that stage, not DFPT, is the real per-element cost.
+
+---
+
+# Pt per-element run (2026-07-05) — λ≈0 is a characterized electron-phonon vertex suppression (OPEN)
+
+The pipeline was generalized to any PGM (`epw/runs/pgm.py`): everything is
+element-independent except the semicore-skip count, which is **computed** from the
+pseudo's Z_valence, not guessed — `n_semicore = (Z_valence − (d+s))/2`. Verified vs
+the SG15 ONCV scalar-relativistic pseudos: Ir (Z=17) → skip 4 (5s5p); **Pt (Z=16) →
+skip 3 (5p only)**. Driver/supervisor take `--element` / `ORME_ELEMENT`; deck prefix,
+scratch dirs, and the a2f glob are element-derived.
+
+**Result:** Pt Tier-0 (non-magnetic, cluster-NN lattice a≈3.85 Å — note *compressed*
+vs experimental Pt 3.92 Å) completed with **λ = 1.14×10⁻⁵ (≈0), Tc = 0**. Ir was 1.10.
+
+**Investigation — each step ruled a cause in or out (kept neutral; no pre-judging):**
+1. **Stability (false alarm):** raw `ph.out` min = −6.1 cm⁻¹ was the 3 Γ *acoustic*
+   modes (0 by symmetry) — an acoustic-sum-rule artifact, not an instability. Off-Γ
+   min = **+66.5 cm⁻¹ (stable)**. Ir had the same at +2.9 (opposite sign → passed by
+   luck). Fix: the stability gate now excludes the Γ block.
+2. **Crystal ASR (built, necessary, but NOT the cause of λ≈0):** added a `q2r.x`
+   stage → `save/ifc.q2r` (crystal ASR), `lifc=.true.` reads it. Verified live: Γ
+   acoustic modes → −0.000 cm⁻¹ (from −6.1), dispersion clean. **λ was UNCHANGED
+   (1.12→1.14×10⁻⁵)** → λ≈0 is NOT the ASR artifact.
+3. **Wannier band-match (sound):** exact at Γ, ~25 meV median at E_F, spreads clean
+   (Ω_D=0.0002) → the electron interpolation is faithful, not a mis-Wannierization.
+4. **DOS / orbital character (physical hypothesis REFUTED):** Pt's E_F is **94.7%
+   d-character**, DOS ≈ 1.5 states/eV/atom — ideal for strong coupling. So "Pt's
+   Fermi surface is s–p-like" is dead.
+5. **`prtgkk` vertex probe (root localized):** median |g| near E_F — **Pt 0.0028 meV
+   vs Ir 0.988 meV → ~350× suppression.** λ ∝ |g|² → 350² ≈ 1.2×10⁵, and
+   λ_Ir / 1.2×10⁵ ≈ 9×10⁻⁶ ≈ Pt's measured 1.14×10⁻⁵. The vertex suppression
+   **quantitatively accounts for the whole λ collapse.**
+
+**Conclusion (OPEN):** Pt's λ≈0 is a **uniform ~350× suppression of a well-formed
+electron-phonon vertex near E_F.** It is NOT a hard bug/gauge failure (g is nonzero,
+well-formed), NOT a DOS effect (95% d at E_F), and NOT lattice geometry (the
+approximant is *compressed*, which should *strengthen* coupling). The cause is
+localized to the **vertex construction** — most likely the `dvscf` normalization or
+the Wannier-vertex projection under `exclude_bands=1:3` — pending a Fortran-level
+dvscf-normalization audit (deferred as research-grade, open-ended). Ir remains the one
+validated per-element λ.
+
+**Permanent pipeline wins from this run:** the q2r crystal-ASR stage; the
+Γ-excluded stability gate; a **coupling-floor gate** (`coupling_present`, λ≥0.02) that
+now rejects collapsed coupling (it had falsely certified λ≈0 as trustworthy); and the
+element-generic `pgm` layer with auto-computed semicore.
+
+**Lesson:** a band-plot diagnostic run in the EPW workdir **clobbers `<prefix>.save`**
+(overwrites the uniform nscf wavefunctions with the band k-path) → EPW then errors
+"inconsistent nscf and elph k-grids". Run band diagnostics in a **separate outdir**.

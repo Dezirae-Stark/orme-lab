@@ -15,9 +15,9 @@ and why.
 Determinism: given the same :class:`~orme_lab.config.LabConfig`, a screen
 produces byte-identical output. No wall-clock, no unseeded RNG. Records are
 sorted by a total, tie-broken key so ordering is stable. This byte-identity
-guarantee applies to the toy path (``backend=None``); with a live EPW backend
-the ``sc_*`` columns are not byte-reproducible (external solver MPI/BLAS
-nondeterminism).
+guarantee applies to the toy path (``backend=None``, ``compute_em_coherence``
+off); the schema always includes the ``em_*`` columns (``None`` when EM is
+off). With a live EPW backend the ``sc_*`` columns are not byte-reproducible.
 """
 
 from __future__ import annotations
@@ -29,6 +29,7 @@ from dataclasses import asdict, dataclass, field
 from .backends import Capability, DFTBackend
 from .config import DEFAULT_CONFIG, LabConfig
 from .coupling import inter_unit_coupling_score, is_electronically_isolated
+from .electromagnetic_coherence import evaluate_em_coherence, free_electron_density
 from .evidence import badge as evidence_badge, candidate_evidence_level, LAB_CEILING
 from .electron_density import is_ricebean, ricebean_score
 from .elements import Element, core_screen_elements
@@ -103,6 +104,14 @@ class CandidateRecord:
     sc_gap_mev: float | None = None
     sc_mu_star: float | None = None
     sc_source: str = "toy"
+    # Electromagnetic-coherence channel (H12/H16). Computed only when
+    # config.compute_em_coherence is True; None otherwise. This is the
+    # coherence question, NOT superconductivity -- a high score is the H12
+    # mundane alternative, never SC evidence.
+    em_coherence_score: float | None = None
+    em_regime: str | None = None
+    em_rabi_ev: float | None = None
+    em_lifetime_fs: float | None = None
 
     def as_csv_row(self) -> dict[str, object]:
         row = asdict(self)
@@ -203,6 +212,17 @@ def evaluate_candidate(
         except Exception as exc:  # backstop; the backend should already catch EPWError
             epw = EPWResult.failed(f"{type(exc).__name__}: {exc}")
 
+    # EM-coherence seam (H12/H16). Off-gate signal, gated by config flag. A high
+    # coherence score is the H12 mundane alternative, NOT superconductivity.
+    em_score = em_regime = em_rabi = em_lifetime = None
+    if config.compute_em_coherence:
+        n = free_electron_density(element)
+        coh = evaluate_em_coherence(n, anisotropy, th)
+        em_score = coh.coherence_score
+        em_regime = coh.regime
+        em_rabi = coh.mode.rabi_splitting_ev
+        em_lifetime = coh.mode.coherence_lifetime_fs
+
     level = min(candidate_evidence_level(not plaus.all_passed), LAB_CEILING)
 
     return CandidateRecord(
@@ -233,6 +253,10 @@ def evaluate_candidate(
         sc_gap_mev=epw.gap_mev,
         sc_mu_star=epw.mu_star,
         sc_source=epw.source,
+        em_coherence_score=em_score,
+        em_regime=em_regime,
+        em_rabi_ev=em_rabi,
+        em_lifetime_fs=em_lifetime,
     )
 
 

@@ -24,6 +24,8 @@ HYPOTHESES: tuple[str, ...] = (
 
 def _all_elements_open_shell(action) -> tuple[bool, str]:
     """H1-open-shell: every element must have an open d-shell (d_shell_vacancies > 0)."""
+    if not action.elements:
+        return False, "scope mismatch: H1-open-shell has no elements to classify"
     for sym in action.elements:
         if get_element(sym).d_shell_vacancies == 0:
             return False, (f"scope mismatch: H1-open-shell requires open-shell "
@@ -33,6 +35,8 @@ def _all_elements_open_shell(action) -> tuple[bool, str]:
 
 def _all_elements_closed_shell(action) -> tuple[bool, str]:
     """H1-closed-shell: every element must be closed-shell (d10, d_shell_vacancies == 0)."""
+    if not action.elements:
+        return False, "scope mismatch: H1-closed-shell has no elements to classify"
     for sym in action.elements:
         if get_element(sym).d_shell_vacancies != 0:
             return False, (f"scope mismatch: H1-closed-shell requires closed-shell "
@@ -42,6 +46,8 @@ def _all_elements_closed_shell(action) -> tuple[bool, str]:
 
 def _all_geoms(kind: str):
     def _pred(action) -> tuple[bool, str]:
+        if not action.geometry_kinds:
+            return False, f"scope mismatch: requires geometry {kind!r}, got none"
         for g in action.geometry_kinds:
             if g != kind:
                 return False, (f"scope mismatch: requires geometry {kind!r}, got {g!r}")

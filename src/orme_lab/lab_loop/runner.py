@@ -34,6 +34,15 @@ def validate_runnable(avenue: Avenue) -> tuple[bool, str]:
     m = avenue.falsification.metric
     if m not in METRIC_RANGES:
         return False, f"unknown falsification metric {m!r}"
+    # An empty screening grid produces zero records and all-0.0 metrics, which
+    # would spuriously FIRE any "less-than" falsifier (a hypothesis retired having
+    # tested nothing). Reject empty axes before they can reach the screen.
+    if not avenue.action.elements:
+        return False, "empty avenue: no elements to screen"
+    if not avenue.action.geometry_kinds:
+        return False, "empty avenue: no geometry kinds to screen"
+    if not avenue.action.spin_labels:
+        return False, "empty avenue: no spin labels to screen"
     for sym in avenue.action.elements:
         try:
             get_element(sym)

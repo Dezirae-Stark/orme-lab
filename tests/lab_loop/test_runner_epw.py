@@ -3,7 +3,7 @@ from orme_lab.lab_loop.avenue import (
     Avenue, ActionSpec, Tier, FalsificationCondition, Comparator,
 )
 from orme_lab.lab_loop.runner import run_avenue
-from _fake_epw import FakeEPWBackend
+from _fake_epw import FakeEPWBackend, FailingEPWBackend
 
 
 def _epw_avenue(use_epw):
@@ -34,3 +34,12 @@ def test_unavailable_when_real_backend_and_no_binaries():
     res = run_avenue(_epw_avenue(use_epw=True), epw_backend=EPWBackend())
     assert res.epw_status == "unavailable"
     assert all(r.sc_lambda is None for r in res.records)
+
+
+def test_failed_is_distinct_from_ran():
+    # EPW available and attempted, but the run errors -> source 'epw:failed'.
+    # This must NOT report "ran" (that would falsely claim a successful computation).
+    res = run_avenue(_epw_avenue(use_epw=True), epw_backend=FailingEPWBackend())
+    assert res.epw_status == "failed"
+    assert all(r.sc_lambda is None for r in res.records)
+    assert any(r.sc_source == "epw:failed" for r in res.records)

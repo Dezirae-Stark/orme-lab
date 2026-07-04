@@ -28,3 +28,21 @@ class FakeEPWBackend(EPWBackend):
     @classmethod
     def available(cls) -> bool:
         return True
+
+
+class FailingEPWRunner:
+    """Runner that raises EPWError -- superconducting_gap catches it and returns
+    EPWResult.failed (source 'epw:failed'), exercising the honest 'failed' status."""
+    def run(self, approx, cfg) -> str:
+        from orme_lab.epw.runner import EPWError
+        raise EPWError("synthetic EPW failure")
+
+
+class FailingEPWBackend(EPWBackend):
+    """Available EPW backend whose run always fails -> epw_status 'failed'."""
+    def __init__(self):
+        super().__init__(runner=FailingEPWRunner())
+
+    @classmethod
+    def available(cls) -> bool:
+        return True

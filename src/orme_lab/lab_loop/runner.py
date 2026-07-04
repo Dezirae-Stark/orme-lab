@@ -130,10 +130,16 @@ def run_avenue(
         if r.spin_label in wanted
     ]
     records_t = tuple(records)
+    # A genuine EPW computation carries source "epw" (Tc computed) or
+    # "epw:unstable" (real moments, Tc nulled) -- both produced an alpha^2 F.
+    # "epw:failed" is an errored run and must NOT read as success; "n/a"/"toy"
+    # mean EPW never ran (binaries absent / geometry not applicable).
     if not use_epw:
         epw_status = "not_requested"
-    elif any(r.sc_source.startswith("epw") for r in records_t):
+    elif any(r.sc_source in ("epw", "epw:unstable") for r in records_t):
         epw_status = "ran"
+    elif any(r.sc_source == "epw:failed" for r in records_t):
+        epw_status = "failed"
     else:
         epw_status = "unavailable"
     return AvenueResult(avenue=avenue, records=records_t, metrics=_metrics(records_t), epw_status=epw_status)

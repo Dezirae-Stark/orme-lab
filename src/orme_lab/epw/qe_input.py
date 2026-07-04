@@ -117,8 +117,11 @@ def _wannier_count(approx: PeriodicApproximant, cfg: EPWConfig) -> int:
 
 
 def nscf_input(approx: PeriodicApproximant, cfg: EPWConfig, prefix: str) -> str:
-    # nbnd headroom: enough bands to span the Wannier subspace + conduction slack.
-    nbnd = _wannier_count(approx, cfg) + 8
+    # nbnd headroom: enough bands to span the Wannier subspace + conduction slack,
+    # AND the deep semicore bands (5s/5p for the trustworthy 5d-metal pseudos, which
+    # are 15-17 valence -- no 9-valence NC Ir exists without ghost states) so EPW can
+    # exclude them and set nbndskip. +14 covers Ir's 4 semicore bands + the d+s window.
+    nbnd = _wannier_count(approx, cfg) + 14
     return (
         f"{_control('nscf', prefix, cfg.resolved_pseudo_dir())}"
         f"{_system(approx, cfg, nbnd=nbnd)}\n"
@@ -148,14 +151,28 @@ def ph_input(approx: PeriodicApproximant, cfg: EPWConfig, prefix: str) -> str:
     )
 
 
-def epw_input(approx: PeriodicApproximant, cfg: EPWConfig, prefix: str) -> str:
+def epw_input(approx: PeriodicApproximant, cfg: EPWConfig, prefix: str,
+              *, fermi_ev: float | None = None) -> str:
     """Full &inputepw for an elph -> a2f run. STRUCTURE validated vs real EPW
     (fcc Pb). The Wannier block (nbndsub/proj/dis windows) uses PGM defaults that
-    need per-element tuning -- documented in the module docstring and the wiki."""
+    need per-element tuning -- documented in the module docstring and the wiki.
+
+    Disentanglement windows: QE reports ABSOLUTE eigenvalues, and a transition
+    metal's E_F sits well above 0 (Ir: 21.5 eV), so a window written on a
+    Fermi-referenced assumption lands entirely below the bands and Wannier90 fails
+    with "Energy window contains fewer states than number of target WFs". When
+    ``fermi_ev`` is given, the cfg dis_* values are treated as offsets RELATIVE to
+    E_F (win = fermi_ev + offset); when None they are absolute (the legacy Pb path).
+    """
     kf, qf, kc, qc = cfg.k_fine, cfg.q_fine, cfg.k_coarse, cfg.q_coarse
     el = approx.element_symbol
     nw = _wannier_count(approx, cfg)
     mass = _atomic_mass(el)
+    shift = fermi_ev if fermi_ev is not None else 0.0
+    win_min = round(cfg.dis_win_min_ev + shift, 4)   # round: avoid float-repr noise
+    win_max = round(cfg.dis_win_max_ev + shift, 4)   # (e.g. 20.0+22.4295=42.4295..04)
+    froz_min = round(cfg.dis_froz_min_ev + shift, 4)
+    froz_max = round(cfg.dis_froz_max_ev + shift, 4)
     return (
         "&inputepw\n"
         f"    prefix = '{prefix}'\n"
@@ -170,10 +187,16 @@ def epw_input(approx: PeriodicApproximant, cfg: EPWConfig, prefix: str) -> str:
         # --- Wannierization (PGM defaults: d + s active space) ---
         "    wannierize = .true.\n"
         f"    nbndsub = {nw}\n"
+        # EPW ignores dis_win_min for band exclusion; deep semicore (5s/5p for the
+        # 15-17 valence Ir pseudos) MUST be skipped explicitly or efermig cannot
+        # bracket E_F (6 d+s bands can't hold 15-17 electrons).
+        + (f"    bands_skipped = 'exclude_bands = 1:{cfg.n_semicore_bands}'\n"
+           if cfg.n_semicore_bands > 0 else "")
+        +
         f"    num_iter = {cfg.wann_num_iter}\n"
         f"    proj(1) = '{el}:d'\n    proj(2) = '{el}:s'\n"
-        f"    dis_win_min = {cfg.dis_win_min_ev}\n    dis_win_max = {cfg.dis_win_max_ev}\n"
-        f"    dis_froz_min = {cfg.dis_froz_min_ev}\n    dis_froz_max = {cfg.dis_froz_max_ev}\n"
+        f"    dis_win_min = {win_min}\n    dis_win_max = {win_max}\n"
+        f"    dis_froz_min = {froz_min}\n    dis_froz_max = {froz_max}\n"
         # --- a2f / Eliashberg sampling ---
         f"    fsthick = {cfg.fsthick_ev}\n"
         f"    degaussw = {cfg.degaussw_ev}\n"

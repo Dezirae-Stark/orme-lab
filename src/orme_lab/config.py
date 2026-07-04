@@ -100,6 +100,11 @@ class LabConfig:
     """Seed for any stochastic geometry perturbation. Fixed by default so runs
     are reproducible — see the operator's determinism commitment."""
 
+    compute_em_coherence: bool = False
+    """When True, the screen also computes the electromagnetic-coherence channel
+    (plasmon/polariton) per candidate and records em_* observables. Off by
+    default so the toy path's values stay byte-identical."""
+
     output_dir: str = "outputs"
 
 

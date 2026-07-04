@@ -50,6 +50,7 @@ class AvenueResult:
     avenue: Avenue
     records: tuple[CandidateRecord, ...]
     metrics: dict[str, float]
+    epw_status: str = "not_requested"
 
 
 _METRIC_KEYS = (
@@ -59,6 +60,7 @@ _METRIC_KEYS = (
     # anisotropy/stability/carrier/isolation hypotheses (H1/H2/H3/H5/H6), not
     # just the SC-gate aggregate. All are toy-model quantities → Level-2 triage.
     "max_anisotropy", "max_structural_stability", "max_carrier_proxy", "n_isolated",
+    "max_em_coherence_score",
 )
 
 
@@ -81,6 +83,7 @@ def _metrics(records: tuple[CandidateRecord, ...]) -> dict[str, float]:
         "max_structural_stability": _max("structural_stability"),
         "max_carrier_proxy": _max("carrier_proxy"),
         "n_isolated": float(sum(1 for r in records if r.isolated)),
+        "max_em_coherence_score": _max("em_coherence_score"),
     }
 
 
@@ -89,6 +92,7 @@ def run_avenue(
     config: LabConfig = DEFAULT_CONFIG,
     backend=None,
     screen_fn=run_screen,
+    epw_backend=None,
 ) -> AvenueResult:
     """Run ``avenue``'s action grid through the screen and compute its metrics.
 
@@ -97,12 +101,23 @@ def run_avenue(
     """
     action = avenue.action
     run_config = replace(
-        config, applied_field_t=action.applied_field_t, temperature_k=action.temperature_k,
+        config,
+        applied_field_t=action.applied_field_t,
+        temperature_k=action.temperature_k,
+        compute_em_coherence=action.use_em,
     )
     elements = [get_element(sym) for sym in action.elements]
 
     def geometry_factory(el):
         return [_GEOMETRY_BUILDERS[k](el) for k in action.geometry_kinds]
+
+    use_epw = avenue.action.use_epw
+    effective_backend = backend
+    epw_available = False
+    if use_epw and epw_backend is not None:
+        epw_available = epw_backend.available()
+        if epw_available:
+            effective_backend = epw_backend
 
     # Restrict spin states to those named in the action (the screen computes both;
     # we keep only the requested subset).
@@ -110,9 +125,21 @@ def run_avenue(
     records = [
         r for r in screen_fn(
             elements=elements, config=run_config,
-            geometry_factory=geometry_factory, backend=backend,
+            geometry_factory=geometry_factory, backend=effective_backend,
         )
         if r.spin_label in wanted
     ]
     records_t = tuple(records)
-    return AvenueResult(avenue=avenue, records=records_t, metrics=_metrics(records_t))
+    # A genuine EPW computation carries source "epw" (Tc computed) or
+    # "epw:unstable" (real moments, Tc nulled) -- both produced an alpha^2 F.
+    # "epw:failed" is an errored run and must NOT read as success; "n/a"/"toy"
+    # mean EPW never ran (binaries absent / geometry not applicable).
+    if not use_epw:
+        epw_status = "not_requested"
+    elif any(r.sc_source in ("epw", "epw:unstable") for r in records_t):
+        epw_status = "ran"
+    elif any(r.sc_source == "epw:failed" for r in records_t):
+        epw_status = "failed"
+    else:
+        epw_status = "unavailable"
+    return AvenueResult(avenue=avenue, records=records_t, metrics=_metrics(records_t), epw_status=epw_status)

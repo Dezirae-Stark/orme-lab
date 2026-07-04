@@ -1,0 +1,32 @@
+[Unit]
+Description=ORME Ir per-element EPW run (persistent, cgroup-capped, self-limiting)
+Documentation=file:///orme-lab/docs/superpowers/plans/2026-07-04-ir-per-element-epw-lambda.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/orme-lab
+ExecStart=/orme-lab/scripts/ir_epw_supervisor.sh
+
+# --- HARD resource ceilings (cgroup v2, kernel-enforced -- cannot be exceeded) ---
+CPUQuota=1600%
+MemoryMax=32G
+MemorySwapMax=0
+TasksMax=1024
+Nice=15
+IOWeight=10
+# OOM stays inside this cgroup; operator services are never the victim.
+OOMPolicy=continue
+
+# --- resilience: crash -> resume from checkpoint; clean park (exit 0) -> stay put ---
+Restart=on-failure
+RestartSec=30
+TimeoutStopSec=180
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=orme-ir-epw
+
+[Install]
+WantedBy=multi-user.target

@@ -7,8 +7,14 @@ Wants=network-online.target
 [Service]
 Type=simple
 WorkingDirectory=/orme-lab
-# Pin the norm-conserving SG15 ONCV Ir pseudo (preferred over ultrasoft for EPW).
-Environment=ORME_IR_UPF=/opt/orme-epw/pseudo/Ir_ONCV_PBE_sr.upf
+# Element-neutral: the supervisor defaults to Ir. Per-element runs set these via a
+# systemd drop-in / `systemctl edit` (one element at a time; use a distinct ORME_STATE
+# so finished elements' checkpoints don't collide):
+#   Environment=ORME_ELEMENT=Pt
+#   Environment=ORME_PSEUDO=/opt/orme-epw/pseudo/Pt_ONCV_PBE_sr.upf
+#   Environment=ORME_STATE=/opt/orme-epw/state-pt
+# NC scalar-relativistic SG15 pseudos are preferred (EPW Wannier/elph); the semicore
+# skip count is computed from the pseudo's Z_valence at provision.
 ExecStart=/orme-lab/scripts/ir_epw_supervisor.sh
 
 # --- HARD resource ceilings (cgroup v2, kernel-enforced -- cannot be exceeded) ---

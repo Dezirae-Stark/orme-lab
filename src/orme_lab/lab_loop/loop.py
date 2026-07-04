@@ -48,8 +48,12 @@ class LoopReport:
 
 
 def _digest(ledger: Ledger, stopped_reason: str,
-            skipped: list[tuple[str, str]] | None = None) -> str:
+            skipped: list[tuple[str, str]] | None = None,
+            epw_unavailable: list[str] | None = None,
+            epw_failed: list[str] | None = None) -> str:
     skipped = skipped or []
+    epw_unavailable = epw_unavailable or []
+    epw_failed = epw_failed or []
     lines = [
         "# Autonomous lab-loop digest",
         "",
@@ -104,6 +108,16 @@ def _digest(ledger: Ledger, stopped_reason: str,
         lines.append("## Skipped (malformed proposals — not run, not findings)")
         for aid, reason in skipped:
             lines.append(f"- {aid}: {reason}")
+    if epw_unavailable:
+        lines.append("")
+        lines.append("## EPW requested but binaries unavailable (sc_* NOT computed)")
+        for aid in epw_unavailable:
+            lines.append(f"- {aid}: pw.x/ph.x/epw.x not present; no electron-phonon Tc")
+    if epw_failed:
+        lines.append("")
+        lines.append("## EPW run FAILED (sc_* NOT computed)")
+        for aid in epw_failed:
+            lines.append(f"- {aid}: EPW attempted but errored; no electron-phonon Tc")
     return "\n".join(lines)
 
 
@@ -113,6 +127,7 @@ def run_loop(
     loop_config: LoopConfig = DEFAULT_LOOP_CONFIG,
     backend=None,
     screen_fn=run_screen,
+    epw_backend=None,
 ) -> LoopReport:
     ledger = Ledger()
     rounds = 0
@@ -134,6 +149,10 @@ def run_loop(
     # proposal can't crash the loop or discard the in-progress ledger.
     skipped: list[tuple[str, str]] = []
     skipped_ids: set = set()
+    # EPW status tracking: avenues where EPW was requested but binaries unavailable,
+    # and avenues where EPW run failed.
+    epw_unavailable: list[str] = []
+    epw_failed: list[str] = []
 
     while len(ledger.records) < loop_config.max_avenues:
         rounds += 1
@@ -186,7 +205,12 @@ def run_loop(
         )
         best = candidates_buffer.pop(0)
 
-        result = run_avenue(best, config=config, backend=backend, screen_fn=screen_fn)
+        result = run_avenue(best, config=config, backend=backend, screen_fn=screen_fn,
+                            epw_backend=epw_backend)
+        if result.epw_status == "unavailable" and best.id not in epw_unavailable:
+            epw_unavailable.append(best.id)
+        if result.epw_status == "failed" and best.id not in epw_failed:
+            epw_failed.append(best.id)
         outcome = triage(result, ledger.open_hypotheses)
         ledger.record(best, outcome, result.metrics)
 
@@ -199,7 +223,8 @@ def run_loop(
             break
 
     return LoopReport(ledger=ledger, rounds=rounds, stopped_reason=stopped_reason,
-                      digest=_digest(ledger, stopped_reason, skipped))
+                      digest=_digest(ledger, stopped_reason, skipped, epw_unavailable,
+                                     epw_failed))
 
 
 class HeuristicGenerator:

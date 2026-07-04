@@ -36,11 +36,15 @@ MAX_BACKOFF_S="${ORME_MAX_BACKOFF_S:-2400}"   # park if throttled this long cont
 MAX_TUNE="${ORME_MAX_TUNE:-3}"                # bounded Wannier-window auto-retries
 
 mkdir -p "$STATE" "$SCRATCH"
-# ORME_IR_UPF pins an explicit pseudopotential (absolute path); else use whatever
-# provision discovered. The run is validated with the SG15 ONCV NC scalar-relativistic
-# Ir pseudo (Z=17, semicore) -- norm-conserving is preferred for EPW's Wannier/elph.
-IR_UPF="${ORME_IR_UPF:-}"
-[ -z "$IR_UPF" ] && [ -f "$STATE/ir_upf.path" ] && IR_UPF="$(cat "$STATE/ir_upf.path")"
+# ORME_ELEMENT picks the PGM element (default Ir); ORME_PSEUDO pins its pseudo
+# (absolute path; ORME_IR_UPF still honored for back-compat). SG15 ONCV NC scalar-
+# relativistic pseudos are validated; NC is preferred for EPW's Wannier/elph. The
+# semicore-skip count NSEMI is computed from the pseudo's Z_valence at provision.
+ELEMENT="${ORME_ELEMENT:-Ir}"
+SYM="$(printf '%s' "$ELEMENT" | tr '[:upper:]' '[:lower:]')"
+PSEUDO="${ORME_PSEUDO:-${ORME_IR_UPF:-}}"
+[ -z "$PSEUDO" ] && [ -f "$STATE/pseudo.path" ] && PSEUDO="$(cat "$STATE/pseudo.path")"
+NSEMI=""; [ -f "$STATE/nsemi" ] && NSEMI="$(cat "$STATE/nsemi")"
 
 ts()  { date -u +%Y-%m-%dT%H:%M:%SZ; }
 log() { echo "[$(ts)] $*"; echo "[$(ts)] $*" >> "$STATE/supervisor.log"; }
@@ -127,12 +131,11 @@ no_crash() { grep -qiE "CRASH| Error in routine" "$1" 2>/dev/null && park "$2 cr
 collect_dvscf() { # $1 workdir
   [ "$DRY_RUN" = "1" ] && { mkdir -p "$1/save"; return 0; }
   ( cd "$REPO" && python3 -c "
-import sys; sys.path.insert(0,'src')
+import sys, os; sys.path.insert(0,'src')
 from orme_lab.epw.runner import collect_dvscf
-from orme_lab.epw.runs.ir import ir_config
-import os
-cfg=ir_config(os.path.dirname('$IR_UPF'), os.path.basename('$IR_UPF'))
-collect_dvscf('$1','ir',cfg)" ) || park "dvscf collection failed"
+from orme_lab.epw.runs.pgm import pgm_config
+cfg=pgm_config('$ELEMENT', os.path.dirname('$PSEUDO'), os.path.basename('$PSEUDO'), n_semicore=$NSEMI)
+collect_dvscf('$1','$SYM',cfg)" ) || park "dvscf collection failed"
 }
 
 min_phonon_freq_cm() { # $1 workdir -> min cm-1 across freq lines (imaginary detection)
@@ -155,10 +158,11 @@ wannier_proxy_dev() { # $1 workdir -> small if EPW/Wannier looked converged, big
 }
 
 run_pipeline() { # $1 spin  $2 tag
-  local spin=$1 tag=$2 wd="$SCRATCH/ir_$2"
+  local spin=$1 tag=$2 wd="$SCRATCH/${SYM}_$2"
   mkdir -p "$wd"; write_status "$tag" "pipeline"
   is_done "$tag.decks" || { ( cd "$REPO" && python3 scripts/run_ir_epw.py --deck-only --spin "$spin" \
-        --workdir "$wd" --pseudo-dir "$(dirname "$IR_UPF")" --upf "$(basename "$IR_UPF")" ) \
+        --element "$ELEMENT" --n-semicore "$NSEMI" \
+        --workdir "$wd" --pseudo-dir "$(dirname "$PSEUDO")" --upf "$(basename "$PSEUDO")" ) \
         || park "$tag deck write failed"; mark_done "$tag.decks"; }
   is_done "$tag.scf"  || { run_qe "$QE_BIN/pw.x"  "$wd/scf.in"  "$wd/scf.out"  "" || park "$tag scf run error"; \
         need_out "$wd/scf.out" "convergence has been achieved" "$tag scf"; mark_done "$tag.scf"; }
@@ -173,7 +177,8 @@ run_pipeline() { # $1 spin  $2 tag
     local ef; ef=$(grep -i "the Fermi energy is" "$wd/nscf.out" | tail -1 | grep -oE "[0-9]+\.[0-9]+")
     [ -n "$ef" ] || park "$tag: could not parse Fermi energy from nscf.out"
     ( cd "$REPO" && python3 scripts/run_ir_epw.py --epw-deck --spin "$spin" --workdir "$wd" \
-        --pseudo-dir "$(dirname "$IR_UPF")" --upf "$(basename "$IR_UPF")" --fermi "$ef" ) \
+        --element "$ELEMENT" --n-semicore "$NSEMI" \
+        --pseudo-dir "$(dirname "$PSEUDO")" --upf "$(basename "$PSEUDO")" --fermi "$ef" ) \
         || park "$tag epw deck (E_F=$ef) regeneration failed"
     log "$tag: EPW dis windows referenced to E_F=$ef eV"
     run_qe "$QE_BIN/epw.x" "$wd/epw.in" "$wd/epw.out" "-npool $NP" || true
@@ -185,7 +190,7 @@ run_pipeline() { # $1 spin  $2 tag
     # EPW may exit on benign IEEE_DENORMAL flags AFTER writing the a2f + computing
     # lambda, without printing 'JOB DONE'. The real success signal is the a2f file
     # (suffixed ir.a2f.<smear>.<temp>) plus the 'lambda :' line -- not JOB DONE.
-    if ls "$wd"/ir.a2f.* >/dev/null 2>&1 && grep -q "lambda :" "$wd/epw.out"; then
+    if ls "$wd"/${SYM}.a2f.* >/dev/null 2>&1 && grep -q "lambda :" "$wd/epw.out"; then
       log "$tag epw: a2f written + lambda computed (no JOB DONE line -- benign EPW exit)"
       mark_done "$tag.epw"
     else
@@ -195,9 +200,9 @@ run_pipeline() { # $1 spin  $2 tag
 }
 
 gate() { # $1 tag  -> writes result_$tag.json; parks if not trustworthy
-  local tag=$1 wd="$SCRATCH/ir_$1"
+  local tag=$1 wd="$SCRATCH/${SYM}_$1"
   local J; J=$( [ "$DRY_RUN" = "1" ] && echo '{"lambda":0.42,"tc_kelvin":0.3}' \
-            || ( cd "$REPO" && python3 scripts/run_ir_epw.py --parse --workdir "$wd" ) ) || park "$tag parse failed"
+            || ( cd "$REPO" && python3 scripts/run_ir_epw.py --parse --element "$ELEMENT" --workdir "$wd" ) ) || park "$tag parse failed"
   local lam tc minf wdev
   lam=$(echo "$J" | python3 -c "import json,sys;print(json.load(sys.stdin)['lambda'])")
   tc=$(echo  "$J" | python3 -c "import json,sys;print(json.load(sys.stdin)['tc_kelvin'])")
@@ -233,10 +238,10 @@ capability_gate() {
 }
 
 provision() {
-  is_done provision && { [ -z "$IR_UPF" ] && IR_UPF="$(cat "$STATE/ir_upf.path")"; echo "$IR_UPF" > "$STATE/ir_upf.path"; return 0; }
+  is_done provision && { [ -z "$PSEUDO" ] && PSEUDO="$(cat "$STATE/pseudo.path")"; echo "$PSEUDO" > "$STATE/pseudo.path"; NSEMI="$(cat "$STATE/nsemi" 2>/dev/null)"; return 0; }
   write_status "provision" "toolchain + QE/EPW build + pseudo"
-  if [ "$DRY_RUN" = "1" ]; then echo "/dry/Ir.UPF" > "$STATE/ir_upf.path"; IR_UPF="/dry/Ir.UPF"; mkdir -p "$QE_BIN"; mark_done provision; return 0; fi
-  if [ -n "$IR_UPF" ]; then echo "$IR_UPF" > "$STATE/ir_upf.path"; log "provision: using pinned pseudo $IR_UPF"; fi
+  if [ "$DRY_RUN" = "1" ]; then PSEUDO="/dry/${ELEMENT}.UPF"; echo "$PSEUDO" > "$STATE/pseudo.path"; NSEMI=4; echo 4 > "$STATE/nsemi"; mkdir -p "$QE_BIN"; mark_done provision; return 0; fi
+  if [ -n "$PSEUDO" ]; then echo "$PSEUDO" > "$STATE/pseudo.path"; log "provision: using pinned pseudo $PSEUDO"; fi
   export DEBIAN_FRONTEND=noninteractive
   log "provision: apt toolchain"
   apt-get update -qq >> "$STATE/provision.log" 2>&1
@@ -254,11 +259,15 @@ provision() {
     make -j"$NP" epw >> "$STATE/build_epw.log" 2>&1 || park "QE make epw failed (see build_epw.log)"
   fi
   for b in pw.x ph.x epw.x; do [ -x "$QE_BIN/$b" ] || park "binary $b missing after build"; done
-  if [ -z "$IR_UPF" ]; then
-    IR_UPF=$(find /usr/share /usr/lib -iname 'Ir*.UPF' -o -iname 'Ir*.upf' 2>/dev/null | head -1)
-    [ -n "$IR_UPF" ] || park "no Ir pseudopotential (.UPF) found after installing SSSP data"
+  if [ -z "$PSEUDO" ]; then
+    PSEUDO=$(find /usr/share /usr/lib -iname "${ELEMENT}*.UPF" -o -iname "${ELEMENT}*.upf" 2>/dev/null | head -1)
+    [ -n "$PSEUDO" ] || park "no ${ELEMENT} pseudopotential (.UPF) found"
   fi
-  echo "$IR_UPF" > "$STATE/ir_upf.path"
+  echo "$PSEUDO" > "$STATE/pseudo.path"
+  NSEMI=$( cd "$REPO" && python3 -c "import sys,os;sys.path.insert(0,'src');from orme_lab.epw.runs.pgm import semicore_for_pseudo;print(semicore_for_pseudo('$ELEMENT', os.path.dirname('$PSEUDO'), os.path.basename('$PSEUDO')))" ) \
+    || park "could not compute semicore count for $ELEMENT from $PSEUDO"
+  echo "$NSEMI" > "$STATE/nsemi"
+  log "provision: $ELEMENT pseudo=$PSEUDO, semicore skip=$NSEMI bands"
   log "provision: OK  (Ir pseudo: $upf)"
   mark_done provision
 }

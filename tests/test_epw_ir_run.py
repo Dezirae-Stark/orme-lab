@@ -86,6 +86,7 @@ def test_epw_windows_are_fermi_referenced(tmp_path):
     run_ir_epw.write_epw_deck(spin="none", workdir=str(tmp_path),
                               pseudo_dir="/p", upf="Ir.upf", fermi_ev=21.5)
     epw = (tmp_path / "epw.in").read_text()
+    assert "bands_skipped = 'exclude_bands = 1:4'" in epw   # skip 5s+5p semicore
     assert "dis_win_min = 9.5" in epw      # -12.0 + 21.5
     assert "dis_win_max = 41.5" in epw     # +20.0 + 21.5
     assert "dis_froz_min = 19.5" in epw    #  -2.0 + 21.5

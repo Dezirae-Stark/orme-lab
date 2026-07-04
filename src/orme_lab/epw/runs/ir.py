@@ -57,6 +57,8 @@ def ir_config(pseudo_dir: str, upf: str,
         k_fine=(20, 20, 20),
         q_fine=(20, 20, 20),
         nbndsub=6,              # 5 d + 1 s explicit active space
+        n_semicore_bands=4,     # SG15 NC Ir is Z=17: skip 5s(1)+5p(3) semicore bands
+                                # so efermig sees 9 e- (5d7 6s2) in the d+s manifold
         dis_win_min_ev=-12.0,   # relative to E_F (added by epw_input via --fermi)
         dis_win_max_ev=20.0,
         dis_froz_min_ev=-2.0,

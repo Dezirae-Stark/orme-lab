@@ -187,6 +187,12 @@ def epw_input(approx: PeriodicApproximant, cfg: EPWConfig, prefix: str,
         # --- Wannierization (PGM defaults: d + s active space) ---
         "    wannierize = .true.\n"
         f"    nbndsub = {nw}\n"
+        # EPW ignores dis_win_min for band exclusion; deep semicore (5s/5p for the
+        # 15-17 valence Ir pseudos) MUST be skipped explicitly or efermig cannot
+        # bracket E_F (6 d+s bands can't hold 15-17 electrons).
+        + (f"    bands_skipped = 'exclude_bands = 1:{cfg.n_semicore_bands}'\n"
+           if cfg.n_semicore_bands > 0 else "")
+        +
         f"    num_iter = {cfg.wann_num_iter}\n"
         f"    proj(1) = '{el}:d'\n    proj(2) = '{el}:s'\n"
         f"    dis_win_min = {win_min}\n    dis_win_max = {win_max}\n"

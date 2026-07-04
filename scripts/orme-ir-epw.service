@@ -7,6 +7,8 @@ Wants=network-online.target
 [Service]
 Type=simple
 WorkingDirectory=/orme-lab
+# Pin the norm-conserving SG15 ONCV Ir pseudo (preferred over ultrasoft for EPW).
+Environment=ORME_IR_UPF=/opt/orme-epw/pseudo/Ir_ONCV_PBE_sr.upf
 ExecStart=/orme-lab/scripts/ir_epw_supervisor.sh
 
 # --- HARD resource ceilings (cgroup v2, kernel-enforced -- cannot be exceeded) ---

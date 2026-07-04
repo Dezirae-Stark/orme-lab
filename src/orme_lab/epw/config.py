@@ -36,6 +36,9 @@ class EPWConfig:
     # fcc Pb, lam=1.19; the per-element PGM projection/windows below are DEFAULTS
     # that need tuning + convergence against real epw.x before any lam is trusted).
     nbndsub: int = 0                 # 0 = auto (d+s Wannier count from valence)
+    n_semicore_bands: int = 0        # >0 -> emit bands_skipped='exclude_bands=1:N';
+                                     # EPW ignores dis_win_min for exclusion and needs
+                                     # this explicit skip (Ir SG15 NC: 5s+5p = 4 bands)
     wann_num_iter: int = 300
     dis_win_min_ev: float = -8.0
     dis_win_max_ev: float = 20.0

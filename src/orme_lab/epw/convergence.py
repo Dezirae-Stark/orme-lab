@@ -17,6 +17,11 @@ from dataclasses import dataclass
 WANNIER_MAX_DEV_MEV = 10.0     # interpolated vs DFT bands near E_F
 LAMBDA_DELTA_FRAC = 0.05       # |d lambda| / lambda on fine-grid refinement
 MIN_FREQ_CM = -1.0             # allow a tiny negative acoustic tol at Gamma
+LAMBDA_FLOOR = 0.02            # a metal with a full Fermi surface but lambda below
+                              # this has an effectively-collapsed electron-phonon
+                              # coupling -- a failure (e.g. Pt Tier-0 lambda~1e-5),
+                              # not a physical result. Genuine weak couplers still
+                              # exceed it; a value this low means the a2f is empty.
 
 
 @dataclass(frozen=True)
@@ -32,6 +37,7 @@ class ConvergenceReport:
             "wannier_match": self.wannier_band_max_dev_mev <= WANNIER_MAX_DEV_MEV,
             "lambda_converged": abs(self.lambda_grid_delta_frac) <= LAMBDA_DELTA_FRAC,
             "dynamically_stable": self.min_phonon_freq_cm >= MIN_FREQ_CM,
+            "coupling_present": self.lambda_value >= LAMBDA_FLOOR,
             "tc_computed": self.tc_kelvin >= 0.0 and self.lambda_value > 0.0,
         }
 

@@ -47,9 +47,20 @@ def test_all_gates_pass_for_good_run():
     r = ConvergenceReport(wannier_band_max_dev_mev=3.0, lambda_grid_delta_frac=0.03,
                           min_phonon_freq_cm=12.0, lambda_value=0.41, tc_kelvin=0.2)
     assert r.gates() == {"wannier_match": True, "lambda_converged": True,
-                         "dynamically_stable": True, "tc_computed": True}
+                         "dynamically_stable": True, "coupling_present": True,
+                         "tc_computed": True}
     assert r.trustworthy() is True
     assert r.failing_gates() == []
+
+
+def test_collapsed_coupling_fails_gate():
+    # Pt Tier-0: phonons clean + Fermi surface full, but lambda~1e-5 -> the a2f is
+    # empty; the coupling has collapsed and must NOT be certified trustworthy.
+    r = ConvergenceReport(wannier_band_max_dev_mev=3.0, lambda_grid_delta_frac=0.0,
+                          min_phonon_freq_cm=66.5, lambda_value=1.14e-05, tc_kelvin=0.0)
+    assert r.gates()["coupling_present"] is False
+    assert r.trustworthy() is False
+    assert "coupling_present" in r.failing_gates()
 
 
 def test_imaginary_phonon_fails_stability_gate():

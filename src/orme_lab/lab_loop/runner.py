@@ -12,7 +12,7 @@ from ..geometry import (
     make_compact_cluster, make_dimer, make_linear_chain, make_monomer,
 )
 from ..pipeline import CandidateRecord, run_screen
-from .avenue import Avenue
+from .avenue import Avenue, METRIC_RANGES
 
 _GEOMETRY_BUILDERS = {
     "monomer": lambda el: make_monomer(el),
@@ -20,6 +20,29 @@ _GEOMETRY_BUILDERS = {
     "linear_chain": lambda el: make_linear_chain(el, 4),
     "compact_cluster": lambda el: make_compact_cluster(el, 13),
 }
+
+
+def validate_runnable(avenue: Avenue) -> tuple[bool, str]:
+    """Check an avenue can be run WITHOUT raising: known falsification metric,
+    resolvable element symbols, known geometry kinds.
+
+    The production generator is an untrusted LLM subagent; a hallucinated element
+    ("Nb"), geometry ("hypercube"), or metric name would otherwise raise deep in
+    the run and abort the whole loop. The loop calls this at proposal intake and
+    skips (never runs) an avenue that fails, so one bad proposal can't discard the
+    in-progress session. Returns (ok, reason)."""
+    m = avenue.falsification.metric
+    if m not in METRIC_RANGES:
+        return False, f"unknown falsification metric {m!r}"
+    for sym in avenue.action.elements:
+        try:
+            get_element(sym)
+        except Exception:
+            return False, f"unknown element {sym!r}"
+    for kind in avenue.action.geometry_kinds:
+        if kind not in _GEOMETRY_BUILDERS:
+            return False, f"unknown geometry kind {kind!r}"
+    return True, ""
 
 
 @dataclass(frozen=True)
@@ -71,9 +94,8 @@ def run_avenue(
     def geometry_factory(el):
         return [_GEOMETRY_BUILDERS[k](el) for k in action.geometry_kinds]
 
-    # Restrict spin states to those named in the action.
-    from ..pipeline import _spin_states  # reuse the canonical spin builders
-
+    # Restrict spin states to those named in the action (the screen computes both;
+    # we keep only the requested subset).
     wanted = set(action.spin_labels)
     records = [
         r for r in screen_fn(

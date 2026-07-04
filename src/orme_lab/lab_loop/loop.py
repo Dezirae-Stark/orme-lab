@@ -19,7 +19,7 @@ from .avenue import Avenue, ActionSpec, Comparator, FalsificationCondition, Mech
 from .config import DEFAULT_LOOP_CONFIG, LoopConfig
 from .ledger import Ledger
 from .objective import action_key, score_avenue
-from .runner import run_avenue
+from .runner import run_avenue, validate_runnable
 from .triage import Verdict, triage
 
 
@@ -47,7 +47,9 @@ class LoopReport:
     digest: str
 
 
-def _digest(ledger: Ledger, stopped_reason: str) -> str:
+def _digest(ledger: Ledger, stopped_reason: str,
+            skipped: list[tuple[str, str]] | None = None) -> str:
+    skipped = skipped or []
     lines = [
         "# Autonomous lab-loop digest",
         "",
@@ -64,6 +66,17 @@ def _digest(ledger: Ledger, stopped_reason: str) -> str:
     else:
         lines.append("## Hypotheses retired: none this run")
     lines.append("")
+
+    # Screening leads: avenues NOT ruled out this run. A lead is Level <= 2 (a
+    # simulation candidate), NOT a superconductor — it names what to measure next.
+    survived = [r for r in ledger.records if r.verdict == Verdict.SURVIVED.value]
+    if survived:
+        lines.append("## Screening leads (NOT RULED OUT — Level <=2 triage signal, "
+                     "not evidence of superconductivity)")
+        for r in survived:
+            lines.append(f"- {r.avenue_id} (targeted {r.targeted_hypothesis}) — "
+                         f"worth real computation/measurement, not evidence of SC")
+        lines.append("")
     tautological = [r for r in ledger.records
                     if r.verdict == Verdict.TAUTOLOGICAL.value]
     independent = [r for r in ledger.records
@@ -86,6 +99,11 @@ def _digest(ledger: Ledger, stopped_reason: str) -> str:
                      "operator + red-team review, NOT findings)")
         for p in ledger.proposals:
             lines.append(f"- {p.id}: {p.description}")
+    if skipped:
+        lines.append("")
+        lines.append("## Skipped (malformed proposals — not run, not findings)")
+        for aid, reason in skipped:
+            lines.append(f"- {aid}: {reason}")
     return "\n".join(lines)
 
 
@@ -111,6 +129,11 @@ def run_loop(
     # proposal repeatedly.
     buffered_keys: set = set()
     quarantined_ids: set = set()
+    # Malformed avenues (unknown element/geometry/metric from an untrusted
+    # generator) are skipped, never run, and surfaced in the digest — a bad
+    # proposal can't crash the loop or discard the in-progress ledger.
+    skipped: list[tuple[str, str]] = []
+    skipped_ids: set = set()
 
     while len(ledger.records) < loop_config.max_avenues:
         rounds += 1
@@ -130,6 +153,13 @@ def run_loop(
                             rationale=f"tier-{int(av.tier)} avenue targeting {av.targeted_hypothesis}",
                             provenance=av.provenance,
                         ))
+                    continue
+                # Reject malformed avenues before they can raise deep in the run.
+                ok, reason = validate_runnable(av)
+                if not ok:
+                    if av.id not in skipped_ids:
+                        skipped_ids.add(av.id)
+                        skipped.append((av.id, reason))
                     continue
                 # Drop unfalsifiable / already-run / already-buffered; buffer the rest.
                 key = action_key(av)
@@ -169,7 +199,7 @@ def run_loop(
             break
 
     return LoopReport(ledger=ledger, rounds=rounds, stopped_reason=stopped_reason,
-                      digest=_digest(ledger, stopped_reason))
+                      digest=_digest(ledger, stopped_reason, skipped))
 
 
 class HeuristicGenerator:

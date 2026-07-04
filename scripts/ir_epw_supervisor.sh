@@ -182,7 +182,15 @@ run_pipeline() { # $1 spin  $2 tag
     fi
     grep -qiE "dis_windows: Energy window contains fewer states" "$wd/epw.out" 2>/dev/null && \
       park "$tag EPW Wannier disentanglement window contains < nbndsub states (window/E_F mismatch). HUMAN GATE."
-    need_out "$wd/epw.out" "JOB DONE" "$tag epw"; mark_done "$tag.epw"
+    # EPW may exit on benign IEEE_DENORMAL flags AFTER writing the a2f + computing
+    # lambda, without printing 'JOB DONE'. The real success signal is the a2f file
+    # (suffixed ir.a2f.<smear>.<temp>) plus the 'lambda :' line -- not JOB DONE.
+    if ls "$wd"/ir.a2f.* >/dev/null 2>&1 && grep -q "lambda :" "$wd/epw.out"; then
+      log "$tag epw: a2f written + lambda computed (no JOB DONE line -- benign EPW exit)"
+      mark_done "$tag.epw"
+    else
+      need_out "$wd/epw.out" "JOB DONE" "$tag epw"; mark_done "$tag.epw"
+    fi
   fi
 }
 

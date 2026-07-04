@@ -62,8 +62,19 @@ def write_epw_deck(spin: str, workdir: str, pseudo_dir: str, upf: str,
     return path
 
 
+def _find_a2f(workdir: str) -> str:
+    """EPW names the a2f with a smearing+temperature suffix (e.g. ir.a2f.01.0.300),
+    NOT bare ir.a2f. Match the standard (non-transport) a2f; the glob excludes the
+    ir.a2f_tr.* transport file (no '.' after 'a2f')."""
+    import glob
+    hits = sorted(glob.glob(os.path.join(workdir, f"{PREFIX}.a2f.*")))
+    if hits:
+        return hits[0]
+    return os.path.join(workdir, f"{PREFIX}.a2f")   # legacy fallback
+
+
 def parse_lambda(workdir: str, smearing_column: int = 5) -> dict[str, float]:
-    a2f_path = os.path.join(workdir, f"{PREFIX}.a2f")
+    a2f_path = _find_a2f(workdir)
     with open(a2f_path, encoding="utf-8") as fh:
         ef = parse_a2f(fh.read(), column=smearing_column)
     lam, wlog, w2 = ef.moments()

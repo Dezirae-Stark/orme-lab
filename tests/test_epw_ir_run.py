@@ -93,6 +93,16 @@ def test_epw_windows_are_fermi_referenced(tmp_path):
     assert "dis_froz_max = 22.5" in epw    #  +1.0 + 21.5
 
 
+def test_parse_lambda_finds_suffixed_a2f(tmp_path):
+    # EPW writes ir.a2f.<smear>.<temp>, NOT bare ir.a2f -- the parser must find it,
+    # and must not pick the transport ir.a2f_tr.* file.
+    (tmp_path / "ir.a2f_tr.01.0.300").write_text("# transport - must be ignored\n")
+    (tmp_path / "ir.a2f.01.0.300").write_text(
+        "# w  c1 c2 c3 c4 a2f\n 5.0 0 0 0 0 0.5\n 10.0 0 0 0 0 0.8\n 15.0 0 0 0 0 0.3\n")
+    got = run_ir_epw._find_a2f(str(tmp_path))
+    assert got.endswith("ir.a2f.01.0.300")
+
+
 def test_epw_windows_absolute_without_fermi(tmp_path):
     # legacy path (no fermi) keeps absolute cfg values -- must not silently shift.
     run_ir_epw.write_decks(spin="none", workdir=str(tmp_path),

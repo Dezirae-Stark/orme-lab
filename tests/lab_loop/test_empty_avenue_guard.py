@@ -7,7 +7,7 @@ from orme_lab.lab_loop.avenue import (
     Avenue, ActionSpec, Tier, FalsificationCondition, Comparator,
 )
 from orme_lab.lab_loop.config import LoopConfig
-from orme_lab.lab_loop.runner import validate_runnable, run_avenue
+from orme_lab.lab_loop.runner import validate_runnable
 from orme_lab.lab_loop.hypotheses import validate_scope
 from orme_lab.lab_loop.triage import Verdict
 from orme_lab.lab_loop.loop import run_loop

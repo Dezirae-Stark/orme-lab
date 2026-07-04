@@ -13,13 +13,16 @@ def test_heuristic_generator_drives_a_loop_offline():
     assert all(r.verdict != "tautological" for r in rep.ledger.records)
 
 
-def test_heuristic_generator_eventually_exhausts():
+def test_heuristic_generator_advances_as_actions_are_seen():
+    from orme_lab.lab_loop.objective import action_key
     gen = HeuristicGenerator(elements=("Pd",))
     first = gen.propose(frozenset({"H5"}), frozenset(), 100)
     assert len(first) >= 1
-    # asking again after 'seeing' those actions returns fewer/none
-    seen = frozenset()  # generator is stateless re: seen; loop enforces dedup
-    assert isinstance(first, list)
+    # Once the first batch's actions are seen, the generator skips them and
+    # proposes strictly fewer — it advances through / exhausts its universe.
+    seen = frozenset(action_key(av) for av in first)
+    again = gen.propose(frozenset({"H5"}), seen, 100)
+    assert len(again) < len(first)
 
 
 def test_cli_runs_and_writes_artifacts(tmp_path):

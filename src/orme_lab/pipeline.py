@@ -24,7 +24,7 @@ from __future__ import annotations
 
 import csv
 import math
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass
 
 from .backends import Capability, DFTBackend
 from .config import DEFAULT_CONFIG, LabConfig

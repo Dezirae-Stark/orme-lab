@@ -1,5 +1,5 @@
 import pytest
-from orme_lab.lab_loop.config import ObjectiveWeights, LoopConfig, DEFAULT_LOOP_CONFIG
+from orme_lab.lab_loop.config import ObjectiveWeights, DEFAULT_LOOP_CONFIG
 
 
 def test_decisiveness_dominates_coverage():

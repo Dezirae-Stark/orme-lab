@@ -24,7 +24,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from .config import ModelThresholds
-from .elements import Element
 from .spin_states import SpinState
 
 

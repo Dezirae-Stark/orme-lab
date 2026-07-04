@@ -50,6 +50,7 @@ class AvenueResult:
     avenue: Avenue
     records: tuple[CandidateRecord, ...]
     metrics: dict[str, float]
+    epw_status: str = "not_requested"
 
 
 _METRIC_KEYS = (
@@ -91,6 +92,7 @@ def run_avenue(
     config: LabConfig = DEFAULT_CONFIG,
     backend=None,
     screen_fn=run_screen,
+    epw_backend=None,
 ) -> AvenueResult:
     """Run ``avenue``'s action grid through the screen and compute its metrics.
 
@@ -109,15 +111,29 @@ def run_avenue(
     def geometry_factory(el):
         return [_GEOMETRY_BUILDERS[k](el) for k in action.geometry_kinds]
 
+    use_epw = avenue.action.use_epw
+    effective_backend = backend
+    epw_available = False
+    if use_epw and epw_backend is not None:
+        epw_available = epw_backend.available()
+        if epw_available:
+            effective_backend = epw_backend
+
     # Restrict spin states to those named in the action (the screen computes both;
     # we keep only the requested subset).
     wanted = set(action.spin_labels)
     records = [
         r for r in screen_fn(
             elements=elements, config=run_config,
-            geometry_factory=geometry_factory, backend=backend,
+            geometry_factory=geometry_factory, backend=effective_backend,
         )
         if r.spin_label in wanted
     ]
     records_t = tuple(records)
-    return AvenueResult(avenue=avenue, records=records_t, metrics=_metrics(records_t))
+    if not use_epw:
+        epw_status = "not_requested"
+    elif any(r.sc_source.startswith("epw") for r in records_t):
+        epw_status = "ran"
+    else:
+        epw_status = "unavailable"
+    return AvenueResult(avenue=avenue, records=records_t, metrics=_metrics(records_t), epw_status=epw_status)

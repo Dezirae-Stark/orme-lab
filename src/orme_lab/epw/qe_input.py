@@ -151,6 +151,23 @@ def ph_input(approx: PeriodicApproximant, cfg: EPWConfig, prefix: str) -> str:
     )
 
 
+def q2r_input(approx: PeriodicApproximant, cfg: EPWConfig, prefix: str) -> str:
+    """q2r.x deck: real-space interatomic force constants from the DFPT dynamical
+    matrices with the CRYSTAL acoustic sum rule, written to <dvscf_dir>/ifc.q2r --
+    the file EPW reads when lifc=.true. (TRIM(dvscf_dir)//'ifc.q2r'). This zeroes
+    the Gamma acoustic modes (raw ph.out leaves them at +-few cm-1, which corrupts
+    the a2f). ``approx`` is unused but kept for the uniform (approx, cfg, prefix)
+    deck-writer signature."""
+    del approx
+    return (
+        "&input\n"
+        f"    fildyn = '{prefix}.dyn'\n"
+        f"    flfrc = './{cfg.dvscf_dir}/ifc.q2r'\n"
+        f"    zasr = '{cfg.asr_typ}'\n"
+        "/\n"
+    )
+
+
 def epw_input(approx: PeriodicApproximant, cfg: EPWConfig, prefix: str,
               *, fermi_ev: float | None = None) -> str:
     """Full &inputepw for an elph -> a2f run. STRUCTURE validated vs real EPW

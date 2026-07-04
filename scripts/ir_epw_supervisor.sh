@@ -138,6 +138,14 @@ cfg=pgm_config('$ELEMENT', os.path.dirname('$PSEUDO'), os.path.basename('$PSEUDO
 collect_dvscf('$1','$SYM',cfg)" ) || park "dvscf collection failed"
 }
 
+run_q2r() { # $1 workdir -- crystal-ASR real-space IFCs -> save/ifc.q2r (EPW lifc reads it)
+  [ "$DRY_RUN" = "1" ] && { mkdir -p "$1/save"; : > "$1/save/ifc.q2r"; return 0; }
+  ( cd "$1" && nice -n 15 "$QE_BIN/q2r.x" -in q2r.in > q2r.out 2>&1 ) || park "q2r run error"
+  { grep -q "JOB DONE" "$1/q2r.out" && [ -s "$1/save/ifc.q2r" ]; } \
+    || park "q2r produced no save/ifc.q2r (crystal ASR / IFC generation failed)"
+  log "q2r: crystal-ASR IFCs written to save/ifc.q2r"
+}
+
 min_phonon_freq_cm() { # $1 workdir -> min cm-1 EXCLUDING the q=Gamma block
   # ph.out is raw DFPT (not ASR-corrected), so the Gamma acoustic modes carry a
   # +-few cm-1 acoustic-sum-rule artifact (they are 0 by symmetry). Excluding the
@@ -177,6 +185,7 @@ run_pipeline() { # $1 spin  $2 tag
   is_done "$tag.ph"   || { run_qe "$QE_BIN/ph.x"  "$wd/ph.in"   "$wd/ph.out"   "" || park "$tag ph run error"; \
         no_crash "$wd/ph.out" "$tag ph"; mark_done "$tag.ph"; }
   is_done "$tag.coll" || { collect_dvscf "$wd"; mark_done "$tag.coll"; }
+  is_done "$tag.q2r"  || { run_q2r "$wd"; mark_done "$tag.q2r"; }
   is_done "$tag.nscf" || { run_qe "$QE_BIN/pw.x"  "$wd/nscf.in" "$wd/nscf.out" "" || park "$tag nscf run error"; \
         need_out "$wd/nscf.out" "JOB DONE" "$tag nscf"; mark_done "$tag.nscf"; }
   if ! is_done "$tag.epw"; then

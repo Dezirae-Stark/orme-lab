@@ -34,7 +34,7 @@ def test_driver_pt_deck_prefix_and_exclude_bands(tmp_path):
     paths = run_ir_epw.write_decks(spin="none", workdir=str(tmp_path),
                                    pseudo_dir="/p", upf="Pt.upf",
                                    element="Pt", n_semicore=3)
-    assert set(paths) == {"scf", "nscf", "ph", "epw"}
+    assert set(paths) == {"scf", "nscf", "ph", "q2r", "epw"}
     epw = (tmp_path / "epw.in").read_text()
     assert "prefix = 'pt'" in epw                       # element-derived prefix
     assert "bands_skipped = 'exclude_bands = 1:3'" in epw  # Pt skips 3, not 4

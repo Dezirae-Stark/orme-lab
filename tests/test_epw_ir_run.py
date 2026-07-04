@@ -65,7 +65,7 @@ def test_imaginary_phonon_fails_stability_gate():
 def test_driver_deck_only_writes_four_magnetic_decks(tmp_path):
     paths = run_ir_epw.write_decks(spin="high", workdir=str(tmp_path),
                                    pseudo_dir="/pseudo", upf="Ir.upf")
-    assert set(paths) == {"scf", "nscf", "ph", "epw"}
+    assert set(paths) == {"scf", "nscf", "ph", "q2r", "epw"}
     scf = (tmp_path / "scf.in").read_text()
     assert "nspin = 2" in scf
     assert "starting_magnetization(1) = 0.3" in scf
@@ -103,25 +103,24 @@ def test_parse_lambda_finds_suffixed_a2f(tmp_path):
     assert got.endswith("ir.a2f.01.0.300")
 
 
-def test_epw_deck_lifc_off_by_default_no_asr_block(tmp_path):
-    # lifc needs a q2r-generated IFC file; OFF by default so EPW doesn't abort. When
-    # off, the deck must NOT emit lifc/asr_typ (EPW falls back to the simple sum rule).
+def test_epw_deck_enforces_crystal_asr_by_default(tmp_path):
+    # lifc on by default (the q2r stage now generates save/ifc.q2r): the deck enforces
+    # the crystal ASR so the Gamma acoustic modes are 0 (else the a2f/lambda collapse).
     run_ir_epw.write_epw_deck(spin="none", workdir=str(tmp_path),
                               pseudo_dir="/p", upf="Ir.upf", fermi_ev=21.5)
     epw = (tmp_path / "epw.in").read_text()
-    assert "lifc" not in epw
+    assert "lifc = .true." in epw
+    assert "asr_typ = 'crystal'" in epw
 
 
-def test_epw_deck_emits_crystal_asr_when_lifc_enabled():
-    # the capability exists for when the q2r/IFC stage is wired.
-    from dataclasses import replace
-
-    from orme_lab.epw import qe_input
-    from orme_lab.epw.runs import pgm
-    ap = pgm.pgm_approximant("Ir", "none")
-    cfg = replace(pgm.pgm_config("Ir", "/p", "Ir.upf", n_semicore=4), lifc=True)
-    epw = qe_input.epw_input(ap, cfg, "ir", fermi_ev=21.5)
-    assert "lifc = .true." in epw and "asr_typ = 'crystal'" in epw
+def test_q2r_deck_writes_ifc_to_dvscf_dir_with_crystal_asr(tmp_path):
+    # q2r.x -> <dvscf_dir>/ifc.q2r, the exact path EPW's read_ifc_epw reads (lifc).
+    run_ir_epw.write_decks(spin="none", workdir=str(tmp_path),
+                           pseudo_dir="/p", upf="Ir.upf")
+    q2r = (tmp_path / "q2r.in").read_text()
+    assert "fildyn = 'ir.dyn'" in q2r
+    assert "flfrc = './save/ifc.q2r'" in q2r
+    assert "zasr = 'crystal'" in q2r
 
 
 def test_epw_windows_absolute_without_fermi(tmp_path):

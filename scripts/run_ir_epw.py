@@ -30,7 +30,8 @@ from orme_lab.epw.parse import parse_a2f                # noqa: E402
 from orme_lab.epw.runs import ir, pgm                   # noqa: E402
 
 _DECKS = {"scf": qe_input.scf_input, "nscf": qe_input.nscf_input,
-          "ph": qe_input.ph_input, "epw": qe_input.epw_input}
+          "ph": qe_input.ph_input, "q2r": qe_input.q2r_input,
+          "epw": qe_input.epw_input}
 
 
 def _resolve(element: str, pseudo_dir: str, upf: str, n_semicore: int | None):

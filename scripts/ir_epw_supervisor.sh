@@ -134,7 +134,7 @@ collect_dvscf() { # $1 workdir
 import sys, os; sys.path.insert(0,'src')
 from orme_lab.epw.runner import collect_dvscf
 from orme_lab.epw.runs.pgm import pgm_config
-cfg=pgm_config('$ELEMENT', os.path.dirname('$PSEUDO'), os.path.basename('$PSEUDO'), n_semicore=$NSEMI)
+cfg=pgm_config('$ELEMENT', os.path.dirname('$PSEUDO'), os.path.basename('$PSEUDO'), n_semicore_per_atom=$NSEMI)
 collect_dvscf('$1','$SYM',cfg)" ) || park "dvscf collection failed"
 }
 

@@ -194,3 +194,42 @@ element-generic `pgm` layer with auto-computed semicore.
 **Lesson:** a band-plot diagnostic run in the EPW workdir **clobbers `<prefix>.save`**
 (overwrites the uniform nscf wavefunctions with the band k-path) → EPW then errors
 "inconsistent nscf and elph k-grids". Run band diagnostics in a **separate outdir**.
+
+---
+
+# Os per-element run (2026-07-05) — strong λ but a DYNAMICALLY UNSTABLE lattice (gate-caught)
+
+**First hcp element** — required generalizing the pipeline to multi-atom cells (the
+approximant marked Os/Ru hcp but the deck hardcoded nat=1 → a *simple-hexagonal
+1-atom* cell, NOT true hcp). Built: `PeriodicApproximant.basis` (fcc=1 atom;
+hcp=2 atoms at (0,0,0),(⅓,⅔,½)); deck writes `nat=n_atoms` + all positions;
+`nbndsub` (d+s=6/atom) and `exclude_bands` (semicore/atom) scale with n_atoms in
+`pgm_config`; the stability gate delegates to a tested parser that drops only the 3
+*acoustic* Γ modes and KEEPS Γ optical modes. Verified live: Os deck = **nat=2,
+nbndsub=12, exclude_bands=1:8, Fermi level with 16.000 e⁻** (2 × 5d⁶6s²). Enables Ru.
+
+**Cost:** the 2-atom DFPT (`ph.x`, 6 modes) took **~68 min** (vs ~2–3 min for the fcc
+1-atom cells), and the EPW α²F over the 8000-pt fine q-grid another ~2 h — hcp is
+~20–25× the fcc per-element cost.
+
+**Result:** **λ = 1.133** (EPW's own 1.1295 — agree), **Allen-Dynes Tc = 7.5 K,
+ω_log ≈ 83 K.** So Os has **strong coupling, comparable to Ir (1.10)** — NOT the Pt
+vertex collapse. **BUT the gate correctly rejects it (`dynamically_stable` → false →
+not trustworthy):** the raw DFPT has **2 imaginary modes of 72**, both **off-Γ at
+zone-boundary q** (−80.1 cm⁻¹ at the M-point q=(0,−0.577,0); −44.1 cm⁻¹ nearby).
+These are **not** the acoustic-Γ ASR artifact — the hcp-aware parser kept them
+(that's the whole point of the acoustic-only Γ exclusion). `coupling_present` passed
+(λ≫floor), so the two gates cleanly separate Os's problem (lattice) from Pt's (vertex).
+
+**Physical reading:** the imposed hcp geometry is off-equilibrium — a = cluster-NN
+(2.88 Å) with the **ideal c/a = 1.633**, whereas real Os has **c/a ≈ 1.58**. An
+off-equilibrium counterfactual lattice with soft zone-boundary modes is exactly the
+expected signature (the structure wants to distort). So the harmonic λ/Tc = 1.13/7.5 K
+is **not physically trustworthy** (the lattice is unstable), but it is an honest,
+gate-caught Level-2 finding — not a bug. A physically-meaningful Os λ would need a
+dynamically-stable geometry (relax c/a, or use the experimental structure).
+
+**Three elements, three correctly-diagnosed stories** (neutral-outcome discipline paid
+off each time): **Ir (fcc)** λ=1.10, stable → *trustworthy* (band-match validated);
+**Pt (fcc)** λ≈0 → *vertex collapse* (technical, open); **Os (hcp)** λ=1.13,
+*dynamically-unstable lattice* → not trustworthy. Ir remains the one validated λ.

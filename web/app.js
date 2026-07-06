@@ -4,6 +4,7 @@ import * as SIM from "./sim.js?v=__BUILD__";
 import { analyzeCandidate, ask, pingProxy, keyStore, proxyStore } from "./scientist.js?v=__BUILD__";
 import { METRICS } from "./metrics.js?v=__BUILD__";
 import { renderRegistry, hypothesesForMetric } from "./hypotheses.js?v=__BUILD__";
+import { renderPatentTests } from "./patent_tests.js?v=__BUILD__";
 
 // The eigenstate + DFT-cube feature is the ONLY heavy/optional part of the lab.
 // It is loaded LAZILY via dynamic import() rather than a top-level static import,
@@ -510,6 +511,7 @@ function wireEigenToggle() {
 
 function wireTabs() {
   renderRegistry($("regBody"));
+  renderPatentTests($("patentWidgets"));
   const digestEl = $("loopDigest");
   if (digestEl) digestEl.textContent = LOOP_DIGEST;   // real loop output
   document.querySelectorAll(".tab").forEach((t) =>

@@ -20,7 +20,7 @@ from dataclasses import dataclass
 
 from .evidence import EvidenceLevel, LAB_CEILING
 
-PHI0 = 2.067833831e-15        # magnetic flux quantum (Wb)
+PHI0 = 2.067833848e-15        # magnetic flux quantum (Wb), CODATA 2018 / current SI
 MU0 = 1.25663706212e-6        # vacuum permeability (H/m)
 M_E = 9.1093837015e-31        # electron mass (kg)
 E_CHARGE = 1.602176634e-19    # elementary charge (C)

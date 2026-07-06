@@ -11,7 +11,7 @@
 export const WAVENUMBER_CONST = 1302.8;       // ir_signature.py
 export const HUTTIG_FRACTION = 0.3;           // thermal_stability.py
 export const TAMMANN_FRACTION = 0.5;          // thermal_stability.py
-export const PHI0 = 2.067833831e-15;          // meissner_field.py
+export const PHI0 = 2.067833848e-15;          // meissner_field.py
 export const MU0 = 1.25663706212e-6;
 export const M_E = 9.1093837015e-31;
 export const E_CHARGE = 1.602176634e-19;

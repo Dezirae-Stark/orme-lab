@@ -123,6 +123,37 @@ export const HYPOTHESES = [
     modeled: "geometry.py (cluster geometry); MO density from DFT is roadmap",
     test: "Compute the MO density of a coupled cluster; compare its shape to the single-atom shell.",
   },
+  // ---- Patent-claim tests (Hudson DE3920144A1, tested on its own terms) ----
+  {
+    id: "P-IR", group: "patent", level: 1, status: "modeled",
+    statement: "Patent: OUMEs show an IR doublet at 1400–1600 cm⁻¹ (Rh 1429.53/1490.99; Ir 1432.09/1495.17) as the OUME identity marker.",
+    modeled: "ir_signature.py",
+    test: "Harmonic ν̃=1302.8√(k/μ): which bond family reaches 1400–1600 cm⁻¹ within physical force constants? Raman/IR on a real sample, controlled for adsorbate/organic bands.",
+  },
+  {
+    id: "P-THERM", group: "patent", level: 1, status: "modeled",
+    statement: "Patent: OUMEs do not sinter at 800 °C and stay amorphous to 1200 °C.",
+    modeled: "thermal_stability.py",
+    test: "Compare claimed stability to Hüttig/Tammann sintering onsets from the bulk melting point; TGA/DSC + XRD on a real sample.",
+  },
+  {
+    id: "P-MEISS", group: "patent", level: 1, status: "modeled",
+    statement: "Patent: a lower critical field Hc1 below Earth's field (~50 µT) for Ir/Au S-OUME.",
+    modeled: "meissner_field.py",
+    test: "Back out λ and nₛ from Hc1; check physical bounds and the isolation premise. SQUID magnetometry (zero-field-cooled Meissner fraction).",
+  },
+  {
+    id: "P-JJ", group: "patent", level: 0, status: "roadmap",
+    statement: "Patent: an ac-Josephson-type response above Hc2.",
+    modeled: "documented — see coupling-channel prior-art",
+    test: "Not independently falsifiable in this framework; would need a real junction I–V with Shapiro steps under microwave drive.",
+  },
+  {
+    id: "P-ASSAY", group: "patent", level: 0, status: "premise",
+    statement: "Patent: OUMEs evade conventional instrumental analysis (ore 'assays to <100%').",
+    modeled: "documented — flagged unfalsifiable-by-construction",
+    test: "A claim that fails all detection methods is not testable as stated; requires an independent quantitative recovery (ICP-MS mass balance) to even define.",
+  },
 ];
 
 // Provenance of the claim space these hypotheses formalize. Recorded as ORIGIN,
@@ -188,11 +219,15 @@ function card(h) {
 export function renderRegistry(el) {
   const core = HYPOTHESES.filter((h) => h.group === "core");
   const ext = HYPOTHESES.filter((h) => h.group === "extended");
+  const patent = HYPOTHESES.filter((h) => h.group === "patent");
   el.innerHTML =
     `<div class="reg-section-label">Core hypotheses · H-01–H-07 <span>the project spec</span></div>` +
     `<div class="hyp-grid">${core.map(card).join("")}</div>` +
     `<div class="reg-section-label">Extended hypotheses · H-12–H-20 <span>from the source research thread</span></div>` +
     `<div class="hyp-grid">${ext.map(card).join("")}</div>` +
+    `<div class="reg-section-label">Patent-claim tests · P-* <span>Hudson DE3920144A1, tested on its own terms</span></div>` +
+    `<div class="hyp-grid">${patent.map(card).join("")}</div>` +
+    `<div id="patentWidgets"></div>` +
     `<div class="reg-section-label">Provenance <span>where these claims originate</span></div>` +
     `<p class="reg-provenance"><strong>Claim:</strong> ${PROVENANCE.claim}<br>` +
     `<strong>Origin:</strong> ${PROVENANCE.origin}<br>` +

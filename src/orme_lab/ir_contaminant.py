@@ -98,3 +98,38 @@ def screen_contaminants(lines_cm: tuple[float, ...],
     ranked = tuple((b.name, s) for b, s in scored)
     level = EvidenceLevel(min(EvidenceLevel.MATHEMATICAL_CONSISTENCY, LAB_CEILING))
     return ContaminantMatchResult(tuple(lines_cm), hi - lo, ranked, verdict, top_band.source, level)
+
+
+# ---- Layer 2: coupled-oscillator model for the top match --------------------
+# Two equivalent coupled bond stretches split into symmetric/antisymmetric modes:
+#   nu_sym  = 1302.8 * sqrt((k - k')/mu)   (in-phase, lower)
+#   nu_asym = 1302.8 * sqrt((k + k')/mu)   (out-of-phase, higher)
+# k = bond force constant, k' = interaction constant, mu = one-oscillator reduced mass.
+_PHYSICAL_LIGHT_K = (4.0, 18.0)  # representative light-atom stretch envelope (mdyne/A)
+
+
+def coupled_stretch(k: float, k_int: float, mu: float) -> tuple[float, float]:
+    nu_sym = WAVENUMBER_CONST * math.sqrt((k - k_int) / mu)
+    nu_asym = WAVENUMBER_CONST * math.sqrt((k + k_int) / mu)
+    return (nu_sym, nu_asym)
+
+
+def back_out_coupling(nu_lo: float, nu_hi: float, mu: float) -> tuple[float, float]:
+    a = (nu_hi / WAVENUMBER_CONST) ** 2   # (k + k')/mu
+    b = (nu_lo / WAVENUMBER_CONST) ** 2   # (k - k')/mu
+    k = mu * (a + b) / 2.0
+    k_int = mu * (a - b) / 2.0
+    return (k, k_int)
+
+
+def coupled_model_for(band: ContaminantBand, lines_cm: tuple[float, ...]) -> str:
+    if not band.coupled_applicable or band.oscillator_mu is None:
+        return (f"Coupled-stretch model N/A for {band.name}: the doublet is not a "
+                f"symmetric two-oscillator pair for this species.")
+    lo, hi = min(lines_cm), max(lines_cm)
+    k, k_int = back_out_coupling(lo, hi, band.oscillator_mu)
+    lo_k, hi_k = _PHYSICAL_LIGHT_K
+    verdict = "physical" if lo_k <= k <= hi_k else "outside the light-atom envelope"
+    return (f"{band.name}: observed doublet implies bond k~{k:.1f} mdyne/A and interaction "
+            f"k'~{k_int:.2f} mdyne/A (mu={band.oscillator_mu:.3f} amu) — {verdict} "
+            f"[{lo_k:.0f}-{hi_k:.0f}].")

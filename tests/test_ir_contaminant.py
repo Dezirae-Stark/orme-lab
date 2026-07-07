@@ -68,3 +68,28 @@ def test_result_is_frozen():
     r = screen_contaminants((1430.0, 1490.0), [_synthetic()])
     with pytest.raises(Exception):
         r.verdict = "x"  # frozen dataclass
+
+
+from orme_lab.ir_contaminant import coupled_stretch, back_out_coupling, coupled_model_for
+
+
+def test_coupled_roundtrip():
+    k, k_int, mu = 10.0, 0.5, 6.856
+    nu_sym, nu_asym = coupled_stretch(k, k_int, mu)
+    assert nu_asym > nu_sym  # antisymmetric (out-of-phase) is the higher line
+    k_back, k_int_back = back_out_coupling(nu_sym, nu_asym, mu)
+    assert k_back == pytest.approx(k, rel=1e-6)
+    assert k_int_back == pytest.approx(k_int, rel=1e-6)
+
+
+def test_coupled_model_reports_force_constants():
+    band = _synthetic(name="nitrate NO3-", mu=7.464, coupled=True)
+    msg = coupled_model_for(band, (1429.53, 1490.99))
+    assert "nitrate NO3-" in msg
+    assert "mdyne" in msg
+
+
+def test_coupled_model_not_applicable_for_single_band():
+    band = _synthetic(name="water bend", mu=None, coupled=False)
+    msg = coupled_model_for(band, (1429.53, 1490.99))
+    assert "N/A" in msg or "not a" in msg.lower()

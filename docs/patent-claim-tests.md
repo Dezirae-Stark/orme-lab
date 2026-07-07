@@ -136,8 +136,9 @@ read primary (not recollection, not an LLM summary) and citation-audited: nitrat
 (Goebbert 2009), coordinated carbonate — monodentate and bidentate (Blumentritt
 1967 reproducing Fujita/Martell/Nakamoto 1962), carboxylate (Steill & Oomens 2009
 free-ion endpoint; Deacon & Phillips 1980 for the Δ-vs-denticity range), water bend
-(Goebbert 2009), alkyl C–H (Socrates 2001 / Pavia), ammonium (Altaner 1988), and
-silicone/PDMS (Shabrina, PMC11721900). Each row scores by both line positions and
+(Goebbert 2009), alkyl C–H (Socrates 2001 for the CH₃ umbrella; U. Delaware Fox
+notes for the CH₂ scissor), ammonium (Altaner 1988), and silicone/PDMS (Shabrina,
+PMC11721900). Each row scores by both line positions and
 the splitting Δ; the verdict is the top candidate's fit.
 
 **Result (computed after the library was fixed; not pre-judged).** Both patent

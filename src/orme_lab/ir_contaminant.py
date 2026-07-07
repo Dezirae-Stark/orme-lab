@@ -38,7 +38,7 @@ class ContaminantBand:
 _CONTAMINANTS: "tuple[ContaminantBand, ...]" = (
     # ---- route-derived: a mechanistic reason to be present from the patent's wet-chemistry route ----
     ContaminantBand("nitrate NO3-", "route_derived",
-                    lo_band=(1324.0, 1352.0), hi_band=(1353.0, 1374.0), split_band=(12.0, 43.0),
+                    lo_band=(1324.0, 1345.0), hi_band=(1353.0, 1374.0), split_band=(12.0, 43.0),
                     oscillator_mu=7.464, coupled_applicable=True,
                     # source: Goebbert et al., J. Phys. Chem. A 2009, 113, 7584-7592 (DOI 10.1021/jp9017103), Table 2 -- gas-phase NO3-(H2O)n IRMPD
                     source="Goebbert 2009 JPCA 113 7584, Table 2 (gas-phase nitrate IRMPD)"),
@@ -61,15 +61,17 @@ _CONTAMINANTS: "tuple[ContaminantBand, ...]" = (
                     # source: Steill & Oomens arXiv:0809.2519 (free ion 1305/1590); Deacon & Phillips, Coord. Chem. Rev. 1980, 33, 227 (Delta vs denticity)
                     source="Steill & Oomens 2009 free-ion 1305/1590; Deacon & Phillips 1980 CCR 33 227 (Delta-vs-denticity)"),
     ContaminantBand("water bend d(H2O)", "route_derived",
-                    lo_band=(1630.0, 1670.0), hi_band=(1630.0, 1670.0), split_band=(0.0, 0.0),
+                    lo_band=(1644.0, 1670.0), hi_band=(1644.0, 1670.0), split_band=(0.0, 0.0),
                     oscillator_mu=None, coupled_applicable=False,
+                    # source: Goebbert 2009 JPCA 113 7584, band B -- H2O bend, calc 1644 / obs 1654-1670 across NO3-(H2O)n clusters
                     source="Goebbert 2009 JPCA 113 7584, band B -- H2O bend in NO3-(H2O)n clusters"),
     # ---- standard IR-contaminant catalog: ubiquitous, but no route-specific mechanism ----
     ContaminantBand("alkyl C-H scissor/bend", "standard",
-                    lo_band=(1370.0, 1390.0), hi_band=(1460.0, 1470.0), split_band=(77.0, 100.0),
+                    lo_band=(1370.0, 1390.0), hi_band=(1450.0, 1467.0), split_band=(77.0, 100.0),
                     oscillator_mu=None, coupled_applicable=False,
-                    # CH3 sym. deformation ~1375: Socrates 3rd ed. 2001 (direct); CH2 scissor ~1467: standard textbook correlation (Pavia)
-                    source="Socrates 2001 (CH3 umbrella ~1375); Pavia textbook (CH2 scissor ~1467)"),
+                    # CH3 sym. deformation 1370-1390 (aliphatic hydrocarbons general range): Socrates 3rd ed. 2001 (direct, OCR-grepped);
+                    # CH2 scissor 1467 / CH3 asym bend 1450 (n-alkane dodecane FTIR): Univ. of Delaware Fox lecture notes (direct)
+                    source="Socrates 2001 (CH3 sym. deformation 1370-1390); U. Delaware Fox notes (CH2 scissor 1467, CH3 asym bend 1450)"),
     ContaminantBand("ammonium NH4+", "standard",
                     lo_band=(1400.0, 1440.0), hi_band=(1400.0, 1440.0), split_band=(0.0, 0.0),
                     oscillator_mu=None, coupled_applicable=False,

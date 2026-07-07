@@ -121,3 +121,67 @@ normal metal's carrier density. The implied superfluid density is dilute but sit
   "assays to <100%") is unfalsifiable by construction: a claim that evades all
   detection methods is not testable as stated, and requires an independent
   quantitative recovery (ICP-MS mass balance) even to define.
+
+## IR-doublet contaminant control (positive leg)
+
+The IR screen above (`ir_signature.py`) is the **negative** leg: it excludes a
+metal–metal bond for the patent's quoted doublet (the higher line needs
+k ≈ 67 mdyne/Å against a ≤ 5 mdyne/Å metal–metal envelope) and notes the lines
+sit in light-atom territory. `ir_contaminant.py` adds the **positive** leg — does
+the doublet actually match a *specific, cited* IR-active species that the patent's
+own wet-chemistry route would deposit? Same framing: triage, evidence Level ≤ 2.
+
+The reference library is eight species, every band value sourced from a directly
+read primary (not recollection, not an LLM summary) and citation-audited: nitrate
+(Goebbert 2009), coordinated carbonate — monodentate and bidentate (Blumentritt
+1967 reproducing Fujita/Martell/Nakamoto 1962), carboxylate (Steill & Oomens 2009
+free-ion endpoint; Deacon & Phillips 1980 for the Δ-vs-denticity range), water bend
+(Goebbert 2009), alkyl C–H (Socrates 2001 for the CH₃ umbrella; U. Delaware Fox
+notes for the CH₂ scissor), ammonium (Altaner 1988), and silicone/PDMS (Shabrina,
+PMC11721900). Each row scores by both line positions and
+the splitting Δ; the verdict is the top candidate's fit.
+
+**Result (computed after the library was fixed; not pre-judged).** Both patent
+doublets return **`plausible_match`**, top candidate **carboxylate/acetate COO⁻**
+(residual ≈ 0.57–0.59 band-widths), an order of magnitude ahead of the next
+candidate (alkyl C–H ≈ 4.1, monodentate carbonate ≈ 4.8). The `unmatched` branch —
+which, combined with the metal–metal exclusion, would have been the *anomalous*
+result favouring the patent — was **not** triggered: the citation-clean library
+does find a mundane explanation. The layer-2 coupled-oscillator model backs out
+bond k ≈ 8.6 mdyne/Å and interaction k′ ≈ 0.36 mdyne/Å for the carboxylate
+assignment — physically ordinary for a light-atom stretch [4–18] — so the positive
+leg is internally self-consistent.
+
+Read together: **metal–metal bonding is excluded, and the doublet's best mundane
+explanation is a carboxylate (organic residue) contaminant — plausible and
+physically self-consistent, though not a tight single-species match.** No single
+cited species tightly brackets both lines; the doublet sits between coordinated
+carbonate (which matches the upper line) and carboxylate (which matches the lower).
+
+### Caveats specific to the contaminant control
+
+- **Not a spectral assignment.** A `plausible_match` means the observed doublet is
+  *reachable* by a cited contaminant's band ranges, not that the sample contains it.
+  Deciding it needs Raman/IR on an actual sample with adsorbate/organic controls —
+  exactly the experiment the negative-leg caveat above already names.
+- **Carboxylate wins partly on band width.** Its bands are wide because they span
+  ionic/bridging/monodentate coordination; wide bands trivially contain lines, so
+  the residual metric favours it. This is a real limitation of a reachability ruler,
+  recorded, not hidden.
+- **Most outcome-sensitive omission — chelating carboxylate.** The carboxylate
+  `split_band` is `(100, 285)` cm⁻¹, covering only the bridging/monodentate/bare-ion
+  regimes with firm sourced bounds. **Chelating** bidentate carboxylate has a smaller
+  Δ (can fall below 100 cm⁻¹, toward the patent's ~61) but lacked a firmly-sourced
+  lower bound, so it is *not* represented. Including it would tighten the carboxylate
+  match; excluding it would (if it were the only near candidate) push toward
+  `unmatched`. It was left out because the number was not cleanly sourced — not to
+  steer the verdict. The verdict is `plausible_match` regardless, driven by the
+  position bands, so this omission does not flip the outcome.
+- **Citation provenance is uneven, and flagged in-code.** Nitrate, water bend, and
+  PDMS were independently re-fetched and confirmed. Carbonate traces to the
+  recommended primary one hop through a directly-read thesis. Carboxylate's
+  denticity range is confirmed one hop through an open-access paper citing Deacon &
+  Phillips (the review itself was bot-walled). Ammonium substitutes Altaner 1988 for
+  the auditor-recommended Oxton/Knop/Falk series (Cloudflare-walled after repeated
+  attempts). Every row carries its actual source in `_CONTAMINANTS`; none is a value
+  I could not attribute to something read.

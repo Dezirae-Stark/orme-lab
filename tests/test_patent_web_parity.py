@@ -40,11 +40,12 @@ def _parse_js_contaminants(text: str):
     out = {}
     for row in rows:
         name = re.search(r'name:\s*"([^"]+)"', row).group(1)
+        cat = re.search(r'cat:\s*"([^"]+)"', row).group(1)
         # extract ONLY the lo/hi/d array contents (in that document order) so a
         # digit inside a species name like "NO3-" cannot leak into the numbers
         arrs = re.findall(r"(?:lo|hi|d):\s*\[([^\]]*)\]", row)
         nums = [float(x) for arr in arrs for x in arr.split(",") if x.strip()]
-        out[name] = nums
+        out[name] = {"nums": nums, "cat": cat}
     return out
 
 
@@ -55,4 +56,6 @@ def test_js_contaminant_table_matches_python():
         assert b.name in js, f"{b.name} missing from JS mirror"
         py_nums = [b.lo_band[0], b.lo_band[1], b.hi_band[0], b.hi_band[1],
                    b.split_band[0], b.split_band[1]]
-        assert js[b.name] == pytest.approx(py_nums), f"{b.name} band mismatch"
+        assert js[b.name]["nums"] == pytest.approx(py_nums), f"{b.name} band mismatch"
+        # category drives the CAT_RANK tiebreak on both sides — pin it too
+        assert js[b.name]["cat"] == b.category, f"{b.name} category mismatch"

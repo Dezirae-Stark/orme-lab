@@ -67,8 +67,10 @@ _CONTAMINANTS: "tuple[ContaminantBand, ...]" = (
                     source="Goebbert 2009 JPCA 113 7584, band B -- H2O bend in NO3-(H2O)n clusters"),
     # ---- standard IR-contaminant catalog: ubiquitous, but no route-specific mechanism ----
     ContaminantBand("alkyl C-H scissor/bend", "standard",
-                    lo_band=(1370.0, 1390.0), hi_band=(1450.0, 1467.0), split_band=(77.0, 100.0),
+                    lo_band=(1370.0, 1390.0), hi_band=(1450.0, 1467.0), split_band=(60.0, 97.0),
                     oscillator_mu=None, coupled_applicable=False,
+                    # These are two DISTINCT modes (not a symmetric pair), so the "splitting" is just the
+                    # position difference: min 1450-1390=60, max 1467-1370=97 -> split_band=(60,97), edge-consistent.
                     # CH3 sym. deformation 1370-1390 (aliphatic hydrocarbons general range): Socrates 3rd ed. 2001 (direct, OCR-grepped);
                     # CH2 scissor 1467 / CH3 asym bend 1450 (n-alkane dodecane FTIR): Univ. of Delaware Fox lecture notes (direct)
                     source="Socrates 2001 (CH3 sym. deformation 1370-1390); U. Delaware Fox notes (CH2 scissor 1467, CH3 asym bend 1450)"),

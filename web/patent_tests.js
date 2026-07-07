@@ -23,7 +23,7 @@ const CONTAMINANTS = [
   { name: "carbonate CO3(2-) bidentate", cat: "route_derived", lo: [1265, 1292], hi: [1593, 1643], d: [301, 378] },
   { name: "carboxylate/acetate COO-", cat: "route_derived", lo: [1280, 1400], hi: [1510, 1650], d: [100, 285] },
   { name: "water bend d(H2O)", cat: "route_derived", lo: [1644, 1670], hi: [1644, 1670], d: [0, 0] },
-  { name: "alkyl C-H scissor/bend", cat: "standard", lo: [1370, 1390], hi: [1450, 1467], d: [77, 100] },
+  { name: "alkyl C-H scissor/bend", cat: "standard", lo: [1370, 1390], hi: [1450, 1467], d: [60, 97] },
   { name: "ammonium NH4+", cat: "standard", lo: [1400, 1440], hi: [1400, 1440], d: [0, 0] },
   { name: "silicone/PDMS Si-CH3", cat: "standard", lo: [1254, 1265], hi: [1400, 1415], d: [135, 161] },
 ];

@@ -21,7 +21,6 @@ from .ir_signature import WAVENUMBER_CONST, wavenumber  # noqa: F401  (wavenumbe
 
 _CAT_RANK = {"route_derived": 0, "standard": 1}
 _TOL_PLAUSIBLE = 1.0  # total normalised band-width residual admitted as a plausible match
-_CONTAMINANTS: "tuple[ContaminantBand, ...]" = ()  # populated in Task 4 from the sourced table
 
 
 @dataclass(frozen=True)
@@ -34,6 +33,52 @@ class ContaminantBand:
     oscillator_mu: float | None         # stretch reduced mass (amu) for layer-2; None if N/A
     coupled_applicable: bool
     source: str
+
+
+_CONTAMINANTS: "tuple[ContaminantBand, ...]" = (
+    # ---- route-derived: a mechanistic reason to be present from the patent's wet-chemistry route ----
+    ContaminantBand("nitrate NO3-", "route_derived",
+                    lo_band=(1324.0, 1352.0), hi_band=(1353.0, 1374.0), split_band=(12.0, 43.0),
+                    oscillator_mu=7.464, coupled_applicable=True,
+                    # source: Goebbert et al., J. Phys. Chem. A 2009, 113, 7584-7592 (DOI 10.1021/jp9017103), Table 2 -- gas-phase NO3-(H2O)n IRMPD
+                    source="Goebbert 2009 JPCA 113 7584, Table 2 (gas-phase nitrate IRMPD)"),
+    ContaminantBand("carbonate CO3(2-) monodentate", "route_derived",
+                    lo_band=(1360.0, 1373.0), hi_band=(1449.0, 1495.0), split_band=(80.0, 125.0),
+                    oscillator_mu=6.856, coupled_applicable=True,
+                    # source: Blumentritt MS Thesis, Texas Tech 1967, Tables III-IV, reproducing Fujita, Martell & Nakamoto, J. Chem. Phys. 36, 339 (1962)
+                    source="Blumentritt 1967 (repro. Fujita/Martell/Nakamoto 1962), monodentate carbonato"),
+    ContaminantBand("carbonate CO3(2-) bidentate", "route_derived",
+                    lo_band=(1265.0, 1292.0), hi_band=(1593.0, 1643.0), split_band=(301.0, 378.0),
+                    oscillator_mu=6.856, coupled_applicable=True,
+                    source="Blumentritt 1967 (repro. Fujita/Martell/Nakamoto 1962), bidentate carbonato"),
+    ContaminantBand("carboxylate/acetate COO-", "route_derived",
+                    lo_band=(1280.0, 1400.0), hi_band=(1510.0, 1650.0), split_band=(100.0, 285.0),
+                    oscillator_mu=6.856, coupled_applicable=True,
+                    # NOTE: split_band covers bridging(100-150)/monodentate(>200)/bare(285) -- the regimes with firm sourced bounds.
+                    # CHELATING bidentate carboxylate (Delta can fall below 100, toward ~40-80) is NOT represented for lack of a
+                    # firmly-sourced lower bound; a chelating carboxylate could bring the split into the patent's ~61 cm^-1 range.
+                    # This is the screen's most outcome-sensitive omission -- see docs/patent-claim-tests.md.
+                    # source: Steill & Oomens arXiv:0809.2519 (free ion 1305/1590); Deacon & Phillips, Coord. Chem. Rev. 1980, 33, 227 (Delta vs denticity)
+                    source="Steill & Oomens 2009 free-ion 1305/1590; Deacon & Phillips 1980 CCR 33 227 (Delta-vs-denticity)"),
+    ContaminantBand("water bend d(H2O)", "route_derived",
+                    lo_band=(1630.0, 1670.0), hi_band=(1630.0, 1670.0), split_band=(0.0, 0.0),
+                    oscillator_mu=None, coupled_applicable=False,
+                    source="Goebbert 2009 JPCA 113 7584, band B -- H2O bend in NO3-(H2O)n clusters"),
+    # ---- standard IR-contaminant catalog: ubiquitous, but no route-specific mechanism ----
+    ContaminantBand("alkyl C-H scissor/bend", "standard",
+                    lo_band=(1370.0, 1390.0), hi_band=(1460.0, 1470.0), split_band=(77.0, 100.0),
+                    oscillator_mu=None, coupled_applicable=False,
+                    # CH3 sym. deformation ~1375: Socrates 3rd ed. 2001 (direct); CH2 scissor ~1467: standard textbook correlation (Pavia)
+                    source="Socrates 2001 (CH3 umbrella ~1375); Pavia textbook (CH2 scissor ~1467)"),
+    ContaminantBand("ammonium NH4+", "standard",
+                    lo_band=(1400.0, 1440.0), hi_band=(1400.0, 1440.0), split_band=(0.0, 0.0),
+                    oscillator_mu=None, coupled_applicable=False,
+                    source="Altaner et al., Am. Mineral. 1988, 73, 145-152 -- NH4+ nu4 bend (free ~1400, mineral-bound 1430-1440)"),
+    ContaminantBand("silicone/PDMS Si-CH3", "standard",
+                    lo_band=(1254.0, 1265.0), hi_band=(1400.0, 1415.0), split_band=(135.0, 161.0),
+                    oscillator_mu=None, coupled_applicable=False,
+                    source="Shabrina et al., PMC11721900, Table 3 -- PDMS Si-CH3 sym/asym deformation"),
+)
 
 
 def _band_residual(x: float, band: tuple[float, float]) -> float:

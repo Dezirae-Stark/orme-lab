@@ -93,3 +93,27 @@ def test_coupled_model_not_applicable_for_single_band():
     band = _synthetic(name="water bend", mu=None, coupled=False)
     msg = coupled_model_for(band, (1429.53, 1490.99))
     assert "N/A" in msg or "not a" in msg.lower()
+
+
+from orme_lab.ir_contaminant import _CONTAMINANTS
+
+
+def test_library_is_populated_and_well_formed():
+    assert len(_CONTAMINANTS) >= 4  # at least the route-derived tier survived sourcing
+    for b in _CONTAMINANTS:
+        assert b.category in ("route_derived", "standard")
+        assert b.lo_band[0] <= b.lo_band[1]
+        assert b.hi_band[0] <= b.hi_band[1]
+        assert b.split_band[0] <= b.split_band[1]
+        assert b.source  # every row cites a source
+
+
+def test_patent_doublets_run_neutrally():
+    # NEUTRAL: assert structure only, never a specific winner.
+    for lines in ((1429.53, 1490.99), (1432.09, 1495.17)):
+        r = screen_contaminants(lines)
+        assert r.verdict in ("tight_match", "plausible_match", "unmatched")
+        assert r.evidence_level <= 2
+        assert len(r.ranked) == len(_CONTAMINANTS)
+        scores = [s for _, s in r.ranked]
+        assert scores == sorted(scores)  # ascending / deterministic

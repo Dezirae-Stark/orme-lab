@@ -17,7 +17,7 @@ import math
 from dataclasses import dataclass
 
 from .evidence import EvidenceLevel, LAB_CEILING
-from .ir_signature import WAVENUMBER_CONST, wavenumber  # noqa: F401  (wavenumber used in Task 5)
+from .ir_signature import WAVENUMBER_CONST
 
 _CAT_RANK = {"route_derived": 0, "standard": 1}
 _TOL_PLAUSIBLE = 1.0  # total normalised band-width residual admitted as a plausible match

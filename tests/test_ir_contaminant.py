@@ -30,8 +30,7 @@ def test_match_score_orders_lines():
     assert match_score((1490.0, 1430.0), band) == pytest.approx(0.0)
 
 
-from orme_lab.ir_contaminant import screen_contaminants, ContaminantMatchResult
-from orme_lab.evidence import LAB_CEILING
+from orme_lab.ir_contaminant import screen_contaminants
 
 
 def test_tight_match_when_all_bands_contain():

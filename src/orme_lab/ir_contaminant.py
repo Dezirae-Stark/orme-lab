@@ -21,6 +21,7 @@ from .ir_signature import WAVENUMBER_CONST, wavenumber  # noqa: F401  (wavenumbe
 
 _CAT_RANK = {"route_derived": 0, "standard": 1}
 _TOL_PLAUSIBLE = 1.0  # total normalised band-width residual admitted as a plausible match
+_CONTAMINANTS: "tuple[ContaminantBand, ...]" = ()  # populated in Task 4 from the sourced table
 
 
 @dataclass(frozen=True)
@@ -51,3 +52,49 @@ def match_score(lines_cm: tuple[float, ...], band: ContaminantBand) -> float:
     return (_band_residual(lo_line, band.lo_band)
             + _band_residual(hi_line, band.hi_band)
             + _band_residual(split, band.split_band))
+
+
+@dataclass(frozen=True)
+class ContaminantMatchResult:
+    observed_lines_cm: tuple[float, ...]
+    splitting_cm: float
+    ranked: tuple[tuple[str, float], ...]   # (name, score), ascending
+    verdict: str                            # tight_match | plausible_match | unmatched
+    top_source: str
+    evidence_level: EvidenceLevel
+
+    def explain(self) -> str:
+        top_name, top_score = self.ranked[0]
+        if self.verdict == "tight_match":
+            return (f"Doublet {self.observed_lines_cm} (splitting {self.splitting_cm:.1f} cm^-1) "
+                    f"falls inside the cited band of {top_name}. A mundane contaminant "
+                    f"explains it (triage only; source: {self.top_source}).")
+        if self.verdict == "plausible_match":
+            return (f"Closest cited species is {top_name} (residual {top_score:.2f} band-widths; "
+                    f"source: {self.top_source}); a contaminant assignment is plausible but not tight.")
+        return (f"No cited contaminant matches the doublet within tolerance "
+                f"(closest {top_name}, residual {top_score:.2f} band-widths). With metal-metal "
+                f"already excluded, the doublet is unmatched — an anomalous result.")
+
+
+def screen_contaminants(lines_cm: tuple[float, ...],
+                        bands: "list[ContaminantBand] | None" = None) -> ContaminantMatchResult:
+    table = list(_CONTAMINANTS if bands is None else bands)
+    lo, hi = min(lines_cm), max(lines_cm)
+    scored = [(b, match_score(lines_cm, b)) for b in table]
+    scored.sort(key=lambda bs: (bs[1], _CAT_RANK[bs[0].category], bs[0].name))
+
+    top_band, top_score = scored[0]
+    lo_r = _band_residual(lo, top_band.lo_band)
+    hi_r = _band_residual(hi, top_band.hi_band)
+    sp_r = _band_residual(hi - lo, top_band.split_band)
+    if lo_r == 0.0 and hi_r == 0.0 and sp_r == 0.0:
+        verdict = "tight_match"
+    elif top_score <= _TOL_PLAUSIBLE:
+        verdict = "plausible_match"
+    else:
+        verdict = "unmatched"
+
+    ranked = tuple((b.name, s) for b, s in scored)
+    level = EvidenceLevel(min(EvidenceLevel.MATHEMATICAL_CONSISTENCY, LAB_CEILING))
+    return ContaminantMatchResult(tuple(lines_cm), hi - lo, ranked, verdict, top_band.source, level)

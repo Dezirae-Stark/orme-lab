@@ -45,6 +45,14 @@ MAX_LEVEL = EvidenceLevel.ESTABLISHED_PHENOMENON
 #: simulation-candidate artifact; reaching higher requires a real lab.
 LAB_CEILING = EvidenceLevel.SIMULATION_CANDIDATE
 
+#: The highest level the *prediction* path may assert. A concrete, measurable
+#: prediction is Level 3 by the ladder's own definition (see
+#: ``candidate_evidence_level``, which already returns LABORATORY_PREDICTION for a
+#: surviving candidate). Screens and verdicts keep the ``LAB_CEILING`` (2) clamp;
+#: only the control-experiment predictor (``control_experiment``) uses this ceiling.
+#: A prediction is not an observation — it never reaches Level 4+.
+PREDICTION_CEILING = EvidenceLevel.LABORATORY_PREDICTION
+
 
 def describe(level: EvidenceLevel) -> str:
     """Human-readable label for a level."""

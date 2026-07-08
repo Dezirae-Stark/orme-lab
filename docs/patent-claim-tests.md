@@ -163,6 +163,13 @@ carboxylate-like (chelating carboxylate sits higher, ν_sym 1456–1472 / ν_asy
 positions and splitting at once** — which is why the dedicated chelating row scores
 *poorly* (residual ≈ 5) despite the near-coincident Δ.
 
+**Deciding origin — the control experiment.** A reachability match cannot say whether the
+doublet is a surface contaminant or intrinsic to the metal. `docs/ir-doublet-control-experiment.md`
+(computed by `src/orme_lab/control_experiment.py`) turns the open question into the decisive
+measurement: ¹³C/¹⁸O isotopic substitution (predicted ≈ −33/−36 cm⁻¹ red-shift if C–O
+carboxylate, ≈ 0 if metal–metal), Raman/IR mutual exclusion, and coverage scaling — 4 of 5
+controls decisive. Those are the lab's first **Level-3 (laboratory-prediction)** artifacts.
+
 ### Caveats specific to the contaminant control
 
 - **Not a spectral assignment.** A `plausible_match` means the observed doublet is

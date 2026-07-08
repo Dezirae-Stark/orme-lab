@@ -51,16 +51,23 @@ _CONTAMINANTS: "tuple[ContaminantBand, ...]" = (
                     lo_band=(1265.0, 1292.0), hi_band=(1593.0, 1643.0), split_band=(301.0, 378.0),
                     oscillator_mu=6.856, coupled_applicable=True,
                     source="Blumentritt 1967 (repro. Fujita/Martell/Nakamoto 1962), bidentate carbonato"),
-    ContaminantBand("carboxylate/acetate COO-", "route_derived",
-                    lo_band=(1280.0, 1400.0), hi_band=(1510.0, 1650.0), split_band=(65.0, 285.0),
+    # Carboxylate is split by coordination mode so positions AND splitting come from ONE coherent state per row
+    # (a given complex is in one mode). Non-chelating modes here; chelating is the next row.
+    ContaminantBand("carboxylate/acetate COO- (ionic/bridging/monodentate)", "route_derived",
+                    lo_band=(1280.0, 1400.0), hi_band=(1510.0, 1650.0), split_band=(100.0, 285.0),
                     oscillator_mu=6.856, coupled_applicable=True,
-                    # split_band spans all coordination modes with a sourced Delta: CHELATING floor 65 (Na[UO2(OAc)3]
-                    # 1537/1472; Zn(OAc)2.2H2O 1550/1456=94) through bridging(100-150)/monodentate(>200)/bare(285).
-                    # 65 is the lowest DIRECTLY-VERIFIED chelating value (Grigorev 1963, one-hop via a directly-read Wits
-                    # MSc thesis Table 2.4); lower chelating Delta may exist in sources not reachable this pass.
-                    # source: Steill & Oomens arXiv:0809.2519 (free ion 1305/1590); Deacon & Phillips, Coord. Chem. Rev. 1980, 33, 227 (Delta vs denticity);
-                    #         chelating floor 65 cm^-1 = Grigorev, Russ. J. Inorg. Chem. 8 (1963) 409f (one-hop via Wits MSc thesis, Table 2.4)
-                    source="Steill & Oomens 2009 free-ion 1305/1590; Deacon & Phillips 1980 CCR 33 227; chelating floor 65 = Grigorev 1963 (one-hop via Wits thesis Table 2.4)"),
+                    # source: Steill & Oomens arXiv:0809.2519 (bare ion 1305/1590, Delta 285);
+                    #         Deacon & Phillips, Coord. Chem. Rev. 1980, 33, 227 (bridging Delta 100-150, monodentate >200)
+                    source="Steill & Oomens 2009 (bare 1305/1590, D=285); Deacon & Phillips 1980 CCR 33 227 (bridging 100-150, monodentate >200)"),
+    ContaminantBand("carboxylate/acetate COO- (chelating)", "route_derived",
+                    lo_band=(1456.0, 1472.0), hi_band=(1537.0, 1550.0), split_band=(65.0, 94.0),
+                    oscillator_mu=6.856, coupled_applicable=True,
+                    # Symmetric bidentate: positions and splitting from the SAME two compounds, so an exact cited chelating
+                    # pair (e.g. 1472/1537, Delta=65) is representable as a tight match. Chelating nu_sym sits higher
+                    # (~1456-1472) than the ionic band -- which is exactly why it must be its own row, not mixed above.
+                    # source: Grigorev, Russ. J. Inorg. Chem. 8 (1963) 409f (Zn(OAc)2.2H2O 1550/1456 D=94; Na[UO2(OAc)3]
+                    #         1537/1472 D=65) -- one-hop via directly-read Wits MSc thesis, Table 2.4
+                    source="Grigorev 1963 (Zn(OAc)2.2H2O 1550/1456; Na[UO2(OAc)3] 1537/1472; one-hop via Wits thesis Table 2.4)"),
     ContaminantBand("water bend d(H2O)", "route_derived",
                     lo_band=(1644.0, 1670.0), hi_band=(1644.0, 1670.0), split_band=(0.0, 0.0),
                     oscillator_mu=None, coupled_applicable=False,

@@ -48,3 +48,52 @@ def test_prediction_is_frozen():
     p = predict_isotope_shift(PATENT_RH, "13C")
     with pytest.raises(Exception):
         p.decisive = False
+
+
+# ---- Task 3: Raman/IR mutual exclusion ----
+from orme_lab.control_experiment import predict_raman_ir
+
+
+def test_raman_ir_mutual_exclusion_is_decisive():
+    p = predict_raman_ir()
+    assert p.decisive is True
+    assert p.evidence_level == EvidenceLevel.LABORATORY_PREDICTION
+    # centrosymmetric metal-metal: symmetric stretch is IR-forbidden
+    assert "forbidden" in p.expected_under_intrinsic.lower() or "no" in p.expected_under_intrinsic.lower()
+    # carboxylate: active in both
+    assert "raman" in p.expected_under_contaminant.lower()
+
+
+# ---- Task 4: coverage / exposure scaling ----
+from orme_lab.control_experiment import predict_coverage_scaling
+
+
+def test_coverage_scaling_linear_vs_flat_is_decisive():
+    p = predict_coverage_scaling()
+    assert p.decisive is True
+    assert p.evidence_level == EvidenceLevel.LABORATORY_PREDICTION
+    assert "exposure" in p.expected_under_contaminant.lower()
+    assert "invariant" in p.expected_under_intrinsic.lower() or "independent" in p.expected_under_intrinsic.lower()
+    assert p.note  # the softness caveat is stated
+
+
+# ---- Task 5: orchestrator ----
+from orme_lab.control_experiment import design_control_experiment, ControlExperimentResult
+
+
+def test_orchestrator_is_mostly_decisive_and_level_3():
+    r = design_control_experiment(PATENT_RH, metal_symbol="Rh")
+    assert isinstance(r, ControlExperimentResult)
+    # 13C, 18O, Raman/IR, coverage decisive; 15N not -> at least 4 of 5
+    assert r.decisive_count >= 4
+    assert len(r.predictions) == 5
+    assert r.evidence_level == EvidenceLevel.LABORATORY_PREDICTION
+    for p in r.predictions:
+        assert p.evidence_level == EvidenceLevel.LABORATORY_PREDICTION
+
+
+def test_orchestrator_deterministic():
+    a = design_control_experiment(PATENT_RH, metal_symbol="Ir")
+    b = design_control_experiment(PATENT_RH, metal_symbol="Ir")
+    assert [p.decisive for p in a.predictions] == [p.decisive for p in b.predictions]
+    assert a.decisive_count == b.decisive_count

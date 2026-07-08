@@ -90,3 +90,82 @@ def predict_isotope_shift(lines_cm: tuple[float, ...], label: str,
               f"NOT decisive: {label} does not test this bond (shift below the "
               f"{DETECTION_FLOOR_CM:.0f} cm^-1 floor) — pick an isotope of an atom in the bond"),
     )
+
+
+def predict_raman_ir(centrosymmetric_intrinsic: bool = True) -> Prediction:
+    """Predict the Raman/IR activity pattern under each hypothesis.
+
+    Mutual-exclusion rule: in a centrosymmetric species, a mode is IR-active OR
+    Raman-active, never both. A metal-metal homodimer (inversion centre) has a
+    Raman-active, IR-FORBIDDEN symmetric stretch — so an IR-observed doublet is in
+    tension with that assignment. A carboxylate (C2v, no inversion centre) is active
+    in both IR and Raman (nu_sym Raman-strong ~1430-1470, nu_asym IR-strong).
+    Reference: mutual-exclusion rule, Atkins Physical Chemistry / Harris Quantitative
+    Chemical Analysis (standard vibrational spectroscopy).
+    """
+    intrinsic = (
+        "symmetric M-M stretch is IR-FORBIDDEN (mutual exclusion) — an IR-observed "
+        "doublet contradicts a centrosymmetric metal-metal origin; no IR/Raman coincidence"
+        if centrosymmetric_intrinsic else
+        "IR- and Raman-active (no inversion centre assumed)"
+    )
+    return Prediction(
+        measurement="acquire Raman on the same sample; compare IR/Raman coincidence",
+        expected_under_contaminant=("active in both IR and Raman; a strong Raman nu_sym "
+                                    "band near 1430-1470 cm^-1 accompanies the IR doublet"),
+        expected_under_intrinsic=intrinsic,
+        decisive=bool(centrosymmetric_intrinsic),
+        evidence_level=_pred_level(),
+        note="grounded in the Raman/IR mutual-exclusion rule for centrosymmetric species",
+    )
+
+
+def predict_coverage_scaling() -> Prediction:
+    """Predict how band area scales with exposure/surface treatment under each hypothesis.
+
+    Beer-Lambert: integrated band area A ~ N absorbers. A surface contaminant's N grows
+    ~linearly with exposure below saturation (Langmuir isotherm, 1918) and tracks
+    surface-area/volume; a bulk-intrinsic mode's A tracks sample mass but is invariant to
+    surface treatment/exposure. Reference: Beer-Lambert law; Langmuir, J. Am. Chem. Soc.
+    40 (1918) 1361 (adsorption isotherm).
+    """
+    return Prediction(
+        measurement="vary exposure / surface-area-to-volume; track integrated band area",
+        expected_under_contaminant=("band area grows ~linearly with exposure (Beer-Lambert x "
+                                    "sub-saturation Langmuir), saturating at a monolayer; "
+                                    "tracks surface area"),
+        expected_under_intrinsic="band area invariant to exposure and surface treatment",
+        decisive=True,
+        evidence_level=_pred_level(),
+        note=("softest of the three: real samples saturate and organics desorb, so read the "
+              "trend (linear-vs-flat), not an absolute area"),
+    )
+
+
+@dataclass(frozen=True)
+class ControlExperimentResult:
+    predictions: tuple[Prediction, ...]
+    decisive_count: int
+    evidence_level: EvidenceLevel
+
+    def explain(self) -> str:
+        return (f"{self.decisive_count}/{len(self.predictions)} controls are decisive "
+                f"(distinguish surface-contaminant from metal-intrinsic origin). "
+                f"Level-{int(self.evidence_level)} laboratory prediction — the lab designs "
+                f"this measurement; running it needs a real instrument.")
+
+
+def design_control_experiment(lines_cm: tuple[float, ...], metal_symbol: str = "Rh",
+                              light_bond: tuple[str, str] = ("C", "O")) -> ControlExperimentResult:
+    """Assemble the decisive-measurement suite for an observed doublet: three isotope
+    labels, the Raman/IR mutual-exclusion test, and the coverage-scaling test."""
+    metal_bond = (metal_symbol, metal_symbol)
+    preds = (
+        predict_isotope_shift(lines_cm, "13C", light_bond, metal_bond),
+        predict_isotope_shift(lines_cm, "18O", light_bond, metal_bond),
+        predict_isotope_shift(lines_cm, "15N", light_bond, metal_bond),
+        predict_raman_ir(),
+        predict_coverage_scaling(),
+    )
+    decisive_count = sum(1 for p in preds if p.decisive)
+    return ControlExperimentResult(preds, decisive_count, _pred_level())

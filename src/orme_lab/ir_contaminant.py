@@ -52,14 +52,15 @@ _CONTAMINANTS: "tuple[ContaminantBand, ...]" = (
                     oscillator_mu=6.856, coupled_applicable=True,
                     source="Blumentritt 1967 (repro. Fujita/Martell/Nakamoto 1962), bidentate carbonato"),
     ContaminantBand("carboxylate/acetate COO-", "route_derived",
-                    lo_band=(1280.0, 1400.0), hi_band=(1510.0, 1650.0), split_band=(100.0, 285.0),
+                    lo_band=(1280.0, 1400.0), hi_band=(1510.0, 1650.0), split_band=(65.0, 285.0),
                     oscillator_mu=6.856, coupled_applicable=True,
-                    # NOTE: split_band covers bridging(100-150)/monodentate(>200)/bare(285) -- the regimes with firm sourced bounds.
-                    # CHELATING bidentate carboxylate (Delta can fall below 100, toward ~40-80) is NOT represented for lack of a
-                    # firmly-sourced lower bound; a chelating carboxylate could bring the split into the patent's ~61 cm^-1 range.
-                    # This is the screen's most outcome-sensitive omission -- see docs/patent-claim-tests.md.
-                    # source: Steill & Oomens arXiv:0809.2519 (free ion 1305/1590); Deacon & Phillips, Coord. Chem. Rev. 1980, 33, 227 (Delta vs denticity)
-                    source="Steill & Oomens 2009 free-ion 1305/1590; Deacon & Phillips 1980 CCR 33 227 (Delta-vs-denticity)"),
+                    # split_band spans all coordination modes with a sourced Delta: CHELATING floor 65 (Na[UO2(OAc)3]
+                    # 1537/1472; Zn(OAc)2.2H2O 1550/1456=94) through bridging(100-150)/monodentate(>200)/bare(285).
+                    # 65 is the lowest DIRECTLY-VERIFIED chelating value (Grigorev 1963, one-hop via a directly-read Wits
+                    # MSc thesis Table 2.4); lower chelating Delta may exist in sources not reachable this pass.
+                    # source: Steill & Oomens arXiv:0809.2519 (free ion 1305/1590); Deacon & Phillips, Coord. Chem. Rev. 1980, 33, 227 (Delta vs denticity);
+                    #         chelating floor 65 cm^-1 = Grigorev, Russ. J. Inorg. Chem. 8 (1963) 409f (one-hop via Wits MSc thesis, Table 2.4)
+                    source="Steill & Oomens 2009 free-ion 1305/1590; Deacon & Phillips 1980 CCR 33 227; chelating floor 65 = Grigorev 1963 (one-hop via Wits thesis Table 2.4)"),
     ContaminantBand("water bend d(H2O)", "route_derived",
                     lo_band=(1644.0, 1670.0), hi_band=(1644.0, 1670.0), split_band=(0.0, 0.0),
                     oscillator_mu=None, coupled_applicable=False,

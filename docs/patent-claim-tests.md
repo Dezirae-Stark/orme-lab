@@ -143,7 +143,7 @@ the splitting Δ; the verdict is the top candidate's fit.
 
 **Result (computed after the library was fixed; not pre-judged).** Both patent
 doublets return **`plausible_match`**, top candidate **carboxylate/acetate COO⁻**
-(residual ≈ 0.57–0.59 band-widths), an order of magnitude ahead of the next
+(residual ≈ 0.38–0.40 band-widths), an order of magnitude ahead of the next
 candidate (alkyl C–H ≈ 4.1, monodentate carbonate ≈ 4.8). The `unmatched` branch —
 which, combined with the metal–metal exclusion, would have been the *anomalous*
 result favouring the patent — was **not** triggered: the citation-clean library
@@ -168,20 +168,28 @@ carbonate (which matches the upper line) and carboxylate (which matches the lowe
   ionic/bridging/monodentate coordination; wide bands trivially contain lines, so
   the residual metric favours it. This is a real limitation of a reachability ruler,
   recorded, not hidden.
-- **Most outcome-sensitive omission — chelating carboxylate.** The carboxylate
-  `split_band` is `(100, 285)` cm⁻¹, covering only the bridging/monodentate/bare-ion
-  regimes with firm sourced bounds. **Chelating** bidentate carboxylate has a smaller
-  Δ (can fall below 100 cm⁻¹, toward the patent's ~61) but lacked a firmly-sourced
-  lower bound, so it is *not* represented. Including it would tighten the carboxylate
-  match; excluding it would (if it were the only near candidate) push toward
-  `unmatched`. It was left out because the number was not cleanly sourced — not to
-  steer the verdict. The verdict is `plausible_match` regardless, driven by the
-  position bands, so this omission does not flip the outcome.
+- **Chelating carboxylate — the outcome-sensitive band edge, now sourced.** The
+  carboxylate `split_band` is `(65, 285)` cm⁻¹. The upper end is the bridging/
+  monodentate/bare-ion regime; the lower end, **65 cm⁻¹**, is the firmly-sourced
+  *chelating* (symmetric bidentate) floor — Na[UO₂(OAc)₃] (ν_asym 1537 / ν_sym 1472),
+  with Zn(OAc)₂·2H₂O at Δ=94 as a second chelating point, from Grigorev (1963) read
+  one hop through a directly-read Wits MSc thesis (Table 2.4), citation-audited
+  against the raw PDF. Earlier this edge was left open at 100 for lack of a sourced
+  floor; sourcing it *lowered* the carboxylate residual from ≈0.59 to ≈0.40 but did
+  **not** change the verdict — the patent's split (≈61 cm⁻¹) lands just *below* the
+  lowest verified chelating Δ (65), so the splitting is now nearly but not fully
+  satisfied, and the absolute line positions still keep the match from being tight.
+  The floor was set to the value the literature actually supports, not chosen to move
+  the verdict; the verdict held at `plausible_match` either way. Residual gap: 65 is
+  the lowest *verified* value, one hop from Grigorev's original Soviet-journal paper
+  (not directly fetched); a lower chelating Δ in paywalled sources (Deacon & Phillips
+  1980; Zeleňák 2007) cannot be excluded.
 - **Citation provenance is uneven, and flagged in-code.** Nitrate, water bend, and
   PDMS were independently re-fetched and confirmed. Carbonate traces to the
   recommended primary one hop through a directly-read thesis. Carboxylate's
   denticity range is confirmed one hop through an open-access paper citing Deacon &
-  Phillips (the review itself was bot-walled). Ammonium substitutes Altaner 1988 for
+  Phillips (the review itself was bot-walled), and its chelating floor (65 cm⁻¹) one
+  hop through a directly-read thesis reproducing Grigorev 1963. Ammonium substitutes Altaner 1988 for
   the auditor-recommended Oxton/Knop/Falk series (Cloudflare-walled after repeated
   attempts). Every row carries its actual source in `_CONTAMINANTS`; none is a value
   I could not attribute to something read.

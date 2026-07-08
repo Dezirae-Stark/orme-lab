@@ -156,15 +156,21 @@ class ControlExperimentResult:
 
 
 def design_control_experiment(lines_cm: tuple[float, ...], metal_symbol: str = "Rh",
-                              light_bond: tuple[str, str] = ("C", "O")) -> ControlExperimentResult:
+                              light_bond: tuple[str, str] = ("C", "O"),
+                              centrosymmetric_intrinsic: bool = True) -> ControlExperimentResult:
     """Assemble the decisive-measurement suite for an observed doublet: three isotope
-    labels, the Raman/IR mutual-exclusion test, and the coverage-scaling test."""
+    labels, the Raman/IR mutual-exclusion test, and the coverage-scaling test.
+
+    ``centrosymmetric_intrinsic`` (default True — a metal-metal homodimer has an inversion
+    centre) controls the Raman/IR row: if the intrinsic alternative is NOT centrosymmetric it
+    is IR+Raman active like the carboxylate, so that control cannot discriminate and drops out
+    of ``decisive_count``. Isotope and coverage controls do not depend on this assumption."""
     metal_bond = (metal_symbol, metal_symbol)
     preds = (
         predict_isotope_shift(lines_cm, "13C", light_bond, metal_bond),
         predict_isotope_shift(lines_cm, "18O", light_bond, metal_bond),
         predict_isotope_shift(lines_cm, "15N", light_bond, metal_bond),
-        predict_raman_ir(),
+        predict_raman_ir(centrosymmetric_intrinsic),
         predict_coverage_scaling(),
     )
     decisive_count = sum(1 for p in preds if p.decisive)

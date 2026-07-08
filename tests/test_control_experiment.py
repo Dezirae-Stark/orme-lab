@@ -92,6 +92,15 @@ def test_orchestrator_is_mostly_decisive_and_level_3():
         assert p.evidence_level == EvidenceLevel.LABORATORY_PREDICTION
 
 
+def test_orchestrator_non_centrosymmetric_intrinsic_drops_raman_ir():
+    # If the intrinsic alternative is NOT a centrosymmetric metal-metal unit, the Raman/IR
+    # mutual-exclusion control no longer discriminates -> decisive_count drops from 4 to 3.
+    r = design_control_experiment(PATENT_RH, metal_symbol="Rh", centrosymmetric_intrinsic=False)
+    assert r.decisive_count == 3
+    raman = next(p for p in r.predictions if "Raman" in p.measurement)
+    assert raman.decisive is False
+
+
 def test_orchestrator_deterministic():
     a = design_control_experiment(PATENT_RH, metal_symbol="Ir")
     b = design_control_experiment(PATENT_RH, metal_symbol="Ir")

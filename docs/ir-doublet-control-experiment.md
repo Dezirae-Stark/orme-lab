@@ -74,6 +74,9 @@ the neutral-outcomes discipline made visible.
   stretch). A *non*-centrosymmetric intrinsic cluster would be active in both IR and Raman —
   like the carboxylate — so this control would lose discriminating power. Isotope substitution
   and coverage scaling do not depend on that assumption and remain the primary discriminators.
+  `design_control_experiment(..., centrosymmetric_intrinsic=False)` honours this: it marks the
+  Raman/IR row non-decisive, so the suite honestly reports **3/5** rather than 4/5 for a
+  non-centrosymmetric intrinsic cluster.
 
 ## What a result would mean
 

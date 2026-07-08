@@ -5,10 +5,21 @@ from __future__ import annotations
 from orme_lab.evidence import (
     EvidenceLevel,
     LAB_CEILING,
+    PREDICTION_CEILING,
     badge,
     candidate_evidence_level,
     describe,
 )
+
+
+def test_prediction_ceiling_is_level_3_and_screen_ceiling_unchanged():
+    # The prediction path may reach Level 3 (a concrete measurable prediction);
+    # screens/verdicts stay clamped at Level 2. These two ceilings are distinct.
+    assert PREDICTION_CEILING == EvidenceLevel.LABORATORY_PREDICTION
+    assert int(PREDICTION_CEILING) == 3
+    assert LAB_CEILING == EvidenceLevel.SIMULATION_CANDIDATE
+    assert int(LAB_CEILING) == 2
+    assert PREDICTION_CEILING > LAB_CEILING
 
 
 def test_levels_are_ordered_0_to_6():

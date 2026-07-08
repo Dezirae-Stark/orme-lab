@@ -142,21 +142,26 @@ PMC11721900). Each row scores by both line positions and
 the splitting Δ; the verdict is the top candidate's fit.
 
 **Result (computed after the library was fixed; not pre-judged).** Both patent
-doublets return **`plausible_match`**, top candidate **carboxylate/acetate COO⁻**
-(residual ≈ 0.57–0.59 band-widths), an order of magnitude ahead of the next
-candidate (alkyl C–H ≈ 4.1, monodentate carbonate ≈ 4.8). The `unmatched` branch —
-which, combined with the metal–metal exclusion, would have been the *anomalous*
-result favouring the patent — was **not** triggered: the citation-clean library
-does find a mundane explanation. The layer-2 coupled-oscillator model backs out
-bond k ≈ 8.6 mdyne/Å and interaction k′ ≈ 0.36 mdyne/Å for the carboxylate
-assignment — physically ordinary for a light-atom stretch [4–18] — so the positive
-leg is internally self-consistent.
+doublets return **`plausible_match`**, top candidate **carboxylate/acetate COO⁻
+(ionic/bridging/monodentate)** (residual ≈ 0.57–0.59 band-widths), several times
+ahead of the next candidate (alkyl C–H ≈ 3.4–3.8, monodentate carbonate ≈ 4.8). The
+`unmatched` branch — which, combined with the metal–metal exclusion, would have been
+the *anomalous* result favouring the patent — was **not** triggered: the
+citation-clean library does find a mundane explanation. The layer-2
+coupled-oscillator model backs out bond k ≈ 8.6 mdyne/Å and interaction
+k′ ≈ 0.36 mdyne/Å for the carboxylate assignment — physically ordinary for a
+light-atom stretch [4–18] — so the positive leg is internally self-consistent.
 
 Read together: **metal–metal bonding is excluded, and the doublet's best mundane
-explanation is a carboxylate (organic residue) contaminant — plausible and
-physically self-consistent, though not a tight single-species match.** No single
-cited species tightly brackets both lines; the doublet sits between coordinated
-carbonate (which matches the upper line) and carboxylate (which matches the lower).
+explanation is an ionic/bridging carboxylate (organic residue) contaminant —
+plausible and physically self-consistent, though not a tight single-species match.**
+The reason it stays *plausible* rather than *tight* is sharper than a wide-band
+coincidence: the patent's *splitting* (≈61 cm⁻¹) is **chelating**-carboxylate-like
+(the chelating floor is Δ≈65), but its line *positions* (1429/1490) are **ionic**-
+carboxylate-like (chelating carboxylate sits higher, ν_sym 1456–1472 / ν_asym
+1537–1550). The doublet matches **no single carboxylate coordination mode on both
+positions and splitting at once** — which is why the dedicated chelating row scores
+*poorly* (residual ≈ 5) despite the near-coincident Δ.
 
 ### Caveats specific to the contaminant control
 
@@ -164,24 +169,34 @@ carbonate (which matches the upper line) and carboxylate (which matches the lowe
   *reachable* by a cited contaminant's band ranges, not that the sample contains it.
   Deciding it needs Raman/IR on an actual sample with adsorbate/organic controls —
   exactly the experiment the negative-leg caveat above already names.
-- **Carboxylate wins partly on band width.** Its bands are wide because they span
-  ionic/bridging/monodentate coordination; wide bands trivially contain lines, so
-  the residual metric favours it. This is a real limitation of a reachability ruler,
-  recorded, not hidden.
-- **Most outcome-sensitive omission — chelating carboxylate.** The carboxylate
-  `split_band` is `(100, 285)` cm⁻¹, covering only the bridging/monodentate/bare-ion
-  regimes with firm sourced bounds. **Chelating** bidentate carboxylate has a smaller
-  Δ (can fall below 100 cm⁻¹, toward the patent's ~61) but lacked a firmly-sourced
-  lower bound, so it is *not* represented. Including it would tighten the carboxylate
-  match; excluding it would (if it were the only near candidate) push toward
-  `unmatched`. It was left out because the number was not cleanly sourced — not to
-  steer the verdict. The verdict is `plausible_match` regardless, driven by the
-  position bands, so this omission does not flip the outcome.
+- **Carboxylate position bands are broad.** The ionic/bridging/monodentate row's
+  bands still span ~120–140 cm⁻¹, so it contains lines fairly readily — a real
+  limitation of a reachability ruler, recorded, not hidden. (An earlier version made
+  this worse by lumping *all* coordination modes into one row; see the next point.)
+- **Carboxylate is split by coordination mode — positions and splitting must agree.**
+  A given carboxylate complex is in one coordination state, so its lower line, upper
+  line, and splitting all come from that one state. The library therefore carries two
+  carboxylate rows: **ionic/bridging/monodentate** (ν_sym 1280–1400 / ν_asym
+  1510–1650 / Δ 100–285; Steill & Oomens 2009, Deacon & Phillips 1980) and
+  **chelating** (ν_sym 1456–1472 / ν_asym 1537–1550 / Δ 65–94; Grigorev 1963, one hop
+  through a directly-read Wits MSc thesis Table 2.4, citation-audited against the raw
+  PDF). An earlier single wide row combined the chelating *splitting* floor (Δ≈65)
+  with the ionic *positions*, which let the two be satisfied by different modes at
+  once — a physical incoherence (flagged in review). Splitting the rows removes it:
+  the chelating row can now tightly match a genuine chelating pair (e.g. 1472/1537),
+  and the patent doublet — chelating-like in Δ but ionic-like in position — correctly
+  matches *neither* mode tightly, landing at `plausible_match` against the ionic row.
+  The chelating floor was set to the value the literature supports, not to move the
+  verdict; the verdict is unchanged from before it was sourced. Residual gap: 65 is
+  the lowest *verified* chelating Δ, one hop from Grigorev's original Soviet-journal
+  paper (not directly fetched); a lower value in paywalled sources (Deacon & Phillips
+  1980; Zeleňák 2007) cannot be excluded.
 - **Citation provenance is uneven, and flagged in-code.** Nitrate, water bend, and
   PDMS were independently re-fetched and confirmed. Carbonate traces to the
   recommended primary one hop through a directly-read thesis. Carboxylate's
   denticity range is confirmed one hop through an open-access paper citing Deacon &
-  Phillips (the review itself was bot-walled). Ammonium substitutes Altaner 1988 for
+  Phillips (the review itself was bot-walled), and its chelating floor (65 cm⁻¹) one
+  hop through a directly-read thesis reproducing Grigorev 1963. Ammonium substitutes Altaner 1988 for
   the auditor-recommended Oxton/Knop/Falk series (Cloudflare-walled after repeated
   attempts). Every row carries its actual source in `_CONTAMINANTS`; none is a value
   I could not attribute to something read.

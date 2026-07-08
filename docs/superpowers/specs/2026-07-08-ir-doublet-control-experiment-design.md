@@ -34,8 +34,10 @@ Level 2.
 
 ## Architecture
 
-New `src/orme_lab/control_experiment.py`, reusing `_reduced_mass` and `_MASS` from
-`ir_signature.py`. A frozen `Prediction` dataclass per discriminator:
+New `src/orme_lab/control_experiment.py`, reusing `_reduced_mass` from `ir_signature.py`.
+(Implementation note: it defines its own `_ISO` table of **specific-isotope** masses rather
+than reusing `ir_signature._MASS`, whose natural-abundance averages would be wrong for an
+isotopologue comparison.) A frozen `Prediction` dataclass per discriminator:
 `measurement`, `expected_under_contaminant`, `expected_under_intrinsic`, `decisive` (bool —
 do the two differ beyond the measurement's resolution?), `evidence_level`, `note`. An
 orchestrator `design_control_experiment(lines_cm, light_mu, metal_symbol) →

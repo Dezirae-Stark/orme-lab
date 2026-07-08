@@ -62,6 +62,19 @@ the neutral-outcomes discipline made visible.
   1361 (adsorption isotherm). This is the softest control — real samples saturate and organics
   desorb, so read the trend (linear vs flat), not an absolute area.
 
+## Caveats on the predictions
+
+- **The isotope shifts are harmonic-*diatomic* magnitudes.** Carboxylate νasym/νsym are
+  coupled OCO group modes, not an isolated C–O oscillator, so ≈ −33 / −36 cm⁻¹ are
+  order-of-magnitude predictions from ν ∝ 1/√μ, not exact mode calculations. This does not
+  weaken the control: decisiveness rests on **~33 vs ~0**, which is robust to the
+  approximation — the sign and scale, not the last digit, do the work.
+- **The Raman/IR control's decisiveness is conditional on centrosymmetry.** It is decisive
+  *if* the intrinsic alternative is a centrosymmetric metal–metal unit (IR-forbidden symmetric
+  stretch). A *non*-centrosymmetric intrinsic cluster would be active in both IR and Raman —
+  like the carboxylate — so this control would lose discriminating power. Isotope substitution
+  and coverage scaling do not depend on that assumption and remain the primary discriminators.
+
 ## What a result would mean
 
 - **Doublet shifts with ¹³C/¹⁸O, appears in Raman with a νsym partner, scales with exposure,

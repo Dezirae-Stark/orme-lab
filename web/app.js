@@ -985,6 +985,10 @@ function refreshVibration() { populateVibModes(); buildMolecule(); drawIrSpectru
 
 function setVibOn(on) {
   vib.on = on;
+  // Vibration is a stage MODE: hide the candidate cluster + field while it's active so the
+  // molecule replaces the PGM scene rather than animating inside it. Restore on exit.
+  candidateGroup.visible = !on;
+  fieldGroup.visible = !on;
   $("vibToggle")?.setAttribute("aria-pressed", String(on));
   if ($("vibControls")) $("vibControls").hidden = !on;
   if ($("vibPanel")) $("vibPanel").hidden = !on;

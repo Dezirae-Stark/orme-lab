@@ -866,7 +866,9 @@ function buildMolecule() {
     const el = elFor(a.el);
     const isMetal = vib.species === "metal_dimer";
     const r = isMetal ? 0.85 : (el === "C" ? 0.5 : 0.62);
-    const m = new THREE.Mesh(sphereGeo, new THREE.MeshStandardMaterial({
+    // Own geometry per atom (NOT the shared sphereGeo): clearGroup disposes child geometry,
+    // and disposing the shared sphereGeo would corrupt the candidate atoms that also use it.
+    const m = new THREE.Mesh(new THREE.SphereGeometry(1, 24, 18), new THREE.MeshStandardMaterial({
       color: ELEMENT_COLOR[el] ?? 0xd8dee9, roughness: 0.45, metalness: isMetal ? 0.7 : 0.2,
     }));
     m.scale.setScalar(r);

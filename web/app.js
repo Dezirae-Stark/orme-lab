@@ -396,6 +396,8 @@ function setTab(name) {
 function loadPreset(entry) {
   if (!entry || !entry.preset) return;
   setTab("lab");
+  // Route purely by input id — widget input ids are globally unique. entry.preset.widget
+  // is descriptive metadata (which widget the preset targets), not used for routing.
   const ids = Object.keys(entry.preset.inputs);
   for (const id of ids) {
     const node = $(id);

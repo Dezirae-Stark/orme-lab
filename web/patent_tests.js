@@ -88,27 +88,40 @@ export function renderPatentTests(el) {
   el.innerHTML = `
     <div class="patent-widget">
       <div class="pw-title">IR doublet — bond assignment</div>
-      <label>lower line (cm⁻¹) <input id="pwIrLineLo" class="field" type="number" value="1429.53" step="0.01"></label>
-      <label>upper line (cm⁻¹) <input id="pwIrLine" class="field" type="number" value="1490.99" step="0.01"></label>
+      <label>lower line (cm⁻¹) <input id="pwIrLineLo" class="field" type="number" placeholder="e.g. 1429.53" step="0.01"></label>
+      <label>upper line (cm⁻¹) <input id="pwIrLine" class="field" type="number" placeholder="e.g. 1490.99" step="0.01"></label>
       <label>metal <select id="pwIrSym" class="field">${["Rh", "Ir"].map((s) => `<option>${s}</option>`).join("")}</select></label>
       <p class="pw-out" id="pwIrOut"></p>
     </div>
     <div class="patent-widget">
       <div class="pw-title">Thermal stability — sintering onset</div>
       <label>metal <select id="pwThSym" class="field">${_elements.map((s) => `<option${s === "Ir" ? " selected" : ""}>${s}</option>`).join("")}</select></label>
-      <label>claimed stable to (°C) <input id="pwThT" class="field" type="number" value="1200" step="10"></label>
+      <label>claimed stable to (°C) <input id="pwThT" class="field" type="number" placeholder="e.g. 1200" step="10"></label>
       <p class="pw-out" id="pwThOut"></p>
     </div>
     <div class="patent-widget">
       <div class="pw-title">Meissner Hc1 — implied λ / nₛ</div>
-      <label>Hc1 (µT) <input id="pwMeB" class="field" type="number" value="50" step="1"></label>
+      <label>Hc1 (µT) <input id="pwMeB" class="field" type="number" placeholder="e.g. 50" step="1"></label>
       <p class="pw-out" id="pwMeOut"></p>
     </div>`;
 
   const $ = (id) => el.querySelector("#" + id);
-  const updIr = () => { $("pwIrOut").textContent = irVerdict($("pwIrSym").value, parseFloat($("pwIrLine").value) || 0, parseFloat($("pwIrLineLo").value)); };
-  const updTh = () => { $("pwThOut").textContent = thermalVerdict($("pwThSym").value, parseFloat($("pwThT").value) || 0); };
-  const updMe = () => { $("pwMeOut").textContent = meissnerVerdict(parseFloat($("pwMeB").value) || 0); };
+  // Sterile base: compute only when a value is entered (or loaded from the Research tab);
+  // otherwise show a neutral prompt so no conclusion is presented unprompted.
+  const PROMPT = "Enter a value, or load a result from the Research tab.";
+  const blank = (id) => $(id).value.trim() === "";
+  const updIr = () => {
+    if (blank("pwIrLine")) { $("pwIrOut").textContent = PROMPT; return; }
+    $("pwIrOut").textContent = irVerdict($("pwIrSym").value, parseFloat($("pwIrLine").value), parseFloat($("pwIrLineLo").value));
+  };
+  const updTh = () => {
+    if (blank("pwThT")) { $("pwThOut").textContent = PROMPT; return; }
+    $("pwThOut").textContent = thermalVerdict($("pwThSym").value, parseFloat($("pwThT").value));
+  };
+  const updMe = () => {
+    if (blank("pwMeB")) { $("pwMeOut").textContent = PROMPT; return; }
+    $("pwMeOut").textContent = meissnerVerdict(parseFloat($("pwMeB").value));
+  };
   $("pwIrLine").addEventListener("input", updIr); $("pwIrSym").addEventListener("change", updIr);
   $("pwIrLineLo").addEventListener("input", updIr);
   $("pwThSym").addEventListener("change", updTh); $("pwThT").addEventListener("input", updTh);

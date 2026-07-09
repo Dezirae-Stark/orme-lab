@@ -7,7 +7,10 @@ test; here we lock the data source-of-truth and the reference outputs.
 """
 from __future__ import annotations
 
+import json
 import re
+import shutil
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -47,3 +50,27 @@ def test_reference_shift_values_match_authority():
     assert _shift_for_bond(1490.99, ("C", "O"), "18O") == pytest.approx(-36.0, abs=0.5)
     assert _shift_for_bond(1490.99, ("Rh", "Rh"), "13C") == 0.0
     assert _shift_for_bond(1490.99, ("C", "O"), "15N") == 0.0
+
+
+def test_js_formula_matches_python_via_node():
+    """Execute the actual JS shiftCm() and compare to the Python authority — so a drift in
+    the JS *formula* (not just the mass tables) fails CI. Skips if node is unavailable."""
+    node = shutil.which("node")
+    if not node:
+        pytest.skip("node not available")
+    # only labels Python's _LABEL defines (13C/18O/15N); "12C" is a JS-only baseline (→0).
+    cases = [
+        (1490.99, ["C", "O"], "13C"), (1490.99, ["C", "O"], "18O"),
+        (1490.99, ["Rh", "Rh"], "13C"), (1429.53, ["C", "O"], "13C"),
+        (1490.99, ["C", "O"], "15N"),
+    ]
+    js = (f'import {{ shiftCm }} from "{_JS.as_posix()}";'
+          f"const cs={json.dumps(cases)};"
+          "console.log(JSON.stringify(cs.map(c=>shiftCm(c[0],c[1],c[2]))));")
+    out = subprocess.run([node, "--input-type=module", "-e", js],
+                         capture_output=True, text=True, timeout=30)
+    assert out.returncode == 0, out.stderr
+    got = json.loads(out.stdout)
+    exp = [_shift_for_bond(nu, tuple(b), lbl) for nu, b, lbl in cases]
+    for g, e in zip(got, exp):
+        assert g == pytest.approx(e, abs=1e-6)

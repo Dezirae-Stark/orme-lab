@@ -1000,10 +1000,10 @@ function activateVibration(species) {
 function wireVibration() {
   const t = $("vibToggle"); if (!t) return;
   t.addEventListener("click", () => setVibOn(!vib.on));
-  $("vibSpecies").addEventListener("change", (e) => { vib.species = e.target.value; vib.mode = ""; refreshVibration(); });
-  $("vibMode").addEventListener("change", (e) => { vib.mode = e.target.value; buildMolecule(); drawIrSpectrum(); });
-  $("vibIso").addEventListener("change", (e) => { vib.iso = e.target.value; drawIrSpectrum(); renderCE(); });
-  $("vibMetal").addEventListener("change", (e) => {
+  $("vibSpecies")?.addEventListener("change", (e) => { vib.species = e.target.value; vib.mode = ""; refreshVibration(); });
+  $("vibMode")?.addEventListener("change", (e) => { vib.mode = e.target.value; buildMolecule(); drawIrSpectrum(); });
+  $("vibIso")?.addEventListener("change", (e) => { vib.iso = e.target.value; drawIrSpectrum(); renderCE(); });
+  $("vibMetal")?.addEventListener("change", (e) => {
     vib.metal = e.target.value;
     if (vib.species === "metal_dimer") buildMolecule();
     drawIrSpectrum(); renderCE();

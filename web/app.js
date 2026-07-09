@@ -395,7 +395,9 @@ function setTab(name) {
 // the otherwise-sterile Lab tab, and it is always an explicit click.
 function loadPreset(entry) {
   if (!entry || !entry.preset) return;
-  setTab("lab");
+  // The patent widgets live under the Registry tab (renderRegistry injects #patentWidgets
+  // into #regBody), so switch there — switching to "lab" would hide the widgets we fill.
+  setTab("registry");
   // Route purely by input id — widget input ids are globally unique. entry.preset.widget
   // is descriptive metadata (which widget the preset targets), not used for routing.
   const ids = Object.keys(entry.preset.inputs);

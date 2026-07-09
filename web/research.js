@@ -88,7 +88,7 @@ export function renderResearch(el, onLoad) {
   if (!el) return;
   const banner =
     `<div class="research-banner">This is <strong>Obsidian Circuit's conducted research</strong> — ` +
-    `for peer review and possible physical test runs. The Lab tab is <strong>sterile by default</strong>; ` +
+    `for peer review and possible physical test runs. The base tools are <strong>sterile by default</strong>; ` +
     `loading a result populates the tools, it does not change the underlying model. ` +
     `Nothing here leaves your machine.</div>`;
 

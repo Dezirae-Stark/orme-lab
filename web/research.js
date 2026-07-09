@@ -56,7 +56,8 @@ export const RESEARCH = [
     provenance: "control_experiment.py · Langmuir 1918 · Raman/IR mutual-exclusion rule",
     doc: DOC + "ir-doublet-control-experiment.md",
     result: { c13_shift: -33, o18_shift: -36, decisive_count: 4 },
-    // no preset in Phase 1 — the interactive isotope widget ships in Phase 2 with the 3D viewer.
+    // Phase 2: loads the 3D vibrational viewer (Lab stage) on the carboxylate hypothesis.
+    preset: { mode: "vibration", species: "carboxylate" },
   }),
   Object.freeze({
     id: "thermal",

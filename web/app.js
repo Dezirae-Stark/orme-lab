@@ -6,6 +6,7 @@ import { METRICS } from "./metrics.js?v=__BUILD__";
 import { renderRegistry, hypothesesForMetric } from "./hypotheses.js?v=__BUILD__";
 import { renderPatentTests } from "./patent_tests.js?v=__BUILD__";
 import { renderResearch } from "./research.js?v=__BUILD__";
+import * as VIB from "./vibration.js?v=__BUILD__";
 
 // The eigenstate + DFT-cube feature is the ONLY heavy/optional part of the lab.
 // It is loaded LAZILY via dynamic import() rather than a top-level static import,
@@ -45,6 +46,7 @@ function loadEigenModule() {
 const ELEMENT_COLOR = {
   Au: 0xc9a86a, Pt: 0xd8dee9, Pd: 0xccd2da, Ir: 0xc4cad0,
   Rh: 0xd2d6da, Os: 0xaab2be, Ru: 0xc9b79a, Ag: 0xe8ecf1,
+  C: 0x3a4150, O: 0xd66a4a, N: 0x6aa6d6,   // light atoms for the vibrational viewer
 };
 
 const state = {
@@ -395,6 +397,15 @@ function setTab(name) {
 // the otherwise-sterile Lab tab, and it is always an explicit click.
 function loadPreset(entry) {
   if (!entry || !entry.preset) return;
+  // Mode presets (Phase 2) drive the 3D stage, which lives in the Lab view — go there,
+  // activate vibration mode, and select the species. (Input presets go to Registry below.)
+  if (entry.preset.mode === "vibration") {
+    setTab("lab");
+    activateVibration(entry.preset.species);
+    document.getElementById("stage")?.scrollIntoView({ behavior: "smooth", block: "center" });
+    showLoadedToast(entry.title);
+    return;
+  }
   // The patent widgets live under the Registry tab (renderRegistry injects #patentWidgets
   // into #regBody), so switch there — switching to "lab" would hide the widgets we fill.
   setTab("registry");
@@ -807,17 +818,214 @@ function wireControls() {
   });
 }
 
+// ---- vibrational-mode viewer (Phase 2) -----------------------------------
+// Reuses the stage camera/renderer/OrbitControls. vibration.js supplies species
+// data + isotope math (THREE-free, parity-locked); here we build meshes + animate.
+// Sterile: nothing renders until a species is selected or a research result loaded.
+const moleculeGroup = new THREE.Group();
+scene.add(moleculeGroup);
+const VIB_AMP = 0.42;   // visual displacement amplitude (illustrative)
+const VIB_RATE = 1.1;   // base cycles/sec of the animation (not the real THz)
+const vib = { on: false, species: "", mode: "", iso: "12C", metal: "Rh", atoms: [], bonds: [] };
+
+function vibBond() {
+  // element pair whose isotope shift applies: metal dimer -> (metal,metal); else species bond_atoms
+  if (vib.species === "metal_dimer") return [vib.metal, vib.metal];
+  const s = VIB.SPECIES[vib.species];
+  return s ? s.bond_atoms : ["C", "O"];
+}
+
+function makeBond(p, q) {
+  const a = new THREE.Vector3(p[0], p[1], p[2]);
+  const b = new THREE.Vector3(q[0], q[1], q[2]);
+  const restLen = a.distanceTo(b) || 1e-6;
+  const mesh = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.09, 0.09, restLen, 10),
+    new THREE.MeshStandardMaterial({ color: 0x5a6478, roughness: 0.6 }),
+  );
+  return { mesh, restLen };
+}
+
+function updateBond(bd, p, q) {
+  const a = new THREE.Vector3(p[0], p[1], p[2]);
+  const b = new THREE.Vector3(q[0], q[1], q[2]);
+  const len = a.distanceTo(b) || 1e-6;
+  bd.mesh.position.copy(a.clone().add(b).multiplyScalar(0.5));
+  bd.mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), b.clone().sub(a).normalize());
+  bd.mesh.scale.set(1, len / bd.restLen, 1);
+}
+
+function buildMolecule() {
+  clearGroup(moleculeGroup);
+  vib.atoms = []; vib.bonds = [];
+  const spec = VIB.SPECIES[vib.species];
+  if (!spec) return;
+  const elFor = (el) => (el === "M" ? vib.metal : el);
+  const mode = spec.modes[vib.mode] || Object.values(spec.modes)[0];
+  spec.atoms.forEach((a, i) => {
+    const el = elFor(a.el);
+    const isMetal = vib.species === "metal_dimer";
+    const r = isMetal ? 0.85 : (el === "C" ? 0.5 : 0.62);
+    // Own geometry per atom (NOT the shared sphereGeo): clearGroup disposes child geometry,
+    // and disposing the shared sphereGeo would corrupt the candidate atoms that also use it.
+    const m = new THREE.Mesh(new THREE.SphereGeometry(1, 24, 18), new THREE.MeshStandardMaterial({
+      color: ELEMENT_COLOR[el] ?? 0xd8dee9, roughness: 0.45, metalness: isMetal ? 0.7 : 0.2,
+    }));
+    m.scale.setScalar(r);
+    m.position.set(a.pos[0], a.pos[1], a.pos[2]);
+    moleculeGroup.add(m);
+    vib.atoms.push({ mesh: m, base: a.pos.slice(), disp: mode ? mode.disp[i] : [0, 0, 0] });
+  });
+  for (const [i, j] of spec.bonds) {
+    const bd = makeBond(spec.atoms[i].pos, spec.atoms[j].pos);
+    bd.i = i; bd.j = j;
+    updateBond(bd, spec.atoms[i].pos, spec.atoms[j].pos);
+    moleculeGroup.add(bd.mesh);
+    vib.bonds.push(bd);
+  }
+}
+
+function animateMolecule() {
+  if (!(vib.on && vib.species && vib.atoms.length)) return;
+  const t = performance.now() / 1000;                 // render-clock: motion only, not a correctness path
+  const ratio = VIB.freqRatio(vibBond(), vib.iso);    // <1 slows a labelled C-O; ==1 leaves metal dimer alone
+  const phase = Math.sin(2 * Math.PI * VIB_RATE * ratio * t);
+  const cur = vib.atoms.map((at) => [
+    at.base[0] + VIB_AMP * at.disp[0] * phase,
+    at.base[1] + VIB_AMP * at.disp[1] * phase,
+    at.base[2] + VIB_AMP * at.disp[2] * phase,
+  ]);
+  vib.atoms.forEach((at, i) => at.mesh.position.set(cur[i][0], cur[i][1], cur[i][2]));
+  for (const bd of vib.bonds) updateBond(bd, cur[bd.i], cur[bd.j]);
+}
+
+function spectrumLines() {
+  const spec = VIB.SPECIES[vib.species];
+  if (!spec) return [];
+  return Object.values(spec.modes).map((m) => ({ nu: m.nu, label: m.label }));
+}
+
+function drawIrSpectrum() {
+  const cv = $("irSpectrum"); if (!cv) return;
+  const ctx = cv.getContext("2d");
+  const w = cv.width = cv.clientWidth * 2;
+  const h = cv.height = Math.max(1, cv.clientHeight) * 2;
+  ctx.clearRect(0, 0, w, h);
+  const LO = 1200, HI = 1700, base = h - 24;
+  const X = (nu) => ((nu - LO) / (HI - LO)) * w;
+  ctx.strokeStyle = "#24304a"; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(0, base); ctx.lineTo(w, base); ctx.stroke();
+  const bond = vibBond();
+  let capNote = "";
+  for (const ln of spectrumLines()) {
+    if (ln.nu < LO || ln.nu > HI) { capNote = `ν ${ln.nu} cm⁻¹ is below this 1200–1700 window`; continue; }
+    // observed line
+    ctx.strokeStyle = "#35d6c4"; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.moveTo(X(ln.nu), base); ctx.lineTo(X(ln.nu), 20); ctx.stroke();
+    // isotope ghost (0 for a metal bond -> no ghost)
+    const sh = VIB.shiftCm(ln.nu, bond, vib.iso);
+    if (sh !== 0) {
+      ctx.strokeStyle = "#c9a86a"; ctx.setLineDash([6, 6]); ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(X(ln.nu + sh), base); ctx.lineTo(X(ln.nu + sh), 40); ctx.stroke();
+      ctx.setLineDash([]);
+    }
+  }
+  const cap = $("irSpecCap");
+  if (cap) {
+    if (!vib.species) cap.textContent = "select a species to view its IR modes";
+    else if (capNote) cap.textContent = capNote + " — no C/O isotope shift applies to a metal–metal bond.";
+    else {
+      const sh = VIB.shiftCm(1490.99, bond, vib.iso);
+      cap.textContent = vib.iso === "12C" ? "toggle ¹³C / ¹⁸O to see the predicted isotope shift"
+        : `${vib.iso} → ${sh.toFixed(0)} cm⁻¹ shift (gold = predicted shifted band)`;
+    }
+  }
+}
+
+function renderCE() {
+  const el = $("ceReadout"); if (!el) return;
+  el.textContent = "";
+  if (!vib.species) return;
+  const bond = vibBond();
+  const rows = [
+    ["¹³C substitution", `${VIB.shiftCm(1490.99, bond, "13C").toFixed(0)} cm⁻¹`],
+    ["¹⁸O substitution", `${VIB.shiftCm(1490.99, bond, "18O").toFixed(0)} cm⁻¹`],
+    ["Raman / IR", vib.species === "metal_dimer"
+      ? "centrosymmetric M–M sym stretch is IR-forbidden" : "active in IR and Raman (νsym Raman-strong)"],
+    ["coverage scaling", vib.species === "metal_dimer"
+      ? "intrinsic — invariant to exposure" : "∝ exposure (Beer–Lambert × Langmuir)"],
+  ];
+  const head = document.createElement("div");
+  head.className = "ce-head";
+  head.textContent = vib.species === "metal_dimer"
+    ? "H_intrinsic: a C/O isotope label leaves this bond unmoved (predictions below)"
+    : "H_contaminant: predicted decisive controls (4 of 5)";
+  el.appendChild(head);
+  for (const [k, v] of rows) {
+    const row = document.createElement("div"); row.className = "ce-row";
+    const a = document.createElement("span"); a.className = "ce-k"; a.textContent = k;
+    const b = document.createElement("span"); b.className = "ce-v"; b.textContent = v;   // textContent — safe
+    row.appendChild(a); row.appendChild(b); el.appendChild(row);
+  }
+}
+
+function populateVibModes() {
+  const sel = $("vibMode"); if (!sel) return;
+  const spec = VIB.SPECIES[vib.species];
+  sel.innerHTML = "";
+  if (!spec) return;
+  for (const [k, m] of Object.entries(spec.modes)) {
+    const o = document.createElement("option"); o.value = k; o.textContent = m.label; sel.appendChild(o);
+  }
+  vib.mode = vib.mode && spec.modes[vib.mode] ? vib.mode : Object.keys(spec.modes)[0];
+  sel.value = vib.mode;
+}
+
+function refreshVibration() { populateVibModes(); buildMolecule(); drawIrSpectrum(); renderCE(); }
+
+function setVibOn(on) {
+  vib.on = on;
+  // Vibration is a stage MODE: hide the candidate cluster + field while it's active so the
+  // molecule replaces the PGM scene rather than animating inside it. Restore on exit.
+  candidateGroup.visible = !on;
+  fieldGroup.visible = !on;
+  $("vibToggle")?.setAttribute("aria-pressed", String(on));
+  if ($("vibControls")) $("vibControls").hidden = !on;
+  if ($("vibPanel")) $("vibPanel").hidden = !on;
+  if (on) refreshVibration(); else clearGroup(moleculeGroup);
+}
+
+function activateVibration(species) {
+  vib.species = species || "carboxylate"; vib.mode = "";
+  if ($("vibSpecies")) $("vibSpecies").value = vib.species;
+  setVibOn(true);
+}
+
+function wireVibration() {
+  const t = $("vibToggle"); if (!t) return;
+  t.addEventListener("click", () => setVibOn(!vib.on));
+  $("vibSpecies")?.addEventListener("change", (e) => { vib.species = e.target.value; vib.mode = ""; refreshVibration(); });
+  $("vibMode")?.addEventListener("change", (e) => { vib.mode = e.target.value; buildMolecule(); drawIrSpectrum(); });
+  $("vibIso")?.addEventListener("change", (e) => { vib.iso = e.target.value; drawIrSpectrum(); renderCE(); });
+  $("vibMetal")?.addEventListener("change", (e) => {
+    vib.metal = e.target.value;
+    if (vib.species === "metal_dimer") buildMolecule();
+    drawIrSpectrum(); renderCE();
+  });
+}
+
 // ---- resize + render loop ------------------------------------------------
 function resize() {
   const w = stage.clientWidth, h = stage.clientHeight;
   renderer.setSize(w, h);
   camera.aspect = w / h; camera.updateProjectionMatrix();
 }
-window.addEventListener("resize", () => { resize(); if (current) drawPlasmon(current.em); });
+window.addEventListener("resize", () => { resize(); if (current) drawPlasmon(current.em); if (vib.on) drawIrSpectrum(); });
 
 function loop() {
   requestAnimationFrame(loop);
   controls.update();
+  animateMolecule();
   renderer.render(scene, camera);
 }
 
@@ -833,6 +1041,7 @@ safe("scientist", wireScientist);
 safe("metric-inspector", wireMetricInspector);
 safe("tabs", wireTabs);
 safe("eigenstate-toggle", wireEigenToggle);
+safe("vibration", wireVibration);
 safe("ranking", buildRanking);
 safe("resize", resize);
 safe("recompute", recompute);

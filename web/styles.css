@@ -409,3 +409,20 @@ input[type=range]::-moz-range-thumb {
   opacity: 0; pointer-events: none; transition: opacity 0.2s, transform 0.2s; z-index: 60;
 }
 .load-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* ---- Vibration mode: 3D viewer panel (Phase 2) ------------------------ */
+#vibPanel {
+  position: absolute; left: 14px; bottom: 14px; z-index: 4;
+  width: min(360px, 42%); background: rgba(9,12,20,0.82);
+  border: 1px solid var(--line); border-radius: 6px; padding: 10px 12px;
+  backdrop-filter: blur(3px);
+}
+#irSpectrum { display: block; width: 100%; height: 64px; }
+#vibPanel .spec-caption { color: var(--muted); font-size: 11px; margin: 4px 0 8px; display: block; }
+.ce-readout { border-top: 1px solid var(--line-soft); padding-top: 8px; }
+.ce-readout .ce-head { color: var(--platinum); font-size: 11.5px; margin-bottom: 6px; }
+.ce-readout .ce-row { display: flex; justify-content: space-between; gap: 10px; font-size: 11.5px; padding: 2px 0; }
+.ce-readout .ce-k { color: var(--muted); }
+.ce-readout .ce-v { color: var(--coherent); font-family: "IBM Plex Mono", ui-monospace, monospace; text-align: right; }
+#vibControls .klm-row { display: flex; gap: 10px; margin-top: 8px; flex-wrap: wrap; }
+#vibControls .klm-row label { font-size: 11px; color: var(--muted); }

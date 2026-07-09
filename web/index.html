@@ -80,6 +80,24 @@
       </div>
 
       <div class="group">
+        <div class="eyebrow"><span>Vibrational mode</span></div>
+        <div class="chip-row">
+          <button class="chip" id="vibToggle" aria-pressed="false">vibration mode</button>
+        </div>
+        <div id="vibControls" hidden>
+          <p class="hint">The two hypotheses the isotope control decides between. ¹³C / ¹⁸O shift a C–O carboxylate mode; a metal–metal bond has no C/O and is unmoved. Modes are schematic (in-phase vs out-of-phase), not a normal-coordinate analysis.</p>
+          <div class="klm-row">
+            <label>species <select id="vibSpecies" class="field"><option value="">— select —</option><option value="carboxylate">carboxylate COO⁻</option><option value="metal_dimer">metal–metal dimer</option></select></label>
+            <label>mode <select id="vibMode" class="field"></select></label>
+          </div>
+          <div class="klm-row">
+            <label>isotope <select id="vibIso" class="field"><option>12C</option><option>13C</option><option>18O</option></select></label>
+            <label>metal <select id="vibMetal" class="field"><option>Rh</option><option>Ir</option></select></label>
+          </div>
+        </div>
+      </div>
+
+      <div class="group">
         <div class="eyebrow"><span>Applied field</span><span id="fieldVal">0.0 T</span></div>
         <div class="slider-row">
           <input type="range" id="fieldSlider" min="0" max="8" step="0.1" value="0" aria-label="Applied magnetic field (tesla)" />
@@ -108,6 +126,13 @@
         <span><i style="background:#35d6c4"></i>density (survives)</span>
         <span><i style="background:#c9a86a"></i>coupling</span>
         <span><i style="background:#6aa6d6"></i>field</span>
+      </div>
+
+      <!-- Vibration mode: linked IR spectral strip + control-experiment readout -->
+      <div id="vibPanel" hidden>
+        <canvas id="irSpectrum"></canvas>
+        <div class="spec-caption" id="irSpecCap">select a species to view its IR modes</div>
+        <div id="ceReadout" class="ce-readout"></div>
       </div>
 
       <!-- LAB SCIENTIST drawer -->

@@ -5,6 +5,7 @@ import { analyzeCandidate, ask, pingProxy, keyStore, proxyStore } from "./scient
 import { METRICS } from "./metrics.js?v=__BUILD__";
 import { renderRegistry, hypothesesForMetric } from "./hypotheses.js?v=__BUILD__";
 import { renderPatentTests } from "./patent_tests.js?v=__BUILD__";
+import { renderResearch } from "./research.js?v=__BUILD__";
 
 // The eigenstate + DFT-cube feature is the ONLY heavy/optional part of the lab.
 // It is loaded LAZILY via dynamic import() rather than a top-level static import,
@@ -380,11 +381,46 @@ async function refreshProxyStatus() {
 function setTab(name) {
   $("registry").hidden = name !== "registry";
   $("loop").hidden = name !== "loop";
+  $("research").hidden = name !== "research";
   document.querySelectorAll(".tab").forEach((t) => {
     const active = t.dataset.tab === name;
     t.classList.toggle("active", active);
     t.setAttribute("aria-selected", String(active));
   });
+}
+
+// ---- load a Research-dossier result into the sterile base widgets --------------
+// Only fills widget inputs and fires their existing update handlers; never changes
+// the underlying model. This is the sole path by which conducted research enters
+// the otherwise-sterile Lab tab, and it is always an explicit click.
+function loadPreset(entry) {
+  if (!entry || !entry.preset) return;
+  setTab("lab");
+  const ids = Object.keys(entry.preset.inputs);
+  for (const id of ids) {
+    const node = $(id);
+    if (!node) continue;
+    node.value = entry.preset.inputs[id];
+    node.dispatchEvent(new Event("input", { bubbles: true }));
+    node.dispatchEvent(new Event("change", { bubbles: true }));
+  }
+  const first = ids.length ? $(ids[0]) : null;
+  if (first && first.scrollIntoView) first.scrollIntoView({ behavior: "smooth", block: "center" });
+  showLoadedToast(entry.title);
+}
+
+function showLoadedToast(title) {
+  let t = $("loadToast");
+  if (!t) {
+    t = document.createElement("div");
+    t.id = "loadToast";
+    t.className = "load-toast";
+    document.body.appendChild(t);
+  }
+  t.textContent = "loaded: " + title;        // textContent — never innerHTML
+  t.classList.add("show");
+  clearTimeout(showLoadedToast._h);
+  showLoadedToast._h = setTimeout(() => t.classList.remove("show"), 2600);
 }
 
 // A real digest from the offline generator (orme_lab.lab_loop), embedded so the
@@ -512,6 +548,7 @@ function wireEigenToggle() {
 function wireTabs() {
   renderRegistry($("regBody"));
   renderPatentTests($("patentWidgets"));
+  renderResearch($("researchBody"), loadPreset);
   const digestEl = $("loopDigest");
   if (digestEl) digestEl.textContent = LOOP_DIGEST;   // real loop output
   document.querySelectorAll(".tab").forEach((t) =>
@@ -519,8 +556,10 @@ function wireTabs() {
   $("regClose").addEventListener("click", () => setTab("lab"));
   const loopClose = $("loopClose");
   if (loopClose) loopClose.addEventListener("click", () => setTab("lab"));
+  const researchClose = $("researchClose");
+  if (researchClose) researchClose.addEventListener("click", () => setTab("lab"));
   document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape" && (!$("registry").hidden || !$("loop").hidden)) setTab("lab");
+    if (e.key === "Escape" && (!$("registry").hidden || !$("loop").hidden || !$("research").hidden)) setTab("lab");
   });
 }
 

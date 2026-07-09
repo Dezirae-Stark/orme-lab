@@ -38,6 +38,7 @@
         <button class="tab active" data-tab="lab" role="tab" aria-selected="true">Lab</button>
         <button class="tab" data-tab="registry" role="tab" aria-selected="false">Registry</button>
         <button class="tab" data-tab="loop" role="tab" aria-selected="false">Loop</button>
+        <button class="tab" data-tab="research" role="tab" aria-selected="false">Research</button>
       </div>
 
       <div class="group">
@@ -230,6 +231,21 @@
           <button id="regClose" class="chip">← back to lab</button>
         </header>
         <div id="regBody"></div>
+      </div>
+    </div>
+
+    <!-- RESEARCH DOSSIER (conducted research; loadable into the sterile base) -->
+    <div id="research" class="reg-overlay" hidden>
+      <div class="reg-inner">
+        <header class="reg-head">
+          <div>
+            <div class="reg-eyebrow">Conducted research</div>
+            <h2 class="reg-title display">Research Dossier</h2>
+            <p class="reg-sub">Obsidian Circuit's completed findings — the IR-doublet analysis, the cited contaminant match, and the <strong>Level-3 decisive-measurement predictions</strong> — for <em>peer review and possible physical test runs</em>. The Lab tab is <strong>sterile by default</strong>; use <em>Load into models</em> to populate the tools from a result and build further. Nothing here changes the underlying model, and nothing leaves your machine.</p>
+          </div>
+          <button id="researchClose" class="chip">← back to lab</button>
+        </header>
+        <div id="researchBody"></div>
       </div>
     </div>
 

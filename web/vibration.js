@@ -38,8 +38,8 @@ export const SPECIES = {
     ],
     bonds: [[0, 1], [0, 2]],
     modes: {
-      asym: { label: "νasym (out-of-phase)", disp: [[0, 0, 0], [-1, 0, 0], [1, 0, 0]] },
-      sym: { label: "νsym (in-phase)", disp: [[0, -0.6, 0], [0.5, 0.5, 0], [-0.5, 0.5, 0]] },
+      asym: { label: "νasym (out-of-phase)", nu: 1490.99, disp: [[0, 0, 0], [-1, 0, 0], [1, 0, 0]] },
+      sym: { label: "νsym (in-phase)", nu: 1429.53, disp: [[0, -0.6, 0], [0.5, 0.5, 0], [-0.5, 0.5, 0]] },
     },
   },
   metal_dimer: {
@@ -50,7 +50,7 @@ export const SPECIES = {
       { el: "M", pos: [1.3, 0, 0] },
     ],
     bonds: [[0, 1]],
-    modes: { stretch: { label: "ν(M–M)", disp: [[-1, 0, 0], [1, 0, 0]] } },
+    modes: { stretch: { label: "ν(M–M)", nu: 275, disp: [[-1, 0, 0], [1, 0, 0]] } },
   },
 };
 

@@ -94,8 +94,14 @@ Level-3 prediction that tells an experimentalist exactly which measurement to ma
 ## Note on the chelating-carboxylate citation
 
 The carboxylate chelating Δ floor (65 cm⁻¹) used by the screen is cited one hop through a
-directly-read Wits MSc thesis (Table 2.4 reproducing Grigorev 1963). The Grigorev primary
-(*Russ. J. Inorg. Chem.* 8 (1963) 409f) was **exhaustively searched** (HathiTrust, Springer,
-Google Books, eLibrary.ru, Internet Archive — confirmed to hold zero RJIC content —
-ScienceDirect) and is **not digitally accessible**; the citation therefore remains one-hop.
+directly-read Wits MSc thesis (Table 2.4 reproducing Grigor'ev 1963). The full citation —
+A. I. Grigor'ev, "Infrared Absorption Spectra of Acetates of Elements in Groups I and II of
+the Periodic System", *Russ. J. Inorg. Chem.* **8**, 409 (1963) — has its **title confirmed by
+two independent directly-read sources** (the Wits thesis + the arXiv:1906.10984 reference list).
+The primary itself (identifiers: ISSN 0036-0236, OCLC 311094440; Russian original ISSN
+0044-457X) was **exhaustively searched** (HathiTrust, Springer, Google Books, eLibrary.ru,
+Internet Archive — confirmed to hold zero RJIC content — ScienceDirect, WorldCat) and is **not
+digitally accessible**; the citation therefore remains one-hop on the primary. A ready-to-send
+ILL / document-delivery request (Stanford / British Library Document Supply as lead routes) is
+recorded in `research-wiki/prior-art/ir-contaminant-bands.md` for out-of-band acquisition.
 See `~/.claude/research-wiki/prior-art/ir-contaminant-bands.md` for the full search log.

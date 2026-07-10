@@ -271,6 +271,22 @@
           <button id="researchClose" class="chip">← back to lab</button>
         </header>
         <div id="researchBody"></div>
+
+        <!-- Phase 3: record + export (local-only) -->
+        <div id="recordPanel">
+          <h3 class="record-h">Record a test</h3>
+          <p class="record-note">Capture the current tools + your notes as a reusable entry. Everything is stored <strong>in this browser only</strong>; export to a file to share or submit. Nothing is sent anywhere.</p>
+          <label class="record-field">label <input id="recLabel" class="field" type="text" placeholder="short title" maxlength="200"></label>
+          <label class="record-field">hypothesis <textarea id="recHypothesis" class="field" rows="2" placeholder="what you are testing" maxlength="4000"></textarea></label>
+          <label class="record-field">notes <textarea id="recNotes" class="field" rows="3" placeholder="observations, method, next steps" maxlength="8000"></textarea></label>
+          <div class="record-actions">
+            <button id="recSave" class="chip">record current state</button>
+            <button id="recExportSession" class="chip">export session ⬇</button>
+            <label class="chip" for="recImport">import session ⬆</label>
+            <input id="recImport" type="file" accept=".json,application/json" hidden>
+          </div>
+          <div id="recEntries" class="rec-entries"></div>
+        </div>
       </div>
     </div>
 

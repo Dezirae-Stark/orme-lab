@@ -7,6 +7,7 @@ import { renderRegistry, hypothesesForMetric } from "./hypotheses.js?v=__BUILD__
 import { renderPatentTests } from "./patent_tests.js?v=__BUILD__";
 import { renderResearch } from "./research.js?v=__BUILD__";
 import * as VIB from "./vibration.js?v=__BUILD__";
+import * as REC from "./recorder.js?v=__BUILD__";
 
 // The eigenstate + DFT-cube feature is the ONLY heavy/optional part of the lab.
 // It is loaded LAZILY via dynamic import() rather than a top-level static import,
@@ -1014,6 +1015,134 @@ function wireVibration() {
   });
 }
 
+// ---- record + export (Phase 3) -------------------------------------------
+// Local-only: entries in localStorage, exports are user-initiated downloads, imports are
+// user-chosen files — nothing is sent anywhere. All researcher text renders via textContent.
+// recorder.js is clock-free; the timestamp/id are minted HERE (app.js) and passed in.
+function captureSnapshot() {
+  const val = (id) => { const n = $(id); return n ? n.value : ""; };
+  return {
+    state: { elSym: state.elSym, geomKind: state.geomKind, spinKind: state.spinKind, fieldT: state.fieldT, tempK: state.tempK },
+    vib: { on: vib.on, species: vib.species, mode: vib.mode, iso: vib.iso, metal: vib.metal },
+    eigen: { k: eigen.k, l: eigen.l, m: eigen.m },
+    patent: {
+      pwIrSym: val("pwIrSym"), pwIrLineLo: val("pwIrLineLo"), pwIrLine: val("pwIrLine"),
+      pwThSym: val("pwThSym"), pwThT: val("pwThT"), pwMeB: val("pwMeB"),
+    },
+    loadedResearchId: vib.on && vib.species ? "vib:" + vib.species : "",
+  };
+}
+
+function captureOutputs() {
+  const txt = (id) => { const n = $(id); return n ? (n.textContent || "").slice(0, 400) : ""; };
+  return { irOut: txt("pwIrOut"), thermalOut: txt("pwThOut"), meissnerOut: txt("pwMeOut") };
+}
+
+function applySnapshot(raw) {
+  const s = REC.validateSnapshot(raw);
+  if (!s) return false;
+  const st = s.state || {};
+  if (typeof st.elSym === "string") state.elSym = st.elSym;
+  if (typeof st.geomKind === "string") state.geomKind = st.geomKind;
+  if (typeof st.spinKind === "string") state.spinKind = st.spinKind;
+  if (typeof st.fieldT === "number") state.fieldT = st.fieldT;
+  if (typeof st.tempK === "number") state.tempK = st.tempK;
+  if ($("fieldSlider") && typeof st.fieldT === "number") { $("fieldSlider").value = st.fieldT; if ($("fieldVal")) $("fieldVal").textContent = st.fieldT.toFixed(1) + " T"; }
+  if ($("tempSlider") && typeof st.tempK === "number") { $("tempSlider").value = st.tempK; if ($("tempVal")) $("tempVal").textContent = Math.round(st.tempK) + " K"; }
+  syncControls(); recompute();
+  const pt = s.patent || {};
+  for (const id of ["pwIrSym", "pwIrLineLo", "pwIrLine", "pwThSym", "pwThT", "pwMeB"]) {
+    if (id in pt && $(id)) { $(id).value = pt[id]; $(id).dispatchEvent(new Event("input", { bubbles: true })); $(id).dispatchEvent(new Event("change", { bubbles: true })); }
+  }
+  const eg = s.eigen || {};
+  for (const [k, id] of [["k", "eigenK"], ["l", "eigenL"], ["m", "eigenM"]]) {
+    if (k in eg && $(id)) { $(id).value = eg[k]; $(id).dispatchEvent(new Event("change", { bubbles: true })); }
+  }
+  const vb = s.vib || {};
+  if (vb.on && typeof vb.species === "string" && vb.species) {
+    if (typeof vb.iso === "string") { vib.iso = vb.iso; if ($("vibIso")) $("vibIso").value = vb.iso; }
+    if (typeof vb.metal === "string") { vib.metal = vb.metal; if ($("vibMetal")) $("vibMetal").value = vb.metal; }
+    if (typeof vb.mode === "string") vib.mode = vb.mode;
+    activateVibration(vb.species);
+    if (typeof vb.mode === "string" && vb.mode && $("vibMode")) { $("vibMode").value = vb.mode; vib.mode = vb.mode; buildMolecule(); drawIrSpectrum(); }
+  } else {
+    setVibOn(false);
+  }
+  return true;
+}
+
+function download(name, text, mime) {
+  const blob = new Blob([text], { type: mime || "application/octet-stream" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function recFileName(e, ext) {
+  const base = (e.label || "orme-test").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40) || "orme-test";
+  return `${base}.${ext}`;
+}
+
+function renderRecordEntries() {
+  const host = $("recEntries"); if (!host) return;
+  host.textContent = "";                                // clear (no innerHTML)
+  const entries = REC.loadEntries();
+  if (!entries.length) {
+    const p = document.createElement("p"); p.className = "rec-empty";
+    p.textContent = "No recorded tests yet. Set up the tools, add a note, and record.";
+    host.appendChild(p); return;
+  }
+  const btn = (label, fn) => { const b = document.createElement("button"); b.className = "rec-btn"; b.textContent = label; b.addEventListener("click", fn); return b; };
+  for (const e of entries.slice().reverse()) {
+    const row = document.createElement("div"); row.className = "rec-entry";
+    const head = document.createElement("div"); head.className = "rec-entry-head";
+    const title = document.createElement("span"); title.className = "rec-entry-title"; title.textContent = e.label || "(untitled)";
+    const when = document.createElement("span"); when.className = "rec-entry-when"; when.textContent = e.created || "";
+    head.appendChild(title); head.appendChild(when); row.appendChild(head);
+    if (e.hypothesis) { const h = document.createElement("p"); h.className = "rec-entry-hyp"; h.textContent = e.hypothesis; row.appendChild(h); }
+    const acts = document.createElement("div"); acts.className = "rec-entry-actions";
+    acts.appendChild(btn("reload ▶", () => { applySnapshot(e.snapshot); setTab("lab"); showLoadedToast("reloaded: " + (e.label || "entry")); }));
+    acts.appendChild(btn(".json ⬇", () => download(recFileName(e, "json"), JSON.stringify(e, null, 2), "application/json")));
+    acts.appendChild(btn(".md ⬇", () => download(recFileName(e, "md"), REC.toMarkdown(e), "text/markdown")));
+    acts.appendChild(btn("delete", () => { REC.removeEntry(e.id); renderRecordEntries(); }));
+    row.appendChild(acts); host.appendChild(row);
+  }
+}
+
+function wireRecorder() {
+  const save = $("recSave"); if (!save) return;
+  save.addEventListener("click", () => {
+    const entry = REC.makeEntry({
+      id: String(Date.now()), created: new Date().toISOString(),
+      label: $("recLabel").value, hypothesis: $("recHypothesis").value, notes: $("recNotes").value,
+      snapshot: captureSnapshot(), outputs: captureOutputs(),
+    });
+    REC.addEntry(entry);
+    $("recLabel").value = ""; $("recHypothesis").value = ""; $("recNotes").value = "";
+    renderRecordEntries();
+    showLoadedToast("recorded: " + (entry.label || "test"));
+  });
+  $("recExportSession")?.addEventListener("click", () =>
+    download("orme-session.json", JSON.stringify(captureSnapshot(), null, 2), "application/json"));
+  $("recImport")?.addEventListener("change", (ev) => {
+    const file = ev.target.files && ev.target.files[0]; if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const obj = JSON.parse(String(reader.result));
+        const snap = obj && obj.snapshot ? obj.snapshot : obj;   // accept a bare snapshot or a full entry
+        if (applySnapshot(snap)) { setTab("lab"); showLoadedToast("imported session"); }
+        else showLoadedToast("import: no usable session found");
+      } catch { showLoadedToast("import: invalid JSON"); }
+      ev.target.value = "";
+    };
+    reader.readAsText(file);
+  });
+  renderRecordEntries();
+}
+
 // ---- resize + render loop ------------------------------------------------
 function resize() {
   const w = stage.clientWidth, h = stage.clientHeight;
@@ -1042,6 +1171,7 @@ safe("metric-inspector", wireMetricInspector);
 safe("tabs", wireTabs);
 safe("eigenstate-toggle", wireEigenToggle);
 safe("vibration", wireVibration);
+safe("recorder", wireRecorder);
 safe("ranking", buildRanking);
 safe("resize", resize);
 safe("recompute", recompute);

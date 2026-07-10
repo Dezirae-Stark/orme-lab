@@ -65,9 +65,12 @@ _CONTAMINANTS: "tuple[ContaminantBand, ...]" = (
                     # Symmetric bidentate: positions and splitting from the SAME two compounds, so an exact cited chelating
                     # pair (e.g. 1472/1537, Delta=65) is representable as a tight match. Chelating nu_sym sits higher
                     # (~1456-1472) than the ionic band -- which is exactly why it must be its own row, not mixed above.
-                    # source: Grigorev, Russ. J. Inorg. Chem. 8 (1963) 409f (Zn(OAc)2.2H2O 1550/1456 D=94; Na[UO2(OAc)3]
-                    #         1537/1472 D=65) -- one-hop via directly-read Wits MSc thesis, Table 2.4
-                    source="Grigorev 1963 (Zn(OAc)2.2H2O 1550/1456; Na[UO2(OAc)3] 1537/1472; one-hop via Wits thesis Table 2.4)"),
+                    # source: A. I. Grigor'ev, "Infrared Absorption Spectra of Acetates of Elements in Groups I and II
+                    #         of the Periodic System", Russ. J. Inorg. Chem. 8, 409 (1963) (Zn(OAc)2.2H2O 1550/1456 D=94;
+                    #         Na[UO2(OAc)3] 1537/1472 D=65). Title CONFIRMED by two independent directly-read sources
+                    #         (Wits MSc thesis Table 2.4 + arXiv:1906.10984 ref list); the primary itself is one-hop
+                    #         (digitally inaccessible -- ILL/acquisition package in research-wiki/prior-art/ir-contaminant-bands.md).
+                    source="Grigor'ev, Russ. J. Inorg. Chem. 8, 409 (1963), 'IR Absorption Spectra of Acetates of Elements in Groups I and II' (Zn(OAc)2.2H2O 1550/1456; Na[UO2(OAc)3] 1537/1472; title confirmed x2, primary one-hop)"),
     ContaminantBand("water bend d(H2O)", "route_derived",
                     lo_band=(1644.0, 1670.0), hi_band=(1644.0, 1670.0), split_band=(0.0, 0.0),
                     oscillator_mu=None, coupled_applicable=False,

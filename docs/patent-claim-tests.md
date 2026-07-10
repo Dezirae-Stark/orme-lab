@@ -195,8 +195,11 @@ controls decisive. Those are the lab's first **Level-3 (laboratory-prediction)**
   matches *neither* mode tightly, landing at `plausible_match` against the ionic row.
   The chelating floor was set to the value the literature supports, not to move the
   verdict; the verdict is unchanged from before it was sourced. Residual gap: 65 is
-  the lowest *verified* chelating Δ, one hop from Grigorev's original Soviet-journal
-  paper (not directly fetched); a lower value in paywalled sources (Deacon & Phillips
+  the lowest *verified* chelating Δ, one hop from Grigor'ev's original Soviet-journal
+  paper (A. I. Grigor'ev, "IR Absorption Spectra of Acetates of Elements in Groups I
+  and II of the Periodic System", *Russ. J. Inorg. Chem.* **8**, 409 (1963) — title now
+  confirmed by two independent directly-read sources; the primary itself not directly
+  fetched, digitally inaccessible, acquisition/ILL package on file); a lower value in paywalled sources (Deacon & Phillips
   1980; Zeleňák 2007) cannot be excluded.
 - **Citation provenance is uneven, and flagged in-code.** Nitrate, water bend, and
   PDMS were independently re-fetched and confirmed. Carbonate traces to the

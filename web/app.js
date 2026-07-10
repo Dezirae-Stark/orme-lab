@@ -982,7 +982,12 @@ function populateVibModes() {
   sel.value = vib.mode;
 }
 
-function refreshVibration() { populateVibModes(); buildMolecule(); drawIrSpectrum(); renderCE(); }
+function refreshVibration() {
+  populateVibModes(); buildMolecule(); drawIrSpectrum(); renderCE();
+  // Replace the candidate's stage title with the vibration context (was left as "Iridium…").
+  const spec = VIB.SPECIES[vib.species];
+  if ($("stageTitle")) $("stageTitle").textContent = spec ? spec.label + " — vibrational modes" : "select a species";
+}
 
 function setVibOn(on) {
   vib.on = on;
@@ -993,7 +998,16 @@ function setVibOn(on) {
   $("vibToggle")?.setAttribute("aria-pressed", String(on));
   if ($("vibControls")) $("vibControls").hidden = !on;
   if ($("vibPanel")) $("vibPanel").hidden = !on;
-  if (on) refreshVibration(); else clearGroup(moleculeGroup);
+  if (on) {
+    // The candidate camera (14,9,18) frames a ~13-atom cluster; a 2-unit molecule is a speck
+    // in it. Reframe close so the molecule fills the stage. Restored on exit.
+    camera.position.set(5, 3.2, 6.5); controls.target.set(0, 0.4, 0); controls.update();
+    refreshVibration();
+  } else {
+    clearGroup(moleculeGroup);
+    camera.position.set(14, 9, 18); controls.target.set(0, 0, 0); controls.update();
+    recompute();   // rebuild + restore the candidate stage title and framing
+  }
 }
 
 function activateVibration(species) {

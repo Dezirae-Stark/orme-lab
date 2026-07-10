@@ -55,7 +55,7 @@ function sanitizeOutputs(obj) {
   const src = obj && typeof obj === "object" ? obj : {};
   const out = {};
   for (const k of Object.keys(src)) {
-    if (out && Object.keys(out).length >= 20) break;      // hard cap
+    if (Object.keys(out).length >= 20) break;             // hard cap
     if (isPrim(src[k])) out[capStr(k, 40)] = typeof src[k] === "string" ? src[k].slice(0, 400) : src[k];
   }
   return out;
@@ -88,11 +88,19 @@ export function loadEntries() {
   return raw.filter((e) => e && typeof e === "object").map((e) => makeEntry(e));
 }
 
+/** Persist entries. Never throws — a full quota (QuotaExceededError) is swallowed with a warn,
+ *  so a failed save loses the new entry rather than crashing the record handler. Returns success. */
 export function saveEntries(entries) {
   const s = getStore();
-  if (!s) return;
+  if (!s) return false;
   const trimmed = (Array.isArray(entries) ? entries : []).slice(-MAX_ENTRIES);
-  s.setItem(STORE_KEY, JSON.stringify(trimmed));
+  try {
+    s.setItem(STORE_KEY, JSON.stringify(trimmed));
+    return true;
+  } catch (err) {
+    if (typeof console !== "undefined") console.warn("recorder: could not persist entries", err);
+    return false;
+  }
 }
 
 export function addEntry(entry) {

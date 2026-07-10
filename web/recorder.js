@@ -21,7 +21,7 @@ export const MAX_ENTRIES = 200;
 const SNAP = {
   state: ["elSym", "geomKind", "spinKind", "fieldT", "tempK"],
   vib: ["on", "species", "mode", "iso", "metal"],
-  eigen: ["k", "l", "m"],
+  eigen: ["k", "l", "m", "on"],
   patent: ["pwIrSym", "pwIrLineLo", "pwIrLine", "pwThSym", "pwThT", "pwMeB"],
 };
 

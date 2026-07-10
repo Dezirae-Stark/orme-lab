@@ -1024,7 +1024,7 @@ function captureSnapshot() {
   return {
     state: { elSym: state.elSym, geomKind: state.geomKind, spinKind: state.spinKind, fieldT: state.fieldT, tempK: state.tempK },
     vib: { on: vib.on, species: vib.species, mode: vib.mode, iso: vib.iso, metal: vib.metal },
-    eigen: { k: eigen.k, l: eigen.l, m: eigen.m },
+    eigen: { k: eigen.k, l: eigen.l, m: eigen.m, on: eigen.on },
     patent: {
       pwIrSym: val("pwIrSym"), pwIrLineLo: val("pwIrLineLo"), pwIrLine: val("pwIrLine"),
       pwThSym: val("pwThSym"), pwThT: val("pwThT"), pwMeB: val("pwMeB"),
@@ -1038,25 +1038,45 @@ function captureOutputs() {
   return { irOut: txt("pwIrOut"), thermalOut: txt("pwThOut"), meissnerOut: txt("pwMeOut") };
 }
 
+// Domain guards — an imported/hand-edited snapshot may carry whitelisted-but-out-of-domain
+// values (e.g. fieldT:1e9 would explode the field-arrow count and hang the tab; elSym:"X"
+// would dereference an undefined element). Restore only in-domain values; clamp the rest.
+const _validEls = () => new Set(SIM.CORE_SCREEN.concat(["Ru", "Ag"]));
+const _validGeoms = () => new Set([...(($("geomSel") || {}).options || [])].map((o) => o.value));
+function _clampSlider(id, v, dflt) {
+  const s = $(id); const lo = s ? +s.min : 0; const hi = s ? +s.max : 1;
+  const n = Number(v); return Number.isFinite(n) ? Math.min(hi, Math.max(lo, n)) : dflt;
+}
+const _clampInt = (v, lo, hi, dflt) => { const n = Math.round(Number(v)); return Number.isFinite(n) ? Math.min(hi, Math.max(lo, n)) : dflt; };
+
 function applySnapshot(raw) {
   const s = REC.validateSnapshot(raw);
   if (!s) return false;
   const st = s.state || {};
-  if (typeof st.elSym === "string") state.elSym = st.elSym;
-  if (typeof st.geomKind === "string") state.geomKind = st.geomKind;
-  if (typeof st.spinKind === "string") state.spinKind = st.spinKind;
-  if (typeof st.fieldT === "number") state.fieldT = st.fieldT;
-  if (typeof st.tempK === "number") state.tempK = st.tempK;
-  if ($("fieldSlider") && typeof st.fieldT === "number") { $("fieldSlider").value = st.fieldT; if ($("fieldVal")) $("fieldVal").textContent = st.fieldT.toFixed(1) + " T"; }
-  if ($("tempSlider") && typeof st.tempK === "number") { $("tempSlider").value = st.tempK; if ($("tempVal")) $("tempVal").textContent = Math.round(st.tempK) + " K"; }
+  if (typeof st.elSym === "string" && _validEls().has(st.elSym)) state.elSym = st.elSym;
+  if (typeof st.geomKind === "string" && _validGeoms().has(st.geomKind)) state.geomKind = st.geomKind;
+  if (st.spinKind === "high" || st.spinKind === "low") state.spinKind = st.spinKind;
+  state.fieldT = _clampSlider("fieldSlider", st.fieldT, state.fieldT);
+  state.tempK = _clampSlider("tempSlider", st.tempK, state.tempK);
+  if ($("fieldSlider")) { $("fieldSlider").value = state.fieldT; if ($("fieldVal")) $("fieldVal").textContent = state.fieldT.toFixed(1) + " T"; }
+  if ($("tempSlider")) { $("tempSlider").value = state.tempK; if ($("tempVal")) $("tempVal").textContent = Math.round(state.tempK) + " K"; }
   syncControls(); recompute();
   const pt = s.patent || {};
   for (const id of ["pwIrSym", "pwIrLineLo", "pwIrLine", "pwThSym", "pwThT", "pwMeB"]) {
     if (id in pt && $(id)) { $(id).value = pt[id]; $(id).dispatchEvent(new Event("input", { bubbles: true })); $(id).dispatchEvent(new Event("change", { bubbles: true })); }
   }
+  // eigen: clamp k/l/m to safe small domains (l 0-3, m -l..l, k radial), then restore the toggle
   const eg = s.eigen || {};
+  if ("k" in eg) eigen.k = _clampInt(eg.k, 0, 6, eigen.k);
+  if ("l" in eg) eigen.l = _clampInt(eg.l, 0, 3, eigen.l);
+  if ("m" in eg) eigen.m = _clampInt(eg.m, -eigen.l, eigen.l, 0);
   for (const [k, id] of [["k", "eigenK"], ["l", "eigenL"], ["m", "eigenM"]]) {
-    if (k in eg && $(id)) { $(id).value = eg[k]; $(id).dispatchEvent(new Event("change", { bubbles: true })); }
+    if (k in eg && $(id)) $(id).value = eigen[k];      // best-effort display sync
+  }
+  if ("on" in eg) {
+    const wantOn = eg.on === true;
+    // the toggle click loads the (lazy) eigen module then rebuilds with the clamped k/l/m
+    if (wantOn !== eigen.on && $("eigenToggle")) $("eigenToggle").click();
   }
   const vb = s.vib || {};
   if (vb.on && typeof vb.species === "string" && vb.species) {

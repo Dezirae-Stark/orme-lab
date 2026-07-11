@@ -119,9 +119,12 @@ class LabConfig:
     (plasmon/polariton) per candidate and records em_* observables. Off by
     default so the toy path's values stay byte-identical."""
 
-    #: Compute Branch B (Hudson optical-coherence) for each candidate. Off by
-    #: default (like the EM channel); the base SC screen stays lightweight.
-    compute_hudson_optical: bool = False
+    #: Compute Branch B (Hudson optical-coherence) for each candidate. ON by default:
+    #: Branch B is central to the Hudson investigation (the resonantly-accessible hybrid
+    #: light-matter mechanism), so the base screen carries it as a first-class,
+    #: independent verdict beside the SC gate — not an optional add-on. Set False to
+    #: recover the lightweight SC-only path.
+    compute_hudson_optical: bool = True
 
     output_dir: str = "outputs"
 

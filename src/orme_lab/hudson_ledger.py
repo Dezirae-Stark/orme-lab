@@ -12,6 +12,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import Enum, IntEnum
 
+from .config import ModelThresholds
+from .identity import IdentityWitness
+
 
 class HudsonClaimId(str, Enum):
     HC_01 = "HC-01"; HC_02 = "HC-02"; HC_03 = "HC-03"; HC_04 = "HC-04"
@@ -77,3 +80,46 @@ class MeasuredEvidence:
     hc05_recovery_confirmed: bool = False
     hc08_mass_confirmed: bool = False
     replication: ReplicationEvidence | None = None
+
+
+#: Hudson's claimed novel phase: elemental composition, zero oxidation, but NOT the metallic
+#: lattice — distinct from both "metallic" and the compound phases (oxide/salt/...).
+NONMETALLIC_ELEMENTAL = "nonmetallic-elemental"
+_OX_TOL = 0.5   # |oxidation| above this implies a compound, not an elemental phase
+
+
+class HudsonIdentity(str, Enum):
+    ESTABLISHED = "established"              # characterization complete (phase-agnostic)
+    HUDSON_SATISFIED = "hudson-satisfied"   # established AND nonmetallic AND atomically dispersed
+    HUDSON_FAILED = "hudson-failed"         # identified but metallic / clustered / compound
+    HUDSON_UNRESOLVED = "hudson-unresolved" # cannot distinguish isolated atoms from clusters/phases
+
+
+def g_identity_established(witness: IdentityWitness) -> bool:
+    """Phase-AGNOSTIC: every descriptor is known within stated uncertainty. 'We know what it
+    physically is' — whether metal, compound, or the novel phase. (This is NOT identity.py's
+    metallic-target gate, which is Branch-A-specific.)"""
+    return (witness.composition is not None and witness.phase is not None
+            and witness.morphology is not None and witness.oxidation_state is not None)
+
+
+def assess_hc01(witness: IdentityWitness, target: str, th: ModelThresholds) -> ClaimRecord:
+    """HC-01: a stable NONMETALLIC ELEMENTAL PGM form (composition = target, |oxidation| <= tol,
+    phase = nonmetallic-elemental). The oxide/hydroxide/salt/complex phases are the ruled-out
+    mundane alternative. Simulation caps at PROVISIONALLY_SUPPORTED via witness; a MEASURED
+    confirmation (loaded separately) is what reaches SUPPORTED."""
+    text = "stable nonmetallic PGM form"
+    mundane = "oxide / hydroxide / salt / ligand complex"
+    if not g_identity_established(witness):
+        return ClaimRecord(HudsonClaimId.HC_01, text, "elemental PGM, zero oxidation, non-metallic",
+                           mundane, ClaimStatus.CANDIDATE, 2, Route.NONE, True, None,
+                           "identity not established")
+    is_elemental = (witness.composition == target and abs(witness.oxidation_state) <= _OX_TOL)
+    if witness.phase == NONMETALLIC_ELEMENTAL and is_elemental:
+        return ClaimRecord(HudsonClaimId.HC_01, text, "elemental PGM, zero oxidation, non-metallic",
+                           mundane, ClaimStatus.PROVISIONALLY_SUPPORTED, 2, Route.NONE, True, None,
+                           "witness: nonmetallic-elemental phase")
+    return ClaimRecord(HudsonClaimId.HC_01, text, "elemental PGM, zero oxidation, non-metallic",
+                       mundane, ClaimStatus.CANDIDATE, 2, Route.NONE, True, None,
+                       f"phase '{witness.phase}' is not nonmetallic-elemental "
+                       f"(mundane alternative: {mundane})")

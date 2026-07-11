@@ -65,7 +65,11 @@
     .ledger-matrix th, .ledger-matrix td { border: 1px solid var(--line-soft); padding: 8px 10px; text-align: left;
       vertical-align: top; }
     .ledger-matrix-corner, .ledger-matrix-colhead { background: var(--panel-2); position: sticky; top: 0; }
-    .ledger-matrix-colhead { min-width: 150px; }
+    .ledger-matrix-colhead { min-width: 150px; padding: 0; }
+    .ledger-matrix-colhead.focused { outline: 2px solid var(--gold); outline-offset: -2px; }
+    .ledger-matrix-colbtn { display: block; width: 100%; background: none; border: none; cursor: pointer;
+      text-align: left; padding: 8px 10px; font: inherit; color: inherit; }
+    .ledger-matrix-colbtn:hover { background: rgba(255,255,255,0.04); }
     .ledger-matrix-coltitle { display: block; color: var(--platinum); font-weight: 600; font-size: 11px; }
     .ledger-matrix-rowhead { background: var(--panel-2); color: var(--gold); font-weight: 600; white-space: nowrap; }
     .ledger-demo-badge { display: inline-block; margin-top: 3px; font-size: 9px; letter-spacing: 0.1em;
@@ -83,6 +87,25 @@
     .ledger-hc02-bar-fill.pass { background: var(--coherent); }
     .ledger-hc02-bar-fill.empty { width: 0; }
     .ledger-hc02-bar-marker { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--ruled); }
+
+    /* ---- Task 6: interactive evidence controls — same card idiom, "measured lab input"
+       badge distinguishes researcher-entered fields from computed matrix/card values. */
+    .ledger-controls { background: linear-gradient(180deg, var(--panel) 0%, var(--void-2) 100%);
+      border: 1px solid var(--line); border-radius: 6px; padding: 16px 18px; box-shadow: var(--shadow); }
+    .ledger-ctrl-block { margin: 10px 0 14px; }
+    .ledger-ctrl-heading { display: flex; align-items: center; gap: 8px; font-size: 11.5px;
+      color: var(--platinum); font-weight: 600; margin-bottom: 6px; }
+    .ledger-ctrl-row { display: flex; align-items: center; gap: 8px; font-size: 11.5px; color: var(--muted);
+      padding: 5px 0; border-bottom: 1px dashed var(--line-soft); cursor: pointer; }
+    .ledger-ctrl-row:last-of-type { border-bottom: none; }
+    .ledger-ctrl-lbl { flex: 1 1 auto; }
+    .ledger-ctrl-val { display: block; margin-top: 4px; color: var(--muted-2); font-size: 10.5px; }
+    .ledger-ctrl-range { width: 100%; accent-color: var(--gold); }
+    .ledger-ctrl-num { width: 64px; background: var(--void); border: 1px solid var(--line); border-radius: 4px;
+      color: var(--platinum); font: inherit; padding: 2px 6px; }
+    .ledger-measured-badge { font-size: 9px; letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--gold); border: 1px solid rgba(212,175,55,0.4); border-radius: 999px; padding: 1px 7px;
+      white-space: nowrap; }
   </style>
   <script type="importmap">
   {

@@ -645,6 +645,13 @@ function _el(tag, className, text) {
   if (text != null) node.textContent = text;
   return node;
 }
+// Guarded event-attach: real browsers always have addEventListener, but the Task-5 Node/DOM
+// smoke shim (tests/test_ledger_render_smoke.py) intentionally exposes a minimal FakeElement
+// without it — renderLedger must keep working (no "HUDSON CLAIM VALIDATED", no innerHTML) under
+// that shim, so control-wiring never assumes addEventListener exists.
+function _on(node, evt, handler) {
+  if (node && typeof node.addEventListener === "function") node.addEventListener(evt, handler);
+}
 function _statusDot(status) {
   const dot = _el("span", `status-dot ${_statusClass(status)}`);
   dot.title = _statusLabel(status);
@@ -764,17 +771,24 @@ function _buildIntegratedCard(entries, result) {
   return card;
 }
 
-// ---- Claim matrix: HC-01..HC-08 rows x material columns. ------------------------------------
-function _buildMatrix(entries) {
+// ---- Claim matrix: HC-01..HC-08 rows x material columns. Column headers are clickable — they
+// set the focused-material control panel (Task 6); default focus = first material (caller's
+// responsibility to pass focusedKey / onFocus consistently with the controls panel below).
+function _buildMatrix(entries, focusedKey, onFocus) {
   const wrap = _el("div", "ledger-matrix-wrap");
   const table = _el("table", "ledger-matrix");
   const thead = _el("thead");
   const headRow = _el("tr");
   headRow.appendChild(_el("th", "ledger-matrix-corner", "Claim"));
   entries.forEach((e) => {
-    const th = _el("th", "ledger-matrix-colhead");
-    th.appendChild(_el("span", "ledger-matrix-coltitle", e.material.title));
-    if (e.material.demo) th.appendChild(_el("span", "ledger-demo-badge", "demo"));
+    const isFocused = e.key === focusedKey;
+    const th = _el("th", "ledger-matrix-colhead" + (isFocused ? " focused" : ""));
+    const btn = _el("button", "ledger-matrix-colbtn");
+    btn.type = "button";
+    btn.appendChild(_el("span", "ledger-matrix-coltitle", e.material.title));
+    if (e.material.demo) btn.appendChild(_el("span", "ledger-demo-badge", "demo"));
+    _on(btn, "click", () => onFocus(e.key));
+    th.appendChild(btn);
     headRow.appendChild(th);
   });
   thead.appendChild(headRow);
@@ -838,22 +852,212 @@ function _buildHc02Detail(entries, th) {
   return panel;
 }
 
-// ---- renderLedger: the full 2D dashboard over evaluateLedger(DOSSIER, ...). Task 5 is a
-// static render from the frozen dossier; Task 6 wires the evidence controls that recompute and
-// re-render this same structure live.
+// ---- Task 6: interactive evidence controls (live recompute) -------------------------------
+// State = { focusedLineageId, measuredByLineage }. `measuredByLineage[key]` is a researcher-
+// entered overlay — { measured:{...}, optical:{persistence,supported} } — layered onto the
+// DOSSIER material with that lineage key when materials are (re)assembled for evaluateLedger.
+// Every field here mirrors hudson_ledger.MeasuredEvidence / hudson_optical persistence exactly
+// (see src/orme_lab/hudson_ledger.py MeasuredEvidence + hudson_optical.Persistence) — the JS
+// never invents a field the Python assessor doesn't read. Module-level so the panel survives
+// tab switches within one page load; renderLedger(el) re-seeds it fresh only on first call.
+let _state = { focusedLineageId: null, measuredByLineage: {} };
+
+const _PERSISTENCE_STEPS = ["driven-dissipative", "metastable", "persistent"];
+const _PERSISTENCE_LABEL = {
+  "driven-dissipative": "driven-dissipative (decays on the mode timescale)",
+  metastable: "metastable (long-lived, not self-sustaining)",
+  persistent: "persistent (self-sustaining — Hudson's claim)",
+};
+// Levels a measured ring-down at metastable-or-better makes available for scoring (excludes the
+// causal-magnetism level, which is its own measured toggle below).
+const _COHERENT_TRANSPORT_LEVELS = [
+  HUDSON_CLAIM.STRONG_COUPLING,
+  HUDSON_CLAIM.MACRO_COHERENCE,
+  HUDSON_CLAIM.LOW_LOSS_TRANSPORT,
+  HUDSON_CLAIM.ELECTRONIC_COUPLING,
+];
+
+// Seed (once) a lineage's overlay from its DOSSIER baseline so an untouched material's controls
+// reflect what's already loaded (e.g. demo/batch-7's persistent ring-down), and every field the
+// Python MeasuredEvidence dataclass carries has an explicit, never-`undefined` default here.
+function _getOverlay(key) {
+  if (!_state.measuredByLineage[key]) {
+    const material = DOSSIER.find((m) => _lineageKey(m.lineage) === key);
+    const bm = (material && material.measured) || {};
+    const bo = material && material.optical;
+    const brep = bm.replication || {};
+    _state.measuredByLineage[key] = {
+      measured: {
+        zeroResistance: Boolean(bm.zeroResistance),
+        fluxExclusion: Boolean(bm.fluxExclusion),
+        criticalBehavior: Boolean(bm.criticalBehavior),
+        artifactExcluded: Boolean(bm.artifactExcluded),
+        hc01NonmetallicConfirmed: Boolean(bm.hc01NonmetallicConfirmed),
+        hc02DispersionConfirmed: Boolean(bm.hc02DispersionConfirmed),
+        hc04IsotopeConfirmed: Boolean(bm.hc04IsotopeConfirmed),
+        replication: {
+          nBatches: brep.nBatches || 0,
+          nLabs: brep.nLabs || 0,
+          preregistered: true,
+          rawRetained: true,
+          blindedOk: true,
+        },
+      },
+      optical: {
+        persistence: bo ? bo.persistence : "driven-dissipative",
+        supported: bo ? [...bo.supported] : [],
+      },
+    };
+  }
+  return _state.measuredByLineage[key];
+}
+
+// Layer every touched overlay onto the frozen DOSSIER — never mutates DOSSIER itself.
+function _materialsWithOverrides() {
+  return DOSSIER.map((material) => {
+    const key = _lineageKey(material.lineage);
+    const overlay = _state.measuredByLineage[key];
+    if (!overlay) return material;
+    return { ...material, measured: overlay.measured, optical: overlay.optical };
+  });
+}
+
+function _measuredBadge() {
+  return _el("span", "ledger-measured-badge", "measured lab input");
+}
+
+function _checkboxRow(labelText, checked, onToggle) {
+  const row = _el("label", "ledger-ctrl-row");
+  const input = _el("input");
+  input.type = "checkbox";
+  input.checked = checked;
+  _on(input, "change", () => onToggle(input.checked));
+  row.appendChild(input);
+  row.appendChild(_el("span", "ledger-ctrl-lbl", labelText));
+  row.appendChild(_measuredBadge());
+  return row;
+}
+
+function _numberRow(labelText, value, onInput) {
+  const row = _el("label", "ledger-ctrl-row");
+  const input = _el("input", "ledger-ctrl-num");
+  input.type = "number";
+  input.min = "0";
+  input.step = "1";
+  input.value = String(value);
+  _on(input, "change", () => onInput(Math.max(0, Number(input.value) || 0)));
+  row.appendChild(input);
+  row.appendChild(_el("span", "ledger-ctrl-lbl", labelText));
+  row.appendChild(_measuredBadge());
+  return row;
+}
+
+// ---- Controls panel for the FOCUSED material (Task 6 Interfaces). Mirrors MeasuredEvidence:
+// ring-down slider (driven-dissipative -> metastable -> persistent; Branch-B optical transport
+// stays shut until persistent — gCandidateOptical requires persistence === "persistent"), the
+// on-resonance dM/dP causal-magnetism toggle, zero-R / flux-exclusion / critical-behavior /
+// artifact-excluded toggles (Branch A, all-four required), HC-01/02/04 measured confirmations,
+// and replication batches/labs. Every control is visually badged "measured lab input", distinct
+// from the computed matrix/cards below it. `onChange` triggers the live recompute + re-render.
+function _buildControls(materials, focusedKey, onChange) {
+  const material = materials.find((m) => _lineageKey(m.lineage) === focusedKey) || materials[0];
+  const key = _lineageKey(material.lineage);
+  const overlay = _getOverlay(key);
+
+  const panel = _el("div", "ledger-controls");
+  panel.appendChild(_el("div", "ledger-card-title", `Evidence controls — ${material.title}`));
+  panel.appendChild(
+    _el(
+      "p",
+      "ledger-card-sub",
+      "Live recompute for the focused material (click a matrix column header to change focus). Every gate stays default-blocked until you supply it here — nothing on this panel is simulated evidence."
+    )
+  );
+
+  // Ring-down persistence slider (Branch B).
+  const ringBlock = _el("div", "ledger-ctrl-block");
+  const ringHead = _el("div", "ledger-ctrl-heading", "ring-down persistence");
+  ringHead.appendChild(_measuredBadge());
+  ringBlock.appendChild(ringHead);
+  const ring = _el("input", "ledger-ctrl-range");
+  ring.type = "range";
+  ring.min = "0";
+  ring.max = "2";
+  ring.step = "1";
+  ring.value = String(Math.max(0, _PERSISTENCE_STEPS.indexOf(overlay.optical.persistence)));
+  _on(ring, "input", () => {
+    const step = _PERSISTENCE_STEPS[Number(ring.value)] || "driven-dissipative";
+    overlay.optical.persistence = step;
+    const s = new Set(overlay.optical.supported);
+    if (step === "driven-dissipative") {
+      _COHERENT_TRANSPORT_LEVELS.forEach((lvl) => s.delete(lvl));
+    } else {
+      _COHERENT_TRANSPORT_LEVELS.forEach((lvl) => s.add(lvl));
+    }
+    overlay.optical.supported = [...s];
+    onChange();
+  });
+  ringBlock.appendChild(ring);
+  ringBlock.appendChild(_el("span", "ledger-ctrl-val", _PERSISTENCE_LABEL[overlay.optical.persistence]));
+  panel.appendChild(ringBlock);
+
+  panel.appendChild(
+    _checkboxRow("on-resonance ∂M/∂P tracks the optical resonance (causal magnetism)", new Set(overlay.optical.supported).has(HUDSON_CLAIM.MAGNETISM_COUPLED), (checked) => {
+      const s = new Set(overlay.optical.supported);
+      if (checked) s.add(HUDSON_CLAIM.MAGNETISM_COUPLED);
+      else s.delete(HUDSON_CLAIM.MAGNETISM_COUPLED);
+      overlay.optical.supported = [...s];
+      onChange();
+    })
+  );
+
+  // Branch A (conventional SC) — all four required (gConventionalSuperconductivity).
+  panel.appendChild(_checkboxRow("flux exclusion measured (Meissner)", overlay.measured.fluxExclusion, (v) => { overlay.measured.fluxExclusion = v; onChange(); }));
+  panel.appendChild(_checkboxRow("zero resistance measured", overlay.measured.zeroResistance, (v) => { overlay.measured.zeroResistance = v; onChange(); }));
+  panel.appendChild(_checkboxRow("critical behavior measured", overlay.measured.criticalBehavior, (v) => { overlay.measured.criticalBehavior = v; onChange(); }));
+  panel.appendChild(_checkboxRow("artifact excluded", overlay.measured.artifactExcluded, (v) => { overlay.measured.artifactExcluded = v; onChange(); }));
+
+  // Procedural / identity confirmations.
+  panel.appendChild(_checkboxRow("HC-01 nonmetallic phase confirmed", overlay.measured.hc01NonmetallicConfirmed, (v) => { overlay.measured.hc01NonmetallicConfirmed = v; onChange(); }));
+  panel.appendChild(_checkboxRow("HC-02 dispersion confirmed (EXAFS/STEM/PDF)", overlay.measured.hc02DispersionConfirmed, (v) => { overlay.measured.hc02DispersionConfirmed = v; onChange(); }));
+  panel.appendChild(_checkboxRow("HC-04 isotope/atmosphere sensitivity confirmed", overlay.measured.hc04IsotopeConfirmed, (v) => { overlay.measured.hc04IsotopeConfirmed = v; onChange(); }));
+
+  // Replication (default-blocked: needs >= min batches AND >= min labs).
+  const repBlock = _el("div", "ledger-ctrl-block");
+  const repHead = _el("div", "ledger-ctrl-heading", "replication");
+  repHead.appendChild(_measuredBadge());
+  repBlock.appendChild(repHead);
+  repBlock.appendChild(_numberRow("independent batches", overlay.measured.replication.nBatches, (v) => { overlay.measured.replication.nBatches = v; onChange(); }));
+  repBlock.appendChild(_numberRow("independent labs", overlay.measured.replication.nLabs, (v) => { overlay.measured.replication.nLabs = v; onChange(); }));
+  panel.appendChild(repBlock);
+
+  return panel;
+}
+
+// ---- renderLedger: the full 2D dashboard over evaluateLedger(materials, ...). Task 5 shipped a
+// static render from the frozen dossier; Task 6 layers the evidence-controls overlay (state
+// above) so any change recomputes evaluateLedger and re-renders the matrix + cards + HC-02
+// detail live, without ever mutating DOSSIER itself.
 export function renderLedger(el) {
   el.textContent = "";
+  const dash = _el("div", "ledger-dash");
+  el.appendChild(dash);
+  _renderDash(dash);
+}
+
+function _renderDash(dash) {
+  dash.textContent = "";
   const th = DEFAULT_TH;
   const doublet = DEFAULT_DOUBLET;
 
-  const entries = DOSSIER.map((material) => ({
+  const materials = _materialsWithOverrides();
+  const entries = materials.map((material) => ({
     key: _lineageKey(material.lineage),
     material,
     records: _materialClaimRecords(material, doublet, th),
   }));
-  const result = evaluateLedger(DOSSIER, { th, doublet });
+  const result = evaluateLedger(materials, { th, doublet });
 
-  const dash = _el("div", "ledger-dash");
   dash.appendChild(_buildLegend());
 
   const cards = _el("div", "ledger-cards");
@@ -861,8 +1065,13 @@ export function renderLedger(el) {
   cards.appendChild(_buildIntegratedCard(entries, result));
   dash.appendChild(cards);
 
-  dash.appendChild(_buildMatrix(entries));
+  const focusedKey = _state.focusedLineageId || _lineageKey(DOSSIER[0].lineage);
+  dash.appendChild(
+    _buildMatrix(entries, focusedKey, (key) => {
+      _state.focusedLineageId = key;
+      _renderDash(dash);
+    })
+  );
   dash.appendChild(_buildHc02Detail(entries, th));
-
-  el.appendChild(dash);
+  dash.appendChild(_buildControls(materials, focusedKey, () => _renderDash(dash)));
 }

@@ -119,6 +119,10 @@ class LabConfig:
     (plasmon/polariton) per candidate and records em_* observables. Off by
     default so the toy path's values stay byte-identical."""
 
+    #: Compute Branch B (Hudson optical-coherence) for each candidate. Off by
+    #: default (like the EM channel); the base SC screen stays lightweight.
+    compute_hudson_optical: bool = False
+
     output_dir: str = "outputs"
 
 

@@ -316,16 +316,27 @@ def test_branchflow_energy_transport_needs_persistent():
     assert _bf("persistent") is True
 
 
-def test_ledger_js_no_egress_no_nondeterminism_no_innerhtml():
-    """Static hygiene guard (Task 7): web/ledger.js must not reach the network, must not read
-    wall-clock/RNG into computed output, and must never assign innerHTML (researcher/derived
-    text goes through textContent/createElement only — see the module's own comment at its top)."""
-    code_lines = [line for line in _JS.read_text().splitlines() if not line.strip().startswith("//")]
+_LEDGER_JS_FILES = [
+    Path(__file__).resolve().parents[1] / "web" / "ledger.js",
+    Path(__file__).resolve().parents[1] / "web" / "ledger3d.js",
+]
+
+
+@pytest.mark.parametrize("path", _LEDGER_JS_FILES, ids=lambda p: p.name)
+def test_ledger_js_no_egress_no_nondeterminism_no_innerhtml(path):
+    """Static hygiene guard (Task 7 / Phase C Task 4): web/ledger.js and web/ledger3d.js must not
+    reach the network, must not read wall-clock/RNG into computed output, must never assign
+    innerHTML (researcher/derived text goes through textContent/createElement only — see each
+    module's own comment at its top), and must never emit the forbidden affirmative verdict
+    string. `performance.now()` is exempt — ledger3d.js's render loop uses it ONLY to animate the
+    polariton pulse, never as a returned/serialized gate value (see ledger3d.js's own comment)."""
+    code_lines = [line for line in path.read_text().splitlines() if not line.strip().startswith("//")]
     code = "\n".join(code_lines)
-    for forbidden in ("fetch(", "XMLHttpRequest", "WebSocket", "Date.now", "Math.random"):
-        assert forbidden not in code, f"forbidden token {forbidden!r} found in web/ledger.js"
+    for forbidden in ("fetch(", "XMLHttpRequest", "WebSocket", "Date.now", "Math.random", "new Date(",
+                       "HUDSON CLAIM VALIDATED"):
+        assert forbidden not in code, f"forbidden token {forbidden!r} found in {path.name}"
     for line in code_lines:
-        assert ".innerHTML" not in line, f"innerHTML assignment found in web/ledger.js: {line!r}"
+        assert ".innerHTML" not in line, f"innerHTML assignment found in {path.name}: {line!r}"
 
 
 def test_gatering_matches_python_gates():

@@ -130,6 +130,12 @@ class CandidateRecord:
     # nothing else surviving) is not credited even with identity + passing proxies.
     surviving_mechanisms: tuple[str, ...] = ()
     mechanism_summary: str = ""
+    # --- Branch B (Hudson optical coherence) — independent of the SC AND-gate ---
+    hudson_regime: str | None = None
+    hudson_photon_fraction: float | None = None
+    hudson_persistence: str | None = None
+    hudson_highest_claim: int = 0
+    hudson_supported_levels: tuple[int, ...] = ()
 
     def as_csv_row(self) -> dict[str, object]:
         row = asdict(self)
@@ -235,14 +241,29 @@ def evaluate_candidate(
 
     # EM-coherence seam (H12/H16). Off-gate signal, gated by config flag. A high
     # coherence score is the H12 mundane alternative, NOT superconductivity.
+    n = free_electron_density(element)          # carrier density: shared by EM + Branch B
     em_score = em_regime = em_rabi = em_lifetime = None
     if config.compute_em_coherence:
-        n = free_electron_density(element)
         coh = evaluate_em_coherence(n, anisotropy, th)
         em_score = coh.coherence_score
         em_regime = coh.regime
         em_rabi = coh.mode.rabi_splitting_ev
         em_lifetime = coh.mode.coherence_lifetime_fs
+
+    # Branch B (Hudson optical coherence): opt-in, independent of the EM flag and of
+    # the SC AND-gate. matter_ev omitted -> evaluated on resonance with the computed mode.
+    hud_regime = hud_photon = hud_persistence = None
+    hud_highest = 0
+    hud_levels: tuple[int, ...] = ()
+    if config.compute_hudson_optical:
+        from .hudson_optical import evaluate_hudson_optical
+        hud = evaluate_hudson_optical(number_density_m3=n, anisotropy_score=anisotropy,
+                                      thresholds=th, coupling_fraction=0.05)
+        hud_regime = hud.regime
+        hud_photon = hud.order_parameter.f_photon
+        hud_persistence = hud.persistence.persistence.value
+        hud_highest = hud.highest_supported
+        hud_levels = tuple(sorted(int(c) for c in hud.supported))
 
     # Phase-identity gate (G_identity): a hard upstream precondition. Even when every SC
     # proxy gate passes, the candidate is NOT credited as a lead until phase identity is
@@ -313,6 +334,11 @@ def evaluate_candidate(
         credited_sc_lead=credited,
         surviving_mechanisms=surviving_mechanisms,
         mechanism_summary=mechanism_summary,
+        hudson_regime=hud_regime,
+        hudson_photon_fraction=hud_photon,
+        hudson_persistence=hud_persistence,
+        hudson_highest_claim=hud_highest,
+        hudson_supported_levels=hud_levels,
     )
 
 

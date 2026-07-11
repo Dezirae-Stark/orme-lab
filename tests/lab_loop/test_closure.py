@@ -28,6 +28,8 @@ def test_offgate_set_is_pinned_exactly():
         "sc_tc_kelvin", "sc_lambda", "sc_omega_log_k", "sc_gap_mev", "sc_mu_star",
         "em_coherence_score", "em_regime", "em_rabi_ev", "em_lifetime_fs",
         "identity_verdict", "identity_established",
+        "hudson_regime", "hudson_photon_fraction", "hudson_persistence",
+        "hudson_highest_claim", "hudson_supported_levels",
     })
 
 

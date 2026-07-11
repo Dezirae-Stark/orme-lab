@@ -112,3 +112,29 @@ def test_non_decisive_tests_cannot_reach_observation():
         assert t.evidence_level_if_confirmed == 3               # non-decisive -> no Level-4 observation
     r = next(t for t in s.tests if t.measurement == "R(T,B,I)")
     assert r.decisive is True and r.evidence_level_if_confirmed == 4
+
+
+def test_branch_b_decisive_experiments_present():
+    # Branch B is a first-class experiment set, no longer only a "mundane alternative".
+    s = design_validation(_record("Au"))
+    ms = _measurements(s)
+    for m in ("broadband resonance survey", "polariton anticrossing",
+              "optical coherence (g1/g2)", "resonant injection ring-down",
+              "energy-transfer geometry", "magnetism vs resonance (dM/dP)"):
+        assert m in ms, m
+
+
+def test_ringdown_is_the_decisive_branch_b_test():
+    s = design_validation(_record("Au"))
+    rd = next(t for t in s.tests if t.measurement == "resonant injection ring-down")
+    assert rd.decisive is True
+    assert rd.evidence_level_if_confirmed == 4        # persistent ring-down = an observation
+    # its mundane alternative is the ordinary driven-dissipative polariton condensate
+    assert any("driven-dissipative" in alt[0] or "driven-dissipative" in alt[1]
+               for alt in rd.mundane_alternatives)
+
+
+def test_broadband_survey_is_not_visible_only():
+    s = design_validation(_record("Au"))
+    surv = next(t for t in s.tests if t.measurement == "broadband resonance survey")
+    assert "RF" in surv.claimed_signature or "RF" in surv.note

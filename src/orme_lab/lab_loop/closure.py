@@ -40,6 +40,11 @@ OFF_GATE_INVARIANTS: frozenset[str] = frozenset({
     # (`credited_sc_lead` is a composite of gate ∧ identity and is deliberately in
     # neither set.)
     "identity_verdict", "identity_established",
+    # Hudson optical-coherence channel (Branch B): a distinct, independent signal
+    # from the SC AND-gate — the resonantly-accessible hybrid light-matter mode, its
+    # persistence, and its claim-level ladder. Never re-derivable from the gate inputs.
+    "hudson_regime", "hudson_photon_fraction", "hudson_persistence",
+    "hudson_highest_claim", "hudson_supported_levels",
 })
 
 

@@ -12,10 +12,31 @@ from orme_lab.mechanisms import (
 TH = DEFAULT_CONFIG.thresholds
 
 
-def _eval(*, coupling=0.657, carrier=0.657, stability=0.333, spin_pol=0.0, em=None, n=13):
+def _eval(*, coupling=0.657, carrier=0.657, stability=0.333, spin_pol=0.0, em=None, n=13,
+          field=1.0, obs=1.0):
     return evaluate_mechanisms(coupling=coupling, carrier_proxy=carrier,
-                               structural_stability=stability, spin_polarization=spin_pol,
+                               structural_stability=stability, field_suppression=field,
+                               observable_signal=obs, spin_polarization=spin_pol,
                                em_coherence_score=em, n_atoms=n, thresholds=TH)
+
+
+def test_field_suppressed_or_unmeasurable_rejects_every_mechanism():
+    # Global necessary conditions: a candidate destroyed by an applied field, or with no
+    # measurable observable, has no viable SC phase in ANY channel -> zero survivors.
+    assert surviving(_eval(spin_pol=0.6, field=0.05)) == ()   # below min_field_tolerance
+    assert surviving(_eval(spin_pol=0.0, obs=0.0)) == ()       # below min_observable_signal
+    # and the rejection reason names the global condition
+    assert "field-suppressed" in _by(_eval(field=0.05), Mechanism.PHONON).rejection
+
+
+def test_non_finite_field_or_observable_rejects_every_mechanism():
+    # A non-finite gate value (NaN critical field under an applied field) must reject: a bare
+    # `<` lets NaN through (NaN < x is False) while the generic gate's `NaN >= x` also fails,
+    # reintroducing the survivors-vs-all_passed inconsistency this gate prevents.
+    nan = float("nan")
+    assert surviving(_eval(field=nan)) == ()
+    assert surviving(_eval(obs=nan)) == ()
+    assert "field-suppressed" in _by(_eval(field=nan), Mechanism.PHONON).rejection
 
 
 def _by(results, mech):

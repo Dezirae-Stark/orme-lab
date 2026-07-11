@@ -259,6 +259,7 @@ def evaluate_candidate(
     # but enables the magnetic channels, so high-spin candidates route out of phonon.
     mech_results = evaluate_mechanisms(
         coupling=coupling, carrier_proxy=carrier, structural_stability=stability,
+        field_suppression=suppression, observable_signal=observable_signal,
         spin_polarization=spin_pol, em_coherence_score=em_score, n_atoms=geometry.n_atoms,
         thresholds=th)
     surviving_mechanisms = mechanism_surviving(mech_results)

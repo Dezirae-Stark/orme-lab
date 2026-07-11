@@ -17,6 +17,7 @@ threshold is a documented constant, not tuned to pass favourites.
 """
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 from enum import Enum
 
@@ -110,10 +111,38 @@ def _granular(coupling: float, n_atoms: int, th: ModelThresholds) -> MechanismRe
                            f"granular Josephson network E_J/E_C={ratio:.2f} (Abeles 1977; Ambegaokar–Baratoff)")
 
 
+#: is_surrogate flag per mechanism (for the global-rejection path).
+_SURROGATE = {
+    Mechanism.PHONON: False, Mechanism.SPIN_FLUCTUATION: True, Mechanism.TRIPLET: True,
+    Mechanism.EXCITONIC_POLARITONIC: True, Mechanism.GRANULAR_JOSEPHSON: False,
+}
+
+
 def evaluate_mechanisms(*, coupling: float, carrier_proxy: float, structural_stability: float,
+                        field_suppression: float, observable_signal: float,
                         spin_polarization: float, em_coherence_score: float | None, n_atoms: int,
                         thresholds: ModelThresholds) -> tuple[MechanismResult, ...]:
-    """Evaluate all five pairing-mechanism tracks. Order is fixed and deterministic."""
+    """Evaluate all five pairing-mechanism tracks. Order is fixed and deterministic.
+
+    Global necessary conditions shared by EVERY mechanism (they mirror the generic SC gate's
+    field/observable floors, so the mechanism attribution stays consistent with
+    ``plaus.all_passed``): a candidate destroyed by an applied field, or with no measurable
+    observable, has NO viable SC phase regardless of pairing channel — every track is rejected.
+    """
+    # A non-finite gate value (NaN/inf, e.g. a FIELD_RESPONSE backend returning a non-finite
+    # critical field under a nonzero applied field) must reject too: `NaN < threshold` is False,
+    # so a bare `<` would let every channel through while the generic gate's `NaN >= threshold`
+    # (also False) fails `field_tolerance` — the exact survivors-vs-all_passed inconsistency this
+    # global gate exists to prevent.
+    if not math.isfinite(field_suppression) or field_suppression < thresholds.min_field_tolerance:
+        why = (f"field-suppressed: field tolerance {field_suppression:.2f} < "
+               f"{thresholds.min_field_tolerance} (no robust SC phase in any channel)")
+        return tuple(_reject(m, why, _SURROGATE[m]) for m in Mechanism)
+    if not math.isfinite(observable_signal) or observable_signal < thresholds.min_observable_signal:
+        why = (f"no measurable observable: signal {observable_signal:.2f} < "
+               f"{thresholds.min_observable_signal} (unfalsifiable in any channel)")
+        return tuple(_reject(m, why, _SURROGATE[m]) for m in Mechanism)
+
     return (
         _phonon(coupling, carrier_proxy, structural_stability, spin_polarization, thresholds),
         _spin_fluctuation(coupling, spin_polarization, thresholds),

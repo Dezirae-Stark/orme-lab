@@ -703,6 +703,14 @@ function _buildPortfolioCard(entries, portfolioClaims) {
   card.appendChild(
     _el("p", "ledger-card-sub", `${nCovered} of ${HC.length} claims ≥ Provisionally Supported (best-of, across ALL materials — not one coherent lineage).`)
   );
+  // If any covered claim is supported only by demonstration states, say so — the count is not a
+  // findings tally.
+  const demoDerived = HC.some((hc, j) => portfolioClaims[j].status >= CLAIM_STATUS.PROVISIONALLY_SUPPORTED
+    && _bestMaterialsForClaim(entries, j).winners.some((w) => w.material.demo));
+  if (demoDerived) {
+    card.appendChild(_el("p", "ledger-card-note muted",
+      "Coverage includes demonstration states (badged DEMO in the matrix) — not findings."));
+  }
   const list = _el("div", "ledger-rollup-list");
   HC.forEach((hc, j) => {
     const rec = portfolioClaims[j];
@@ -869,9 +877,9 @@ function _buildHc02Detail(entries, th) {
 // tab switches within one page load; renderLedger(el) re-seeds it fresh only on first call.
 let _state = { focusedLineageId: null, measuredByLineage: {} };
 
-const _PERSISTENCE_STEPS = ["driven-dissipative", "metastable", "persistent"];
+const _PERSISTENCE_STEPS = ["driven_dissipative", "metastable", "persistent"];
 const _PERSISTENCE_LABEL = {
-  "driven-dissipative": "driven-dissipative (decays on the mode timescale)",
+  driven_dissipative: "driven-dissipative (decays on the mode timescale)",
   metastable: "metastable (long-lived, not self-sustaining)",
   persistent: "persistent (self-sustaining — Hudson's claim)",
 };
@@ -905,13 +913,15 @@ function _getOverlay(key) {
         replication: {
           nBatches: brep.nBatches || 0,
           nLabs: brep.nLabs || 0,
-          preregistered: true,
-          rawRetained: true,
-          blindedOk: true,
+          // The three qualitative attestations are NOT assumed — the Python replication_gate
+          // requires all five, so the researcher must affirm them (surfaced as toggles below).
+          preregistered: Boolean(brep.preregistered),
+          rawRetained: Boolean(brep.rawRetained),
+          blindedOk: Boolean(brep.blindedOk),
         },
       },
       optical: {
-        persistence: bo ? bo.persistence : "driven-dissipative",
+        persistence: bo ? bo.persistence : "driven_dissipative",
         supported: bo ? [...bo.supported] : [],
       },
     };
@@ -1036,6 +1046,11 @@ function _buildControls(materials, focusedKey, onChange) {
   repBlock.appendChild(repHead);
   repBlock.appendChild(_numberRow("independent batches", overlay.measured.replication.nBatches, (v) => { overlay.measured.replication.nBatches = v; onChange(); }));
   repBlock.appendChild(_numberRow("independent labs", overlay.measured.replication.nLabs, (v) => { overlay.measured.replication.nLabs = v; onChange(); }));
+  // All five attestations are required (parity with hudson_ledger.replication_gate) — the gate
+  // cannot reach INDEPENDENTLY_REPLICATED on batches+labs alone.
+  repBlock.appendChild(_checkboxRow("preregistered thresholds", overlay.measured.replication.preregistered, (v) => { overlay.measured.replication.preregistered = v; onChange(); }));
+  repBlock.appendChild(_checkboxRow("raw/calibration data retained", overlay.measured.replication.rawRetained, (v) => { overlay.measured.replication.rawRetained = v; onChange(); }));
+  repBlock.appendChild(_checkboxRow("blinded controls correctly classified", overlay.measured.replication.blindedOk, (v) => { overlay.measured.replication.blindedOk = v; onChange(); }));
   panel.appendChild(repBlock);
 
   return panel;

@@ -88,6 +88,41 @@
     .ledger-hc02-bar-fill.empty { width: 0; }
     .ledger-hc02-bar-marker { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--ruled); }
 
+    /* ---- Phase B: two-branch flow — Branch A (conventional SC) and Branch B (Hudson optical)
+       as parallel, independent, CSS-only pipelines. Same card idiom + palette vars as the rest
+       of the Ledger tab; no new hues. Kinetics (fill/flow/lock transitions, reduced-motion) land
+       in Task 3 — this block is the static base (nodes, connectors, result node, lock glyph). */
+    .ledger-flow { background: linear-gradient(180deg, var(--panel) 0%, var(--void-2) 100%);
+      border: 1px solid var(--line); border-radius: 6px; padding: 16px 18px; box-shadow: var(--shadow); }
+    .ledger-flow-track { margin-top: 16px; }
+    .ledger-flow-track:first-of-type { margin-top: 4px; }
+    .ledger-flow-label { font-family: "IBM Plex Mono", monospace; font-size: 11px; letter-spacing: 0.05em;
+      text-transform: uppercase; color: var(--gold); margin-bottom: 8px; }
+    .ledger-flow-row { display: flex; align-items: center; flex-wrap: wrap; gap: 0; }
+    .ledger-flow-feeder { margin-top: 8px; }
+
+    .ledger-flow-node { display: flex; align-items: center; justify-content: center; min-width: 108px;
+      padding: 8px 10px; border: 1px solid var(--line); border-radius: 5px; background: var(--void);
+      color: var(--muted-2); font-size: 10.5px; text-align: center; line-height: 1.3; transition: background .2s ease,
+      border-color .2s ease, color .2s ease, box-shadow .2s ease; }
+    .ledger-flow-node.filled { background: rgba(53,214,196,0.12); border-color: var(--coherent); color: var(--platinum); }
+    .ledger-flow-node-lbl { display: block; }
+
+    .ledger-flow-conn { flex: 1 1 20px; min-width: 20px; height: 2px; background: var(--line-soft);
+      margin: 0 4px; transition: background .2s ease; }
+    .ledger-flow-conn.flowing { background: var(--coherent); }
+
+    .ledger-flow-result { display: flex; flex-direction: column; align-items: center; justify-content: center;
+      min-width: 190px; padding: 10px 14px; margin-left: 4px; border: 1px solid var(--line); border-radius: 8px;
+      background: var(--void); text-align: center; transition: background .2s ease, border-color .2s ease; }
+    .ledger-flow-result-lock { font-size: 15px; line-height: 1; margin-bottom: 3px; }
+    .ledger-flow-result-lbl { font-family: "IBM Plex Mono", monospace; font-size: 10.5px; color: var(--platinum); }
+    .ledger-flow-result-state { margin-top: 3px; font-size: 9.5px; letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--muted-2); }
+    .ledger-flow-result.closed { border-color: var(--line); }
+    .ledger-flow-result.open { background: rgba(212,175,55,0.12); border-color: var(--gold); }
+    .ledger-flow-result.open .ledger-flow-result-state { color: var(--gold); }
+
     /* ---- Task 6: interactive evidence controls — same card idiom, "measured lab input"
        badge distinguishes researcher-entered fields from computed matrix/card values. */
     .ledger-controls { background: linear-gradient(180deg, var(--panel) 0%, var(--void-2) 100%);

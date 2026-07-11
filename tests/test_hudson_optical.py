@@ -131,9 +131,12 @@ def test_survey_is_deterministic_and_ordered():
 def test_strongest_band_picks_max_cooperativity_among_non_weak():
     results = resonance_survey(0.05, 0.10, 0.05, TH)
     best = strongest_band(results)
-    if best is not None:
-        assert best.regime != "weak"
-        assert all(best.cooperativity >= r.cooperativity for r in results if r.regime != "weak")
+    # these defaults DO produce at least one non-weak band, so the selection path must run
+    # (the all-weak -> None case is covered by test_strongest_band_is_none_when_all_weak);
+    # asserting best is not None here keeps this test from passing vacuously.
+    assert best is not None
+    assert best.regime != "weak"
+    assert all(best.cooperativity >= r.cooperativity for r in results if r.regime != "weak")
 
 
 def test_strongest_band_is_none_when_all_weak():
@@ -212,4 +215,5 @@ def test_weak_candidate_supports_at_most_resonance_detection():
                                 thresholds=TH, matter_ev=9.0, coupling_fraction=1e-6,
                                 cavity_loss_ev=1.0, matter_loss_ev=1.0)
     assert HudsonClaim.STRONG_COUPLING not in r.supported
-    assert r.explain()   # non-empty, mentions the branch is not superconductivity evidence
+    # explain() must actually carry the branch-separation caveat, not merely be non-empty
+    assert "NOT evidence of DC superconductivity" in r.explain()

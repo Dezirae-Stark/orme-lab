@@ -194,6 +194,22 @@ export function branchFlow(material, doublet, th) {
   };
 }
 
+// ---- gateRing: the six-gate ring states for the Phase C 3D stage (and its text-legend
+// fallback). Reuses ONLY the parity-locked branchFlow(...)/gIdentityEstablished(...) above — no
+// new decision logic. `identity` is read from gIdentityEstablished directly (branchFlow doesn't
+// surface it) so the ring's first gate matches the same identity check the matrix/cards use.
+export function gateRing(material, doublet, th) {
+  const bf = branchFlow(material, doublet, th);
+  return {
+    identity: gIdentityEstablished(material.witness),
+    materialState: bf.hudson.materialState,
+    transport: bf.hudson.energyTransport,
+    magnetism: bf.hudson.causalMagnetism,
+    replication: bf.hudson.replication,
+    mechanism: bf.hudson.result,
+  };
+}
+
 // ---- Procedural claims (HC-03, HC-05, HC-08): a measured confirmation -> SUPPORTED --------
 function procedural(id, confirmed) {
   return {

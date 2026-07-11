@@ -167,6 +167,47 @@
     /* shown in place of the 3D stage when WebGL is unavailable (the DOM tabs still work) */
     .stage-nowebgl { max-width: 520px; margin: 18% auto 0; padding: 0 24px; text-align: center;
       color: var(--slate); font-size: 13px; line-height: 1.6; }
+
+    /* ---- Phase C: the 3D material-state stage atop the Ledger tab. Same dark panel idiom as
+       the rest of the ledger dashboard — no new hues. The canvas host is a fixed-height panel;
+       ledger3d.js owns everything drawn inside it. Without WebGL, .ledger3d-nowebgl replaces the
+       canvas and the breadcrumb + text legend below it still fully describe the six-gate ring
+       state (the WebGL render is additive, never load-bearing for the dashboard's meaning). */
+    .ledger3d-region { background: linear-gradient(180deg, var(--panel) 0%, var(--void-2) 100%);
+      border: 1px solid var(--line); border-radius: 6px; padding: 16px 18px 18px; box-shadow: var(--shadow); }
+    .ledger3d-crumb { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin: 4px 0 12px; }
+    .crumb-node { font-family: "IBM Plex Mono", monospace; font-size: 11px; color: var(--muted);
+      background: none; border: 1px solid var(--line-soft); border-radius: 4px; padding: 2px 8px;
+      cursor: pointer; }
+    .crumb-node:hover { color: var(--platinum); border-color: var(--coherent); }
+    .crumb-node.current { color: var(--gold); border-color: var(--gold); background: rgba(212,175,55,0.08); }
+    .crumb-node-inert { font-family: "IBM Plex Mono", monospace; font-size: 11px; color: var(--muted-2);
+      padding: 2px 4px; font-style: italic; }
+    .crumb-sep { color: var(--muted-2); font-size: 11px; }
+
+    .ledger3d-canvas { position: relative; width: 100%; height: 360px; border-radius: 6px;
+      overflow: hidden; background: radial-gradient(ellipse at 50% 40%, var(--panel-2) 0%, var(--void) 100%);
+      border: 1px solid var(--line-soft); }
+    .ledger3d-canvas canvas { display: block; width: 100%; height: 100%; }
+    .ledger3d-nowebgl { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+      max-width: 420px; margin: 0 auto; padding: 0 20px; text-align: center;
+      color: var(--slate); font-size: 12.5px; line-height: 1.6; }
+
+    .ledger3d-legend { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+    .ledger3d-gate-chip { display: inline-flex; align-items: center; gap: 6px; font-size: 11px;
+      color: var(--muted); border: 1px solid var(--line-soft); border-radius: 999px; padding: 4px 10px; }
+    .ledger3d-gate-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--line); flex: none; }
+    .ledger3d-gate-chip.open { color: var(--platinum); border-color: var(--coherent); }
+    .ledger3d-gate-chip.open .ledger3d-gate-dot { background: var(--coherent); box-shadow: 0 0 6px rgba(53,214,196,0.6); }
+    .ledger3d-gate-chip.mechanism.open { border-color: var(--gold); }
+    .ledger3d-gate-chip.mechanism.open .ledger3d-gate-dot { background: var(--gold); box-shadow: 0 0 6px rgba(212,175,55,0.6); }
+    .ledger3d-gate-state { font-size: 9px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted-2); }
+    .ledger3d-gate-chip.open .ledger3d-gate-state { color: var(--coherent); }
+    .ledger3d-gate-chip.mechanism.open .ledger3d-gate-state { color: var(--gold); }
+
+    @media (prefers-reduced-motion: reduce) {
+      .crumb-node { transition: none !important; }
+    }
   </style>
   <script type="importmap">
   {

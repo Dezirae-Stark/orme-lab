@@ -32,6 +32,7 @@ time. Runs entirely client-side (a faithful JS port of the Python toy models).
 - **Metric drill-downs.** Tap any score or gate for its definition, exact calculation, real-world experimental analogue, a confidence note, and the future measurement that would validate it.
 - **Hypothesis registry.** A scientific-notebook tab of the falsifiable hypotheses (H-01…H-20), cross-linked both ways with the live metrics — jump from a hypothesis card to the metric it drives, and from a metric back to its hypotheses.
 - **Candidate band.** A categorical **LOW / MEDIUM / HIGH / VERY HIGH** read derived from the *gate-margin cascade* (not the raw score), capped by the weakest necessary gate — a plain-language triage tier layered over the deliberately un-probability-like screening score.
+- **Ledger tab.** The falsify-first Hudson Claim Ledger (HC-01…HC-08) as a live dashboard — a claim × material matrix, per-material and integrated (max-lineage, min-claim-over-core) roll-up cards, and evidence-control panels you can drive by hand. Every gate reads default-blocked until you supply real evidence; the strongest attainable state is "Independently Replicated" and the string "HUDSON CLAIM VALIDATED" is never rendered. Same status ladder and thresholds as [`hudson_ledger.py`](src/orme_lab/hudson_ledger.py), parity-tested against it.
 
 The lab includes a **Lab Scientist**: an always-on deterministic analyst that reads
 the real gate values for the current candidate and gives grounded readings, ranked

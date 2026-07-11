@@ -13,6 +13,100 @@
   <link rel="apple-touch-icon" href="./assets/apple-touch-icon.png" />
   <meta name="theme-color" content="#090c14" />
   <link rel="stylesheet" href="./styles.css?v=__BUILD__" />
+  <style>
+    /* ---- Hudson Claim Ledger dashboard (Phase A, Task 5) — same idiom as styles.css:
+       navy/panel surfaces, gold/teal accents, IBM Plex Mono. Palette maps the 6-rung
+       ClaimStatus ladder onto existing CSS custom properties only — no new hues. */
+    .ledger-dash { display: flex; flex-direction: column; gap: 26px; }
+    .status-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%;
+      flex: none; transition: transform .12s ease; }
+    .status-dot.lvl-0 { background: var(--muted-2); }
+    .status-dot.lvl-1 { background: var(--spin-dn); }
+    .status-dot.lvl-2 { background: var(--ruled); }
+    .status-dot.lvl-3 { background: var(--gold); }
+    .status-dot.lvl-4 { background: var(--coherent); }
+    .status-dot.lvl-5 { background: var(--coherent); box-shadow: 0 0 0 3px rgba(53,214,196,0.28); }
+
+    .ledger-legend { border: 1px solid var(--line); border-radius: 6px; padding: 12px 16px;
+      background: var(--panel); }
+    .ledger-legend-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+    .ledger-legend-item { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; color: var(--muted); }
+    .ledger-legend-label { white-space: nowrap; }
+    .ledger-legend-arrow { color: var(--muted-2); }
+    .ledger-neutrality { margin: 10px 0 0; color: var(--gold); font-size: 12px; }
+
+    .ledger-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 16px; }
+    .ledger-card { background: linear-gradient(180deg, var(--panel) 0%, var(--void-2) 100%);
+      border: 1px solid var(--line); border-radius: 6px; padding: 16px 18px; box-shadow: var(--shadow); }
+    .ledger-card-title { font-family: "Space Grotesk", sans-serif; font-weight: 600; font-size: 14px;
+      color: var(--platinum); margin-bottom: 6px; }
+    .ledger-card-sub { color: var(--muted); font-size: 11.5px; line-height: 1.55; margin: 0 0 12px; }
+
+    .ledger-rollup-list, .ledger-gate-list { display: flex; flex-direction: column; gap: 6px; }
+    .ledger-rollup-row, .ledger-gate-row { display: flex; align-items: center; gap: 8px; font-size: 11.5px;
+      flex-wrap: wrap; padding: 3px 0; border-bottom: 1px dashed var(--line-soft); }
+    .ledger-rollup-row:last-child { border-bottom: none; }
+    .ledger-rollup-hc { font-weight: 600; color: var(--platinum); width: 44px; flex: none; }
+    .ledger-rollup-status { color: var(--muted); min-width: 150px; }
+    .ledger-rollup-via { color: var(--muted-2); font-size: 10.5px; }
+    .ledger-rollup-via.muted { font-style: italic; }
+
+    .ledger-gate-row { justify-content: space-between; border-bottom: none; }
+    .ledger-gate-lbl { font-family: "IBM Plex Mono", monospace; color: var(--muted); }
+    .ledger-gate-val { font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase;
+      border: 1px solid var(--line); border-radius: 3px; padding: 2px 7px; color: var(--muted-2); }
+    .ledger-gate-row.pass .ledger-gate-val { color: var(--coherent); border-color: rgba(53,214,196,0.4); }
+    .ledger-verdict { margin: 10px 0 0; padding-top: 10px; border-top: 1px solid var(--line-soft);
+      color: var(--platinum); font-size: 12px; }
+    .ledger-divergence { margin: 10px 0 0; color: var(--gold); font-size: 11.5px; line-height: 1.5; }
+
+    .ledger-matrix-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 6px; }
+    .ledger-matrix { border-collapse: collapse; width: 100%; min-width: 640px; font-size: 11.5px; }
+    .ledger-matrix th, .ledger-matrix td { border: 1px solid var(--line-soft); padding: 8px 10px; text-align: left;
+      vertical-align: top; }
+    .ledger-matrix-corner, .ledger-matrix-colhead { background: var(--panel-2); position: sticky; top: 0; }
+    .ledger-matrix-colhead { min-width: 150px; padding: 0; }
+    .ledger-matrix-colhead.focused { outline: 2px solid var(--gold); outline-offset: -2px; }
+    .ledger-matrix-colbtn { display: block; width: 100%; background: none; border: none; cursor: pointer;
+      text-align: left; padding: 8px 10px; font: inherit; color: inherit; }
+    .ledger-matrix-colbtn:hover { background: rgba(255,255,255,0.04); }
+    .ledger-matrix-coltitle { display: block; color: var(--platinum); font-weight: 600; font-size: 11px; }
+    .ledger-matrix-rowhead { background: var(--panel-2); color: var(--gold); font-weight: 600; white-space: nowrap; }
+    .ledger-demo-badge { display: inline-block; margin-top: 3px; font-size: 9px; letter-spacing: 0.1em;
+      text-transform: uppercase; color: var(--muted-2); border: 1px solid var(--line); border-radius: 999px;
+      padding: 1px 6px; }
+    .ledger-cell-dotwrap { display: flex; align-items: center; gap: 6px; }
+    .ledger-route-glyph { font-size: 10px; color: var(--muted-2); white-space: nowrap; }
+    .ledger-cell-material { display: block; margin-top: 5px; color: var(--gold); font-size: 10.5px; font-weight: 600; }
+    .ledger-cell-note { display: block; margin-top: 2px; color: var(--muted-2); font-size: 10px; line-height: 1.4;
+      max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    .ledger-hc02-bar { position: relative; height: 10px; border-radius: 5px; background: var(--void);
+      border: 1px solid var(--line-soft); overflow: hidden; margin-top: 4px; }
+    .ledger-hc02-bar-fill { height: 100%; background: var(--gold); transition: width .2s ease; }
+    .ledger-hc02-bar-fill.pass { background: var(--coherent); }
+    .ledger-hc02-bar-fill.empty { width: 0; }
+    .ledger-hc02-bar-marker { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--ruled); }
+
+    /* ---- Task 6: interactive evidence controls — same card idiom, "measured lab input"
+       badge distinguishes researcher-entered fields from computed matrix/card values. */
+    .ledger-controls { background: linear-gradient(180deg, var(--panel) 0%, var(--void-2) 100%);
+      border: 1px solid var(--line); border-radius: 6px; padding: 16px 18px; box-shadow: var(--shadow); }
+    .ledger-ctrl-block { margin: 10px 0 14px; }
+    .ledger-ctrl-heading { display: flex; align-items: center; gap: 8px; font-size: 11.5px;
+      color: var(--platinum); font-weight: 600; margin-bottom: 6px; }
+    .ledger-ctrl-row { display: flex; align-items: center; gap: 8px; font-size: 11.5px; color: var(--muted);
+      padding: 5px 0; border-bottom: 1px dashed var(--line-soft); cursor: pointer; }
+    .ledger-ctrl-row:last-of-type { border-bottom: none; }
+    .ledger-ctrl-lbl { flex: 1 1 auto; }
+    .ledger-ctrl-val { display: block; margin-top: 4px; color: var(--muted-2); font-size: 10.5px; }
+    .ledger-ctrl-range { width: 100%; accent-color: var(--gold); }
+    .ledger-ctrl-num { width: 64px; background: var(--void); border: 1px solid var(--line); border-radius: 4px;
+      color: var(--platinum); font: inherit; padding: 2px 6px; }
+    .ledger-measured-badge { font-size: 9px; letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--gold); border: 1px solid rgba(212,175,55,0.4); border-radius: 999px; padding: 1px 7px;
+      white-space: nowrap; }
+  </style>
   <script type="importmap">
   {
     "imports": {
@@ -39,6 +133,7 @@
         <button class="tab" data-tab="registry" role="tab" aria-selected="false">Registry</button>
         <button class="tab" data-tab="loop" role="tab" aria-selected="false">Loop</button>
         <button class="tab" data-tab="research" role="tab" aria-selected="false">Research</button>
+        <button class="tab" data-tab="ledger" role="tab" aria-selected="false">Ledger</button>
       </div>
 
       <div class="group">
@@ -287,6 +382,21 @@
           </div>
           <div id="recEntries" class="rec-entries"></div>
         </div>
+      </div>
+    </div>
+
+    <!-- HUDSON CLAIM LEDGER DASHBOARD -->
+    <div id="ledger" class="reg-overlay" hidden>
+      <div class="reg-inner">
+        <header class="reg-head">
+          <div>
+            <div class="reg-eyebrow">Hudson Claim Ledger</div>
+            <h2 class="reg-title display">Ledger Dashboard</h2>
+            <p class="reg-sub">Hudson's eight ORME claims assessed <strong>falsify-first</strong> — each with the ordinary explanation attacked first. <em>Triage, not proof</em>; the lab never asserts a validated verdict. A green claim always names the material state that earned it.</p>
+          </div>
+          <button id="ledgerClose" class="chip">← back to lab</button>
+        </header>
+        <div id="ledgerBody"></div>
       </div>
     </div>
 

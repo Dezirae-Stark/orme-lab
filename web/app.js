@@ -6,6 +6,7 @@ import { METRICS } from "./metrics.js?v=__BUILD__";
 import { renderRegistry, hypothesesForMetric } from "./hypotheses.js?v=__BUILD__";
 import { renderPatentTests } from "./patent_tests.js?v=__BUILD__";
 import { renderResearch } from "./research.js?v=__BUILD__";
+import { renderLedger } from "./ledger.js?v=__BUILD__";
 import * as VIB from "./vibration.js?v=__BUILD__";
 import * as REC from "./recorder.js?v=__BUILD__";
 
@@ -385,6 +386,7 @@ function setTab(name) {
   $("registry").hidden = name !== "registry";
   $("loop").hidden = name !== "loop";
   $("research").hidden = name !== "research";
+  $("ledger").hidden = name !== "ledger";
   document.querySelectorAll(".tab").forEach((t) => {
     const active = t.dataset.tab === name;
     t.classList.toggle("active", active);
@@ -565,6 +567,7 @@ function wireTabs() {
   renderRegistry($("regBody"));
   renderPatentTests($("patentWidgets"));
   renderResearch($("researchBody"), loadPreset);
+  renderLedger($("ledgerBody"));
   const digestEl = $("loopDigest");
   if (digestEl) digestEl.textContent = LOOP_DIGEST;   // real loop output
   document.querySelectorAll(".tab").forEach((t) =>
@@ -574,8 +577,10 @@ function wireTabs() {
   if (loopClose) loopClose.addEventListener("click", () => setTab("lab"));
   const researchClose = $("researchClose");
   if (researchClose) researchClose.addEventListener("click", () => setTab("lab"));
+  const ledgerClose = $("ledgerClose");
+  if (ledgerClose) ledgerClose.addEventListener("click", () => setTab("lab"));
   document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape" && (!$("registry").hidden || !$("loop").hidden || !$("research").hidden)) setTab("lab");
+    if (e.key === "Escape" && (!$("registry").hidden || !$("loop").hidden || !$("research").hidden || !$("ledger").hidden)) setTab("lab");
   });
 }
 

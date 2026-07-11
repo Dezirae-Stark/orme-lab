@@ -191,3 +191,63 @@ def test_procedural_claims_reach_supported_only_with_measured_confirmation():
     assert assess_hc05(MeasuredEvidence(hc05_recovery_confirmed=True)).status >= ClaimStatus.SUPPORTED
     assert assess_hc08(MeasuredEvidence(hc08_mass_confirmed=True)).status >= ClaimStatus.SUPPORTED
     assert assess_hc03(MeasuredEvidence(hc03_orbital_confirmed=True)).status >= ClaimStatus.SUPPORTED
+
+
+from orme_lab.hudson_ledger import HudsonLedger, evaluate_hudson_ledger
+from orme_lab.lineage import singleton_lineage
+
+
+def _sat_witness():
+    return IW("Ir", NONMETALLIC_ELEMENTAL, "monatomic", 0.0, ())
+
+
+def test_ledger_default_path_is_default_blocked_and_never_validated():
+    led = evaluate_hudson_ledger([_candidate("Os")], thresholds=TH)
+    assert isinstance(led, HudsonLedger)
+    assert led.gate.g_hudson_mechanism is False           # no measured evidence
+    assert led.gate.g_conventional_superconductivity is False
+    assert "VALIDATED" not in led.gate.interim_verdict.upper() or "NOT" in led.gate.interim_verdict.upper()
+    assert led.gate.interim_verdict != "HUDSON CLAIM VALIDATED"
+
+
+def test_anti_frankenstein_portfolio_vs_integrated():
+    # five candidates, each cleared for a DIFFERENT claim, all in DIFFERENT lineages
+    el = get_element("Ir")
+    cands = [_candidate("Os"), _candidate("Ir"), _candidate("Pt"), _candidate("Rh"), _candidate("Ru")]
+    # give each its own measured win on a different claim, distinct lineages
+    ids = [f"lin{i}" for i in range(5)]
+    lineages = [singleton_lineage(i) for i in ids]
+    opt = _optical(measured_ringdown_fs=1e30, measured_dM_dP=1.0, dM_dP_on_resonance=True)
+    measured = {
+        "lin0/lin0": MeasuredEvidence(hc01_nonmetallic_confirmed=True),
+        "lin1/lin1": MeasuredEvidence(hc05_recovery_confirmed=True),
+        "lin2/lin2": MeasuredEvidence(optical_result=opt),                       # optical mode+transport
+        "lin3/lin3": MeasuredEvidence(flux_exclusion=True),                      # magnetism
+        "lin4/lin4": MeasuredEvidence(zero_resistance=True, flux_exclusion=True,
+                                      critical_behavior=True, artifact_excluded=True),  # transport
+    }
+    led = evaluate_hudson_ledger(cands, witnesses=[_sat_witness()] * 5,
+                                 distributions=[dispersed_sample(el, 0.95)] * 5,
+                                 lineages=lineages, measured=measured, thresholds=TH)
+    # portfolio best-of shows several claims supported across the fleet...
+    supported_claims = [hc for hc in HudsonClaimId if led.claim_status(hc) >= ClaimStatus.SUPPORTED]
+    assert len(supported_claims) >= 3
+    # ...but NO single lineage clears the core conjunction -> integrated not supported
+    assert led.integrated_status < ClaimStatus.SUPPORTED
+    assert led.gate.g_hudson_mechanism is False
+
+
+def test_single_lineage_full_stack_supports_integrated_but_still_not_validated():
+    el = get_element("Ir")
+    opt = _optical(measured_ringdown_fs=1e30, measured_dM_dP=1.0, dM_dP_on_resonance=True)
+    m = MeasuredEvidence(optical_result=opt, hc01_nonmetallic_confirmed=True,
+                         flux_exclusion=True, hc04_isotope_confirmed=True,
+                         replication=ReplicationEvidence(3, 2, True, True, True))
+    led = evaluate_hudson_ledger([_candidate("Ir")], witnesses=[_sat_witness()],
+                                 distributions=[dispersed_sample(el, 0.95)],
+                                 lineages=[singleton_lineage("Ir")],
+                                 measured={"Ir/Ir": m}, observed_doublet=(1429.53, 1490.99),
+                                 thresholds=TH)
+    assert led.gate.g_hudson_mechanism is True             # one lineage clears the mechanism
+    assert led.gate.interim_verdict != "HUDSON CLAIM VALIDATED"   # never that string
+    assert "replication" in led.gate.interim_verdict or "supported" in led.gate.interim_verdict

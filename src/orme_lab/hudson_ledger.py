@@ -17,6 +17,7 @@ from .config import ModelThresholds
 from .hudson_optical import HudsonClaim
 from .identity import IdentityWitness
 from .ir_contaminant import screen_contaminants
+from .lineage import MaterialLineage, singleton_lineage, lineage_key
 from .meissner_field import screen_meissner
 from .pipeline import CandidateRecord
 from .structure import StructuralDistribution
@@ -276,3 +277,139 @@ def assess_hc08(measured: MeasuredEvidence) -> ClaimRecord:
     return _procedural(HudsonClaimId.HC_08, "anomalous apparent mass",
                        "replication on independent balances under controlled gas flow",
                        "buoyancy / convection / magnetic force / balance coupling", measured.hc08_mass_confirmed)
+
+
+_CORE = (HudsonClaimId.HC_01, HudsonClaimId.HC_02, HudsonClaimId.HC_04,
+         HudsonClaimId.HC_06, HudsonClaimId.HC_07)
+
+
+@dataclass(frozen=True)
+class HudsonGateResult:
+    g_identity_established: bool
+    g_hudson_material_state: bool
+    g_conventional_superconductivity: bool
+    g_candidate_optical: bool
+    optical_magnetic_causality: bool
+    replication: bool
+    g_hudson_mechanism: bool
+    interim_verdict: str
+
+
+@dataclass(frozen=True)
+class HudsonLedger:
+    claims: tuple[ClaimRecord, ...]                 # portfolio best-of, fixed HC order
+    gate: HudsonGateResult
+    integrated_status: ClaimStatus
+    integrated_lineage_id: str | None
+    per_lineage: tuple[tuple[str, ClaimStatus], ...]
+
+    def claim_status(self, hc: HudsonClaimId) -> ClaimStatus:
+        return next(c.status for c in self.claims if c.id == hc)
+
+    def explain(self) -> str:
+        return (f"Hudson ledger: integrated_status={self.integrated_status.name} "
+                f"(lineage {self.integrated_lineage_id}); {self.gate.interim_verdict}. "
+                f"Conventional SC gate={self.gate.g_conventional_superconductivity}; "
+                f"Hudson mechanism gate={self.gate.g_hudson_mechanism}. Portfolio best-of and the "
+                f"integrated weakest-link roll-up are reported separately; the lab never emits "
+                f"'HUDSON CLAIM VALIDATED'.")
+
+
+def _interim_verdict(gate_bits: dict) -> str:
+    """Deterministic priority ladder. NEVER returns 'HUDSON CLAIM VALIDATED'."""
+    if gate_bits["g_hudson_mechanism"] and gate_bits["replication"]:
+        return "independent-replication-achieved (Hudson mechanism supported on one replicated lineage)"
+    if gate_bits["g_conventional_superconductivity"]:
+        return "bulk-SC-supported (conventional route; distinct from the Hudson optical mechanism)"
+    if gate_bits["g_candidate_optical"]:
+        return "SC-like-response (optical coherent transport; mechanism not yet fully closed)"
+    if gate_bits["g_hudson_material_state"]:
+        return "novel-phase-candidate (Hudson material state; no transport/magnetism established)"
+    if gate_bits["g_identity_established"]:
+        return "identity-established (not Hudson-conformant)"
+    return "identity-unresolved"
+
+
+def _candidate_claim_records(cand, witness, dist, measured, observed_doublet, target, th):
+    """All eight ClaimRecords for ONE candidate/lineage."""
+    m = measured if measured is not None else MeasuredEvidence()
+    hc01 = assess_hc01(witness, target, th) if witness is not None else \
+        ClaimRecord(HudsonClaimId.HC_01, "stable nonmetallic PGM form", "", "", ClaimStatus.CANDIDATE, 2)
+    if m.hc01_nonmetallic_confirmed and hc01.status >= ClaimStatus.PROVISIONALLY_SUPPORTED:
+        hc01 = ClaimRecord(hc01.id, hc01.claim_text, hc01.required_observation, hc01.mundane_alternative,
+                           ClaimStatus.SUPPORTED, 4, hc01.route, True, None, "measured nonmetallic confirmation")
+    hc02 = assess_hc02(dist, th) if dist is not None else \
+        ClaimRecord(HudsonClaimId.HC_02, "atomically dispersed", "", "", ClaimStatus.CANDIDATE, 2)
+    hc03 = assess_hc03(m)
+    hc04 = assess_hc04(observed_doublet, th) if observed_doublet is not None else \
+        ClaimRecord(HudsonClaimId.HC_04, "1400-1600 cm^-1 doublet", "", "carboxylate contaminant",
+                    ClaimStatus.CANDIDATE, 2)
+    if m.hc04_isotope_confirmed:
+        hc04 = ClaimRecord(hc04.id, hc04.claim_text, hc04.required_observation, hc04.mundane_alternative,
+                           ClaimStatus.SUPPORTED, 4, hc04.route, True, None, "measured isotope/atmosphere sensitivity")
+    hc05 = assess_hc05(m)
+    hc06 = assess_hc06(cand, m, th)
+    hc07 = assess_hc07(cand, m, th)
+    hc08 = assess_hc08(m)
+    return (hc01, hc02, hc03, hc04, hc05, hc06, hc07, hc08)
+
+
+def evaluate_hudson_ledger(candidates, *, witnesses=None, distributions=None, lineages=None,
+                           measured=None, observed_doublet=None, thresholds):
+    """Two-layer roll-up. Portfolio best-of over all candidates (per claim); integrated
+    weakest-link within one lineage, then best across (never min_j[max_c])."""
+    th = thresholds
+    n = len(candidates)
+    witnesses = witnesses if witnesses is not None else [None] * n
+    distributions = distributions if distributions is not None else [None] * n
+    lineages = lineages if lineages is not None else [singleton_lineage(
+        f"{c.element}/{c.geometry}/{c.spin_label}") for c in candidates]
+    measured = measured or {}
+
+    # per-candidate records (fixed order)
+    per_candidate = []
+    for i, cand in enumerate(candidates):
+        lin = lineages[i]
+        recs = _candidate_claim_records(cand, witnesses[i], distributions[i],
+                                        measured.get(lineage_key(lin)), observed_doublet,
+                                        cand.element, th)
+        per_candidate.append((lin, recs))
+
+    # Layer 1: portfolio best-of per claim (max status across candidates); pick a representative record
+    portfolio = []
+    for j, hc in enumerate(HudsonClaimId):
+        best = max((recs[j] for _, recs in per_candidate), key=lambda r: r.status)
+        portfolio.append(best)
+
+    # Layer 2: integrated weakest-link WITHIN one lineage over CORE, then best across lineages
+    core_idx = [list(HudsonClaimId).index(hc) for hc in _CORE]
+    best_lineage_id, best_status = None, ClaimStatus.CANDIDATE
+    per_lineage = []
+    # group by lineage key so aliquots of one batch combine (take the max per claim within a batch)
+    from .lineage import group_by_lineage
+    grouped = group_by_lineage(tuple((lin, recs) for lin, recs in per_candidate))
+    for key, recs_list in grouped.items():
+        combined = [max((recs[j] for recs in recs_list), key=lambda r: r.status) for j in range(8)]
+        weakest = min(combined[j].status for j in core_idx)
+        per_lineage.append((key, weakest))
+        if weakest > best_status:
+            best_status, best_lineage_id = weakest, key
+
+    # gates evaluated on the WINNING lineage's measured evidence (same-lineage requirement)
+    win_measured = measured.get(best_lineage_id, MeasuredEvidence()) if best_lineage_id else MeasuredEvidence()
+    win_idx = next((i for i, l in enumerate(lineages) if lineage_key(l) == best_lineage_id), 0)
+    g_id = g_identity_established(witnesses[win_idx]) if witnesses[win_idx] is not None else False
+    g_mat, _ident = (g_hudson_material_state(witnesses[win_idx], distributions[win_idx],
+                                             candidates[win_idx].element, th)
+                     if witnesses[win_idx] is not None and distributions[win_idx] is not None
+                     else (False, None))
+    g_conv = g_conventional_superconductivity(win_measured)
+    g_opt = g_candidate_optical(win_measured.optical_result)
+    g_caus = optical_magnetic_causality(win_measured.optical_result)
+    g_rep = replication_gate(win_measured.replication, th)
+    g_mech = g_mat and g_opt and g_caus and g_rep
+    bits = {"g_identity_established": g_id, "g_hudson_material_state": g_mat,
+            "g_conventional_superconductivity": g_conv, "g_candidate_optical": g_opt,
+            "optical_magnetic_causality": g_caus, "replication": g_rep, "g_hudson_mechanism": g_mech}
+    gate = HudsonGateResult(g_id, g_mat, g_conv, g_opt, g_caus, g_rep, g_mech, _interim_verdict(bits))
+    return HudsonLedger(tuple(portfolio), gate, best_status, best_lineage_id, tuple(per_lineage))

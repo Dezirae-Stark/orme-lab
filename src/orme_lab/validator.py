@@ -135,6 +135,53 @@ def _mech_test(mech: str) -> AdversarialTest | None:
     return None
 
 
+def _branch_b_tests(record) -> tuple:
+    """Branch B (Hudson optical coherence) decisive experiments. Optical coherence is
+    Hudson's PRIMARY claim here, not a mundane alternative to SC — but it must still
+    survive the ordinary optical explanations (fluorescence, Raman, thermal, Mie,
+    nanoparticle plasmon, cavity leakage), and the decisive test is the post-drive
+    ring-down that separates a self-sustaining mode from a driven-dissipative one."""
+    return (
+        _test("broadband resonance survey", "VNA S11/S21 + FTIR + THz-TDS + UV-Vis",
+              "a resonance somewhere RF->near-UV assignable to the material (light is NOT "
+              "restricted to visible; Hudson tuned with RF)",
+              [("no resonance / substrate feature", "no material-assigned peak"),
+               ("thermal/blackbody background", "broad, temperature-scaling, non-resonant")],
+              "no material-assigned resonance in any band -> nothing to hybridize", False,
+              note="Hudson described RF tuning while calling the state 'light'; sweep RF->UV"),
+        _test("polariton anticrossing", "tunable cavity / dispersion mapping",
+              "avoided crossing with minimum gap 2g > linewidth as the mode is tuned "
+              "through resonance (a genuine hybrid)",
+              [("two unrelated peaks", "peaks cross; no anticrossing"),
+               ("single dressed resonance", "no second branch")],
+              "peaks cross (no avoided crossing) -> not a hybrid light-matter mode", True),
+        _test("optical coherence (g1/g2)", "interferometry + Hanbury-Brown-Twiss",
+              "first/second-order coherence, linewidth narrowing, threshold (condensate-like)",
+              [("fluorescence", "g2(0)~1, no threshold, broad"),
+               ("Raman/thermal emission", "incoherent; no phase stability")],
+              "g2/linewidth consistent with incoherent emission -> not macroscopic coherence", True),
+        _test("resonant injection ring-down", "pump-probe: drive at resonance, cut drive, watch decay",
+              "post-drive ring-down far exceeding the mode lifetime (self-sustaining / persistent)",
+              [("driven-dissipative polariton condensate", "decays on the mode timescale; needs pumping"),
+               ("cavity leakage", "decays at the bare cavity rate")],
+              "decays on the mode timescale -> ordinary driven-dissipative, not persistent", True,
+              note="THE decisive Branch-B test: most room-temperature polariton condensates are "
+                   "driven-dissipative; Hudson's stronger claim implies a persistent internal mode"),
+        _test("energy-transfer geometry", "separated input/output couplers, sample between",
+              "low-loss coherent transport through the phase (eta(omega), phase delay, size scaling)",
+              [("local luminescence", "no transport; emission co-located with drive"),
+               ("EM leakage around sample", "transport survives interrupting the material path")],
+              "'transport' survives cutting the material path -> leakage, not through-phase transport", True),
+        _test("magnetism vs resonance (dM/dP)", "SQUID while sweeping the optical/RF resonance",
+              "magnetic response appears/strengthens ON resonance (C(omega)=dM/dP_drive), same "
+              "threshold and decay as the coherent mode",
+              [("magnetism uncorrelated with resonance", "flat dM/dP through resonance"),
+               ("microwave/optical heating", "thermal magnetization shift, not resonant")],
+              "no magnetic response tracking the resonance -> optical anomaly without the Hudson "
+              "magnetic link (fails full Hudson)", True),
+    )
+
+
 @dataclass(frozen=True)
 class ValidationSuite:
     element: str
@@ -153,18 +200,24 @@ class ValidationSuite:
 def design_validation(record: CandidateRecord, *,
                       observed_doublet: tuple[float, ...] | None = None) -> ValidationSuite:
     """Design the adversarial decisive-experiment suite for a candidate: the generic branch table
-    plus one test per surviving pairing mechanism (#6), plus the IR-doublet control if a doublet
-    is supplied.
+    plus one test per surviving pairing mechanism (#6), plus the Branch B (Hudson optical
+    coherence) decisive experiments, plus the IR-doublet control if a doublet is supplied.
 
     The generic branch table is emitted UNCONDITIONALLY (it is the mechanism-agnostic "is it even
     superconducting" baseline), so even a candidate the model has ruled out receives it — the
-    mechanism-routed tests are what specialize to the candidate's surviving channels.
+    mechanism-routed tests are what specialize to the candidate's surviving channels. Branch B is
+    likewise emitted UNCONDITIONALLY (it is the mechanism-agnostic optical baseline, independent
+    of which SC pairing mechanism survived).
     """
     tests = list(_generic_tests())
     for mech in record.surviving_mechanisms:
         t = _mech_test(mech)
         if t is not None:
             tests.append(t)
+
+    # Branch B (Hudson optical coherence) is emitted unconditionally alongside the generic
+    # table — it is the mechanism-agnostic optical baseline, not gated on surviving_mechanisms.
+    tests.extend(_branch_b_tests(record))
 
     if observed_doublet is not None:
         from .control_experiment import design_control_experiment

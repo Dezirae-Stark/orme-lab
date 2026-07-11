@@ -204,6 +204,19 @@ def test_full_stack_supported_only_with_both_lab_inputs():
     assert HudsonClaim.HUDSON_PHASE in r.supported
 
 
+def test_metastable_ringdown_grants_transport_but_not_hudson_phase():
+    # A merely METASTABLE (long-lived, not self-sustaining) ring-down supports transport
+    # (level 5) but must NOT satisfy the level-8 full-phase conjunction, which requires a
+    # genuinely PERSISTENT mode. Even with an on-resonance magnetic response, level 8 stays off.
+    r = _strong_coherent(measured_ringdown_fs=1e4,             # ratio ~300 -> metastable band
+                         measured_dM_dP=1.0, dM_dP_on_resonance=True)
+    from orme_lab.hudson_optical import Persistence
+    assert r.persistence.persistence is Persistence.METASTABLE
+    assert HudsonClaim.LOW_LOSS_TRANSPORT in r.supported        # transport: yes
+    assert HudsonClaim.MAGNETISM_COUPLED in r.supported         # magnetism present...
+    assert HudsonClaim.HUDSON_PHASE not in r.supported          # ...but NOT the self-sustaining phase
+
+
 def test_result_evidence_level_is_clamped_to_lab_ceiling():
     # What the SIMULATION produces never exceeds Level 2, even with lab inputs folded in.
     r = _strong_coherent(measured_ringdown_fs=1e30, measured_dM_dP=1.0, dM_dP_on_resonance=True)

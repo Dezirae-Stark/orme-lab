@@ -352,9 +352,13 @@ def evaluate_hudson_optical(*, number_density_m3: float, anisotropy_score: float
     if link.tracks:
         s.add(HudsonClaim.MAGNETISM_COUPLED)
     # full Hudson phase (level 8): conjunction at the top — the coherent, transporting,
-    # electronically-coupled, magnetically-coupled state.
-    if {HudsonClaim.STRONG_COUPLING, HudsonClaim.MACRO_COHERENCE, HudsonClaim.LOW_LOSS_TRANSPORT,
-        HudsonClaim.ELECTRONIC_COUPLING, HudsonClaim.MAGNETISM_COUPLED}.issubset(s):
+    # electronically-coupled, magnetically-coupled state. This is Hudson's STRONGER claim: a
+    # genuinely self-sustaining internal mode, so it requires Persistence.PERSISTENT explicitly.
+    # A merely METASTABLE ring-down supports transport (level 5) but is "long-lived, not
+    # self-sustaining" and must NOT satisfy the full-phase conjunction.
+    if (persistence.persistence is Persistence.PERSISTENT and
+        {HudsonClaim.STRONG_COUPLING, HudsonClaim.MACRO_COHERENCE, HudsonClaim.LOW_LOSS_TRANSPORT,
+         HudsonClaim.ELECTRONIC_COUPLING, HudsonClaim.MAGNETISM_COUPLED}.issubset(s)):
         s.add(HudsonClaim.HUDSON_PHASE)
 
     ev = int(min(EvidenceLevel(int(LAB_CEILING)),

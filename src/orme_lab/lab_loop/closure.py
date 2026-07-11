@@ -35,6 +35,11 @@ OFF_GATE_INVARIANTS: frozenset[str] = frozenset({
     # from the SC AND-gate. This is what makes H12/H16 genuinely (not formally)
     # testable in the lab loop.
     "em_coherence_score", "em_regime", "em_rabi_ev", "em_lifetime_fs",
+    # Phase-identity gate (G_identity): established by an external characterization
+    # witness (XRD/XPS/ICP-MS/EXAFS), NOT re-derivable from the SC AND-gate's inputs.
+    # (`credited_sc_lead` is a composite of gate ∧ identity and is deliberately in
+    # neither set.)
+    "identity_verdict", "identity_established",
 })
 
 

@@ -209,10 +209,12 @@ supplied, and the simulation can never open it on its own.
   reports the credited *fraction*.
 - **Mechanism-specific pairing tracks (`mechanisms.py`).** Five independent
   channels (phonon, spin-fluctuation, triplet, excitonic/polaritonic,
-  granular-Josephson), each with its own necessary conditions. A static local
-  moment **pair-breaks** singlet phonon pairing (Abrikosov–Gor'kov) but *enables*
-  the magnetic channels — so a high-spin candidate is credited only via a magnetic
-  mechanism, never phonon. Partial strengths are never blended into one score.
+  granular-Josephson), each with its own necessary conditions. A **large** static
+  local moment (spin polarization ≥ 0.5) **pair-breaks** singlet phonon pairing
+  (Abrikosov–Gor'kov) but *enables* the magnetic channels — so a high-*moment*
+  candidate (e.g. Os) routes to a magnetic mechanism rather than phonon, while a
+  nominally high-spin but low-moment candidate (a closed/near-closed shell) can
+  still use the phonon channel. Partial strengths are never blended into one score.
 - **Adversarial validator (`validator.py`).** For a candidate it designs the
   decisive experiments that separate a genuine coherent phase from the mundane
   alternatives (metallic filament, ionic conduction, artifact), routed *per

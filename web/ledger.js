@@ -652,6 +652,11 @@ function _el(tag, className, text) {
 function _on(node, evt, handler) {
   if (node && typeof node.addEventListener === "function") node.addEventListener(evt, handler);
 }
+// Guarded attribute-set: the Task-5 Node/DOM smoke shim's FakeElement (above) has no
+// setAttribute either — same rationale as _on.
+function _attr(node, name, value) {
+  if (node && typeof node.setAttribute === "function") node.setAttribute(name, value);
+}
 function _statusDot(status) {
   const dot = _el("span", `status-dot ${_statusClass(status)}`);
   dot.title = _statusLabel(status);
@@ -801,6 +806,8 @@ function _buildMatrix(entries, focusedKey, onFocus) {
     entries.forEach((e) => {
       const rec = e.records[j];
       const td = _el("td", "ledger-matrix-cell");
+      const earnedBy = rec.status >= CLAIM_STATUS.PROVISIONALLY_SUPPORTED ? `, earned by ${e.material.title}` : "";
+      _attr(td, "aria-label", `${hc}: ${_statusLabel(rec.status)}${earnedBy}`);
       const dotWrap = _el("div", "ledger-cell-dotwrap");
       dotWrap.appendChild(_statusDot(rec.status));
       if ((hc === "HC-06" || hc === "HC-07") && _ROUTE_GLYPH[rec.route]) {

@@ -1,6 +1,6 @@
 """Parity: web/ledger.js assessors & gates match hudson_ledger.py exactly (via node)."""
 from __future__ import annotations
-import json, shutil, subprocess
+import json, re, shutil, subprocess
 from pathlib import Path
 import pytest
 from orme_lab.config import DEFAULT_CONFIG
@@ -326,3 +326,25 @@ def test_ledger_js_no_egress_no_nondeterminism_no_innerhtml():
         assert forbidden not in code, f"forbidden token {forbidden!r} found in web/ledger.js"
     for line in code_lines:
         assert ".innerHTML" not in line, f"innerHTML assignment found in web/ledger.js: {line!r}"
+
+
+def test_branchflow_conventional_and_hudson_blocks_never_cross_read():
+    """Static isolation guard (Task 4): branchFlow's returned `conventional` block must reference
+    only measured.*-derived locals (m.*) and gConventionalSuperconductivity; the returned `hudson`
+    block must reference only optical/material-state/replication locals — never a Branch-A
+    measured field. Enforces the two-branches-never-merge invariant at the source-text level, not
+    just at the computed-output level (test_branchflow_results_match_python_gates)."""
+    src = _JS.read_text()
+    conv_m = re.search(r"conventional:\s*\{([^}]*)\}", src)
+    hud_m = re.search(r"hudson:\s*\{([^}]*)\}", src)
+    assert conv_m and hud_m, "branchFlow's conventional/hudson return blocks not found in web/ledger.js"
+    conv_block, hud_block = conv_m.group(1), hud_m.group(1)
+    # Branch A (conventional) block: only measured.* (m.*) fields and the conventional-SC gate.
+    for forbidden in ("coherentMode", "materialCoupling", "energyTransport", "causalMagnetism",
+                       "materialState", "replication", "opt."):
+        assert forbidden not in conv_block, f"conventional block references Branch-B token {forbidden!r}"
+    # Branch B (hudson) block: only optical/material-state/replication locals, never a Branch-A
+    # measured field or the conventional-SC gate.
+    for forbidden in ("m.zeroResistance", "m.fluxExclusion", "m.criticalBehavior", "m.artifactExcluded",
+                       "gConventionalSuperconductivity"):
+        assert forbidden not in hud_block, f"hudson block references Branch-A token {forbidden!r}"

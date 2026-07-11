@@ -872,7 +872,11 @@ function _buildBranchFlow(material, doublet, th) {
   const bf = branchFlow(material, doublet, th);
 
   const section = _el("div", "ledger-flow");
-  section.appendChild(_el("div", "ledger-card-title", `Two-branch flow — ${material.title}`));
+  _attr(section, "role", "region");
+  _attr(section, "aria-labelledby", "ledger-flow-heading");
+  const heading = _el("h3", "ledger-card-title", `Two-branch flow — ${material.title}`);
+  _attr(heading, "id", "ledger-flow-heading");
+  section.appendChild(heading);
   section.appendChild(
     _el(
       "p",

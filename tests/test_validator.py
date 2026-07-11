@@ -84,3 +84,18 @@ def test_suite_is_deterministic():
 def test_explain_names_routed_mechanisms():
     s = design_validation(_record("Os"))
     assert "Level-3" in s.explain() and "M_triplet" in s.explain()
+
+
+def test_every_design_is_level_3():
+    s = design_validation(_record("Os"), observed_doublet=(1429.53, 1490.99))
+    assert all(t.evidence_level == 3 for t in s.tests)          # the lab designs; it cannot run them
+
+
+def test_non_decisive_tests_cannot_reach_observation():
+    s = design_validation(_record("Au"))
+    for name in ("current reversal", "AC frequency sweep"):
+        t = next(t for t in s.tests if t.measurement == name)
+        assert t.decisive is False
+        assert t.evidence_level_if_confirmed == 3               # non-decisive -> no Level-4 observation
+    r = next(t for t in s.tests if t.measurement == "R(T,B,I)")
+    assert r.decisive is True and r.evidence_level_if_confirmed == 4

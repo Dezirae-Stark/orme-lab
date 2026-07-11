@@ -47,7 +47,11 @@ class AdversarialTest:
 
 
 def _test(measurement, instrument, claimed, alts, rejection, decisive, mechanism=None,
-          ev_conf=_INITIAL_OBS, note=""):
+          ev_conf=None, note=""):
+    # A NON-decisive result cannot reach initial observation (Level 4) — it fails to separate
+    # the claim from every mundane alternative — so it advances only to the prediction level.
+    if ev_conf is None:
+        ev_conf = _INITIAL_OBS if decisive else _LAB_PRED
     return AdversarialTest(measurement, instrument, claimed, tuple(alts), CONTROL_SAMPLES,
                            rejection, ev_conf, decisive, mechanism, _LAB_PRED, note)
 
@@ -150,7 +154,12 @@ def design_validation(record: CandidateRecord, *,
                       observed_doublet: tuple[float, ...] | None = None) -> ValidationSuite:
     """Design the adversarial decisive-experiment suite for a candidate: the generic branch table
     plus one test per surviving pairing mechanism (#6), plus the IR-doublet control if a doublet
-    is supplied."""
+    is supplied.
+
+    The generic branch table is emitted UNCONDITIONALLY (it is the mechanism-agnostic "is it even
+    superconducting" baseline), so even a candidate the model has ruled out receives it — the
+    mechanism-routed tests are what specialize to the candidate's surviving channels.
+    """
     tests = list(_generic_tests())
     for mech in record.surviving_mechanisms:
         t = _mech_test(mech)

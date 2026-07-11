@@ -95,10 +95,24 @@ def test_metallic_witness_credits_iff_proxies_pass():
     assert rec.credited_sc_lead == ((not rec.ruled_out) and rec.sc_plausibility > 0)
 
 
-def test_contradicted_witness_never_credits():
+def test_contradicted_witness_is_ruled_out_not_a_survivor():
+    # A CONTRADICTED witness (oxide) is a different material — it must be RULED OUT (removed
+    # from the survivor path), not merely uncredited, even when the SC proxies pass.
     w = IdentityWitness("PtO2", "oxide", "nanoparticle", 4.0, ("XRD",))
     rec = _pt_candidate(identity=w)
     assert rec.identity_verdict == "contradicted"
+    assert rec.credited_sc_lead is False
+    assert rec.ruled_out is True                 # forced out of n_survivors
+    assert "RULED OUT" in rec.verdict
+
+
+def test_unestablished_is_not_ruled_out_pending_characterization():
+    # No witness: not credited, but a legitimate lead PENDING characterization — not ruled
+    # out just for lacking identity (only the proxy gate can rule it out on the merits).
+    from orme_lab.superconductivity import superconductivity_plausibility_score  # noqa: F401
+    rec = _pt_candidate(identity=None)
+    # ruled_out here reflects only the proxy gate, unchanged by the (unestablished) identity
+    assert rec.identity_verdict == "unestablished"
     assert rec.credited_sc_lead is False
 
 

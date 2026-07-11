@@ -29,7 +29,7 @@ from dataclasses import asdict, dataclass
 from .backends import Capability, DFTBackend
 from .config import DEFAULT_CONFIG, LabConfig
 from .coupling import inter_unit_coupling_score, is_electronically_isolated
-from .identity import IdentityWitness, evaluate_identity
+from .identity import IdentityVerdict, IdentityWitness, evaluate_identity
 from .electromagnetic_coherence import evaluate_em_coherence, free_electron_density
 from .evidence import badge as evidence_badge, candidate_evidence_level, LAB_CEILING
 from .electron_density import is_ricebean, ricebean_score
@@ -232,15 +232,21 @@ def evaluate_candidate(
         em_rabi = coh.mode.rabi_splitting_ev
         em_lifetime = coh.mode.coherence_lifetime_fs
 
-    level = min(candidate_evidence_level(not plaus.all_passed), LAB_CEILING)
-
     # Phase-identity gate (G_identity): a hard upstream precondition. Even when every SC
     # proxy gate passes, the candidate is NOT credited as a lead until phase identity is
-    # established by an injected characterization witness (default: unestablished).
+    # established by an injected characterization witness (default: unestablished). A
+    # CONTRADICTED witness (oxide/salt/wrong element) is a different material entirely — it is
+    # RULED OUT (removed from the survivor path), not merely uncredited. An UNESTABLISHED
+    # candidate is a legitimate lead *pending* characterization: not credited, not ruled out.
     id_result = evaluate_identity(element.symbol, identity)
+    contradicted = id_result.verdict == IdentityVerdict.CONTRADICTED
+    ruled_out = (not plaus.all_passed) or contradicted
     credited = id_result.established and plaus.all_passed and plaus.score > 0.0
+    level = min(candidate_evidence_level(ruled_out), LAB_CEILING)
     verdict_str = f"{plaus.explain()} [{evidence_badge(level)}]"
-    if not id_result.established:
+    if contradicted:
+        verdict_str += f" — RULED OUT: {id_result.note}"
+    elif not id_result.established:
         verdict_str += (f" — NOT credited: phase identity {id_result.verdict.value}; "
                         f"decisive next step is characterization (XRD/XPS/ICP-MS/EXAFS), "
                         f"not magnetometry")
@@ -264,7 +270,7 @@ def evaluate_candidate(
         meissner_screening=obs.meissner_screening,
         susceptibility=obs.molar_susceptibility,
         sc_plausibility=plaus.score,
-        ruled_out=not plaus.all_passed,
+        ruled_out=ruled_out,
         evidence_level=int(level),
         verdict=verdict_str,
         sc_tc_kelvin=epw.tc_kelvin,

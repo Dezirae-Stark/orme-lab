@@ -35,6 +35,7 @@ from dataclasses import dataclass
 from enum import Enum
 
 from .config import ModelThresholds, SPEED_OF_LIGHT
+from .electromagnetic_coherence import ElectromagneticMode, coupling_regime
 from .evidence import EvidenceLevel
 
 
@@ -169,3 +170,57 @@ def classify_persistence(o_h: OpticalOrderParameter, *,
     ev = int(EvidenceLevel.INITIAL_OBSERVATION) if cls is Persistence.PERSISTENT \
         else int(EvidenceLevel.LABORATORY_PREDICTION)
     return PersistenceResult(cls, ratio, predicted, measured_ringdown_fs, ev, note)
+
+
+#: Representative center energies (eV) for each band of the broadband survey.
+#: Hudson described RF tuning while calling the internal state "light"; photons
+#: span the whole spectrum, so the survey must not start at visible. Values are
+#: order-of-magnitude band centers (RF ~ MHz-GHz ... near-UV ~ 3.5 eV).
+SURVEY_BANDS: tuple[tuple[str, float], ...] = (
+    ("RF", 4.0e-6),
+    ("microwave", 4.0e-4),
+    ("THz", 4.0e-3),
+    ("IR", 1.0e-1),
+    ("visible", 2.3),
+    ("near-UV", 3.5),
+)
+
+
+@dataclass(frozen=True)
+class BandResult:
+    band: str
+    center_ev: float
+    regime: str
+    cooperativity: float
+
+
+def resonance_survey(coupling_fraction: float, cavity_loss_ev: float,
+                     matter_loss_ev: float,
+                     thresholds: ModelThresholds) -> tuple[BandResult, ...]:
+    """Sweep every survey band, classifying the coupling regime and cooperativity.
+
+    Each band is a mode at that center energy with g = coupling_fraction * center.
+    Order is fixed (``SURVEY_BANDS``) and deterministic.
+    """
+    out = []
+    for name, center in SURVEY_BANDS:
+        mode = ElectromagneticMode(mode_energy_ev=center,
+                                   coupling_energy_ev=coupling_fraction * center,
+                                   cavity_loss_ev=cavity_loss_ev,
+                                   matter_loss_ev=matter_loss_ev)
+        out.append(BandResult(name, center, coupling_regime(mode, thresholds), mode.cooperativity))
+    return tuple(out)
+
+
+def strongest_band(results: tuple[BandResult, ...]) -> BandResult | None:
+    """The non-weak band with the highest cooperativity, or None if all are weak.
+
+    Ties resolve to the earliest band in ``SURVEY_BANDS`` order (deterministic)."""
+    non_weak = [r for r in results if r.regime != "weak"]
+    if not non_weak:
+        return None
+    best = non_weak[0]
+    for r in non_weak[1:]:
+        if r.cooperativity > best.cooperativity:
+            best = r
+    return best

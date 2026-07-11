@@ -105,3 +105,39 @@ def test_measured_ringdown_persistent_reaches_observation_if_confirmed():
     assert r.persistence is Persistence.PERSISTENT
     # a MEASURED persistent ring-down is an observation, not a simulation output
     assert r.evidence_level_if_confirmed == int(EvidenceLevel.INITIAL_OBSERVATION)
+
+
+from orme_lab.hudson_optical import (
+    SURVEY_BANDS,
+    resonance_survey,
+    strongest_band,
+)
+
+
+def test_survey_covers_rf_through_near_uv_in_fixed_order():
+    names = [b[0] for b in SURVEY_BANDS]
+    assert names == ["RF", "microwave", "THz", "IR", "visible", "near-UV"]
+    # "light" is not restricted to visible: RF is the lowest band (Hudson tuned with RF)
+    assert SURVEY_BANDS[0][1] < SURVEY_BANDS[-1][1]
+
+
+def test_survey_is_deterministic_and_ordered():
+    a = resonance_survey(0.05, 0.10, 0.05, TH)
+    b = resonance_survey(0.05, 0.10, 0.05, TH)
+    assert a == b
+    assert [r.band for r in a] == [b[0] for b in SURVEY_BANDS]
+
+
+def test_strongest_band_picks_max_cooperativity_among_non_weak():
+    results = resonance_survey(0.05, 0.10, 0.05, TH)
+    best = strongest_band(results)
+    if best is not None:
+        assert best.regime != "weak"
+        assert all(best.cooperativity >= r.cooperativity for r in results if r.regime != "weak")
+
+
+def test_strongest_band_is_none_when_all_weak():
+    # crush coupling so no band reaches strong coupling
+    results = resonance_survey(1e-6, 1.0, 1.0, TH)
+    assert all(r.regime == "weak" for r in results)
+    assert strongest_band(results) is None

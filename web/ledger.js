@@ -1147,10 +1147,10 @@ function _buildControls(materials, focusedKey, onChange) {
   ring.step = "1";
   ring.value = String(Math.max(0, _PERSISTENCE_STEPS.indexOf(overlay.optical.persistence)));
   _on(ring, "input", () => {
-    const step = _PERSISTENCE_STEPS[Number(ring.value)] || "driven-dissipative";
+    const step = _PERSISTENCE_STEPS[Number(ring.value)] || _PERSISTENCE_STEPS[0];
     overlay.optical.persistence = step;
     const s = new Set(overlay.optical.supported);
-    if (step === "driven-dissipative") {
+    if (step === _PERSISTENCE_STEPS[0]) {   // driven_dissipative — clear the coherent-transport evidence
       _COHERENT_TRANSPORT_LEVELS.forEach((lvl) => s.delete(lvl));
     } else {
       _COHERENT_TRANSPORT_LEVELS.forEach((lvl) => s.add(lvl));

@@ -34,3 +34,12 @@ def test_after_treatment_appends_history_and_is_a_new_state():
     assert treated.processing_history == ("anneal-600C",)
     assert treated.characterization_fingerprint == "fp-annealed"
     assert lin.processing_history == ()             # original unchanged (frozen)
+
+
+def test_treated_state_is_a_distinct_lineage_not_merged_with_precursor():
+    # a claim on the treated product must NOT be stitched to the untreated precursor
+    lin = singleton_lineage("Ir/mono/hs")
+    treated = after_treatment(lin, "anneal-600C", "fp2")
+    assert lineage_key(lin) != lineage_key(treated)
+    groups = group_by_lineage(((lin, "precursor"), (treated, "product")))
+    assert len(groups) == 2                          # two distinct material states, not merged

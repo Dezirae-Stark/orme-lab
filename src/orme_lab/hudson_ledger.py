@@ -14,7 +14,7 @@ from dataclasses import dataclass
 from enum import Enum, IntEnum
 
 from .config import ModelThresholds
-from .hudson_optical import HudsonClaim
+from .hudson_optical import HudsonClaim, Persistence
 from .identity import IdentityWitness
 from .ir_contaminant import screen_contaminants
 from .lineage import MaterialLineage, singleton_lineage, lineage_key
@@ -179,12 +179,17 @@ def g_conventional_superconductivity(measured: MeasuredEvidence) -> bool:
 
 def g_candidate_optical(optical_result) -> bool:
     """Branch B: coherent-mode (L3+L4) AND material-coupling (L6) AND energy-transport (L5).
-    L5 requires a PERSISTENT measured ring-down, so this is default-blocked at sim level."""
+
+    The Hudson mechanism's energy-transport gate requires a genuinely SELF-SUSTAINING mode, so
+    it demands Persistence.PERSISTENT — NOT merely LOW_LOSS_TRANSPORT, which Branch B also grants
+    for a METASTABLE (long-lived but not self-sustaining) ring-down. A metastable mode supports
+    the weaker Branch-B transport level but must not credit the Hudson optical mechanism."""
     if optical_result is None:
         return False
     s = optical_result.supported
-    return {HudsonClaim.STRONG_COUPLING, HudsonClaim.MACRO_COHERENCE,
-            HudsonClaim.ELECTRONIC_COUPLING, HudsonClaim.LOW_LOSS_TRANSPORT}.issubset(s)
+    coherent_transport = {HudsonClaim.STRONG_COUPLING, HudsonClaim.MACRO_COHERENCE,
+                          HudsonClaim.ELECTRONIC_COUPLING, HudsonClaim.LOW_LOSS_TRANSPORT}.issubset(s)
+    return coherent_transport and optical_result.persistence.persistence is Persistence.PERSISTENT
 
 
 def optical_magnetic_causality(optical_result) -> bool:
@@ -403,9 +408,12 @@ def evaluate_hudson_ledger(candidates, *, witnesses=None, distributions=None, li
         idxs = [i for i, l in enumerate(lineages) if lineage_key(l) == key]
         wm = measured.get(key, MeasuredEvidence())
         g_id_k = any(witnesses[i] is not None and g_identity_established(witnesses[i]) for i in idxs)
-        g_mat_k = any(witnesses[i] is not None and distributions[i] is not None
-                      and g_hudson_material_state(witnesses[i], distributions[i], candidates[i].element, th)[0]
-                      for i in idxs)
+        # G_hudson_material_state = HC-01 AND HC-02, from the BATCH-COMBINED claim records (per-claim
+        # max within one homogeneous batch). This is legitimate same-batch integration — HC-01 from
+        # one aliquot and HC-02 from another aliquot OF THE SAME BATCH is the same material — NOT the
+        # cross-lineage Frankenstein union (different lineages never share a key, so never combine).
+        g_mat_k = (combined[0].status >= ClaimStatus.PROVISIONALLY_SUPPORTED
+                   and combined[1].status >= ClaimStatus.PROVISIONALLY_SUPPORTED)
         g_opt_k = g_candidate_optical(wm.optical_result)
         g_caus_k = optical_magnetic_causality(wm.optical_result)
         g_rep_k = replication_gate(wm.replication, th)

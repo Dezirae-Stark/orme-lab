@@ -133,6 +133,17 @@ def test_replication_gate_is_default_blocked():
     assert replication_gate(ReplicationEvidence(2, 2, True, True, True), TH) is False   # < 3 batches
 
 
+def test_optical_gate_requires_persistent_not_metastable():
+    # the Hudson mechanism's energy-transport gate demands a SELF-SUSTAINING mode. A metastable
+    # ring-down grants Branch-B LOW_LOSS_TRANSPORT but must NOT credit the optical mechanism gate.
+    metastable = _optical(measured_ringdown_fs=1e4)     # long-lived but not self-sustaining
+    from orme_lab.hudson_optical import Persistence
+    assert metastable.persistence.persistence is Persistence.METASTABLE
+    assert g_candidate_optical(metastable) is False
+    persistent = _optical(measured_ringdown_fs=1e30)
+    assert g_candidate_optical(persistent) is True
+
+
 from orme_lab.hudson_ledger import assess_hc04, assess_hc06, assess_hc07
 from orme_lab.geometry import make_compact_cluster
 from orme_lab.pipeline import evaluate_candidate
@@ -267,6 +278,28 @@ def test_ledger_never_emits_the_validated_string_anywhere():
     for led in (default, full):
         assert "HUDSON CLAIM VALIDATED" not in led.explain()
         assert "HUDSON CLAIM VALIDATED" not in led.gate.interim_verdict
+
+
+def test_same_batch_aliquots_combine_for_material_state_gate():
+    # Two aliquots of ONE batch: aliquot A carries the HC-01 identity witness, aliquot B carries
+    # the HC-02 dispersion. This is legitimate same-batch integration (one homogeneous material),
+    # so G_hudson_material_state must pass — it must NOT require a single aliquot to hold both.
+    from orme_lab.lineage import MaterialLineage, IntegrationLevel
+    el = get_element("Ir")
+    a = MaterialLineage("fam", "b1", "a1", (), "fp", IntegrationLevel.SAME_BATCH)
+    b = MaterialLineage("fam", "b1", "a2", (), "fp", IntegrationLevel.SAME_BATCH)
+    opt = _optical(measured_ringdown_fs=1e30, measured_dM_dP=1.0, dM_dP_on_resonance=True)
+    led = evaluate_hudson_ledger(
+        [_candidate("Ir"), _candidate("Ir")],
+        witnesses=[_sat_witness(), IW("Ir", "metallic", "bulk", 0.0, ())],   # A: Hudson witness
+        distributions=[make_distribution([(make_compact_cluster(el, 13), 1.0)]),
+                       dispersed_sample(el, 0.95)],                            # B: dispersed
+        lineages=[a, b],
+        measured={"fam/b1": MeasuredEvidence(optical_result=opt,
+                                             replication=ReplicationEvidence(3, 2, True, True, True))},
+        thresholds=TH)
+    assert led.gate.g_hudson_material_state is True     # HC-01 (aliquot A) + HC-02 (aliquot B), one batch
+    assert led.gate.g_hudson_mechanism is True          # material-state + optical + causality + replication
 
 
 def test_single_lineage_full_stack_supports_integrated_but_still_not_validated():

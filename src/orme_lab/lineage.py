@@ -38,8 +38,17 @@ def singleton_lineage(candidate_id: str) -> MaterialLineage:
 
 
 def lineage_key(lin: MaterialLineage) -> str:
-    """Batch-level grouping key (the minimum acceptable for integrated evidence)."""
-    return f"{lin.material_family_id}/{lin.preparation_batch_id}"
+    """Batch-level grouping key (the minimum acceptable for integrated evidence).
+
+    Includes the PROCESSING STATE: a claim observed after annealing/hydration/irradiation/field
+    treatment attaches to the RESULTING material state, not the precursor, so an aliquot with a
+    non-empty processing_history keys to a DISTINCT lineage from the untreated batch — evidence
+    from the precursor and the treated product must not be stitched together. Untreated aliquots
+    (empty history) share the bare family/batch key so genuine same-batch aliquots still combine."""
+    base = f"{lin.material_family_id}/{lin.preparation_batch_id}"
+    if lin.processing_history:
+        return base + "/" + ">".join(lin.processing_history)
+    return base
 
 
 def group_by_lineage(items: tuple[tuple[MaterialLineage, object], ...]) -> dict[str, list]:

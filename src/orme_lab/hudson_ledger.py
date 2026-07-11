@@ -82,6 +82,7 @@ class MeasuredEvidence:
     optical_result: object = None       # hudson_optical.HudsonOpticalResult | None
     # claim-specific measured confirmations (mundane alternative excluded)
     hc01_nonmetallic_confirmed: bool = False
+    hc02_dispersion_confirmed: bool = False   # measured EXAFS/STEM/PDF dispersion, controls classified
     hc03_orbital_confirmed: bool = False
     hc04_isotope_confirmed: bool = False
     hc05_recovery_confirmed: bool = False
@@ -311,12 +312,13 @@ class HudsonLedger:
                 f"(lineage {self.integrated_lineage_id}); {self.gate.interim_verdict}. "
                 f"Conventional SC gate={self.gate.g_conventional_superconductivity}; "
                 f"Hudson mechanism gate={self.gate.g_hudson_mechanism}. Portfolio best-of and the "
-                f"integrated weakest-link roll-up are reported separately; the lab never emits "
-                f"'HUDSON CLAIM VALIDATED'.")
+                f"integrated weakest-link roll-up are reported separately; the lab never asserts "
+                f"an affirmative validated verdict.")
 
 
 def _interim_verdict(gate_bits: dict) -> str:
-    """Deterministic priority ladder. NEVER returns 'HUDSON CLAIM VALIDATED'."""
+    """Deterministic priority ladder. NEVER returns an affirmative 'validated' verdict (the
+    strongest terminal label is 'independent-replication-achieved')."""
     if gate_bits["g_hudson_mechanism"] and gate_bits["replication"]:
         return "independent-replication-achieved (Hudson mechanism supported on one replicated lineage)"
     if gate_bits["g_conventional_superconductivity"]:
@@ -340,6 +342,9 @@ def _candidate_claim_records(cand, witness, dist, measured, observed_doublet, ta
                            ClaimStatus.SUPPORTED, 4, hc01.route, True, None, "measured nonmetallic confirmation")
     hc02 = assess_hc02(dist, th) if dist is not None else \
         ClaimRecord(HudsonClaimId.HC_02, "atomically dispersed", "", "", ClaimStatus.CANDIDATE, 2)
+    if m.hc02_dispersion_confirmed and hc02.status >= ClaimStatus.PROVISIONALLY_SUPPORTED:
+        hc02 = ClaimRecord(hc02.id, hc02.claim_text, hc02.required_observation, hc02.mundane_alternative,
+                           ClaimStatus.SUPPORTED, 4, hc02.route, True, None, "measured dispersion confirmation")
     hc03 = assess_hc03(m)
     hc04 = assess_hc04(observed_doublet, th) if observed_doublet is not None else \
         ClaimRecord(HudsonClaimId.HC_04, "1400-1600 cm^-1 doublet", "", "carboxylate contaminant",
@@ -381,35 +386,51 @@ def evaluate_hudson_ledger(candidates, *, witnesses=None, distributions=None, li
         best = max((recs[j] for _, recs in per_candidate), key=lambda r: r.status)
         portfolio.append(best)
 
-    # Layer 2: integrated weakest-link WITHIN one lineage over CORE, then best across lineages
+    # Layer 2: integrated weakest-link WITHIN one lineage over CORE, then best across lineages.
     core_idx = [list(HudsonClaimId).index(hc) for hc in _CORE]
-    best_lineage_id, best_status = None, ClaimStatus.CANDIDATE
-    per_lineage = []
-    # group by lineage key so aliquots of one batch combine (take the max per claim within a batch)
     from .lineage import group_by_lineage
     grouped = group_by_lineage(tuple((lin, recs) for lin, recs in per_candidate))
+
+    per_lineage = []
+    lineage_bits: dict = {}          # key -> gate bits, each computed SAME-LINEAGE (no cross-lineage union)
+    best_status, best_core_key = None, None
     for key, recs_list in grouped.items():
         combined = [max((recs[j] for recs in recs_list), key=lambda r: r.status) for j in range(8)]
         weakest = min(combined[j].status for j in core_idx)
         per_lineage.append((key, weakest))
-        if weakest > best_status:
-            best_status, best_lineage_id = weakest, key
+        if best_status is None or weakest > best_status:      # argmax: always a REAL winning lineage
+            best_status, best_core_key = weakest, key
+        idxs = [i for i, l in enumerate(lineages) if lineage_key(l) == key]
+        wm = measured.get(key, MeasuredEvidence())
+        g_id_k = any(witnesses[i] is not None and g_identity_established(witnesses[i]) for i in idxs)
+        g_mat_k = any(witnesses[i] is not None and distributions[i] is not None
+                      and g_hudson_material_state(witnesses[i], distributions[i], candidates[i].element, th)[0]
+                      for i in idxs)
+        g_opt_k = g_candidate_optical(wm.optical_result)
+        g_caus_k = optical_magnetic_causality(wm.optical_result)
+        g_rep_k = replication_gate(wm.replication, th)
+        lineage_bits[key] = {
+            "g_identity_established": g_id_k, "g_hudson_material_state": g_mat_k,
+            "g_conventional_superconductivity": g_conventional_superconductivity(wm),
+            "g_candidate_optical": g_opt_k, "optical_magnetic_causality": g_caus_k,
+            "replication": g_rep_k, "g_hudson_mechanism": g_mat_k and g_opt_k and g_caus_k and g_rep_k}
 
-    # gates evaluated on the WINNING lineage's measured evidence (same-lineage requirement)
-    win_measured = measured.get(best_lineage_id, MeasuredEvidence()) if best_lineage_id else MeasuredEvidence()
-    win_idx = next((i for i, l in enumerate(lineages) if lineage_key(l) == best_lineage_id), 0)
-    g_id = g_identity_established(witnesses[win_idx]) if witnesses[win_idx] is not None else False
-    g_mat, _ident = (g_hudson_material_state(witnesses[win_idx], distributions[win_idx],
-                                             candidates[win_idx].element, th)
-                     if witnesses[win_idx] is not None and distributions[win_idx] is not None
-                     else (False, None))
-    g_conv = g_conventional_superconductivity(win_measured)
-    g_opt = g_candidate_optical(win_measured.optical_result)
-    g_caus = optical_magnetic_causality(win_measured.optical_result)
-    g_rep = replication_gate(win_measured.replication, th)
-    g_mech = g_mat and g_opt and g_caus and g_rep
-    bits = {"g_identity_established": g_id, "g_hudson_material_state": g_mat,
-            "g_conventional_superconductivity": g_conv, "g_candidate_optical": g_opt,
-            "optical_magnetic_causality": g_caus, "replication": g_rep, "g_hudson_mechanism": g_mech}
-    gate = HudsonGateResult(g_id, g_mat, g_conv, g_opt, g_caus, g_rep, g_mech, _interim_verdict(bits))
-    return HudsonLedger(tuple(portfolio), gate, best_status, best_lineage_id, tuple(per_lineage))
+    # Compound gates are EXISTENTIAL over lineages, each evaluated SAME-LINEAGE — never a cross-
+    # lineage union of components (that would be the Frankenstein bug at the gate level). Component
+    # bits are reported from ONE representative lineage (mechanism lineage > conventional-SC lineage
+    # > CORE winner) so the reported bits stay internally consistent.
+    mech_keys = [k for k, b in lineage_bits.items() if b["g_hudson_mechanism"]]
+    conv_keys = [k for k, b in lineage_bits.items() if b["g_conventional_superconductivity"]]
+    rep_key = mech_keys[0] if mech_keys else conv_keys[0] if conv_keys else best_core_key
+    bits = dict(lineage_bits.get(rep_key, {
+        "g_identity_established": False, "g_hudson_material_state": False,
+        "g_conventional_superconductivity": False, "g_candidate_optical": False,
+        "optical_magnetic_causality": False, "replication": False, "g_hudson_mechanism": False}))
+    bits["g_hudson_mechanism"] = bool(mech_keys)                 # existential, same-lineage
+    bits["g_conventional_superconductivity"] = bool(conv_keys)   # existential, separate result
+    integrated = best_status if best_status is not None else ClaimStatus.CANDIDATE
+    gate = HudsonGateResult(bits["g_identity_established"], bits["g_hudson_material_state"],
+                            bits["g_conventional_superconductivity"], bits["g_candidate_optical"],
+                            bits["optical_magnetic_causality"], bits["replication"],
+                            bits["g_hudson_mechanism"], _interim_verdict(bits))
+    return HudsonLedger(tuple(portfolio), gate, integrated, best_core_key, tuple(per_lineage))

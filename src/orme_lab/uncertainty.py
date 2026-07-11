@@ -97,9 +97,12 @@ def propagate_mc(elements: list[Element] | None = None, config: LabConfig = DEFA
     ranks: dict[tuple, list[int]] = {}
     for _ in range(n):
         cfg = replace(config, thresholds=_perturb(config.thresholds, rng, frac))
+        # run_screen already returns records in the screen's real rank order (_sort_key:
+        # -sc_plausibility, then -coupling, -spin_polarization, then identity). Use that
+        # ordering directly — re-sorting on plausibility alone would discard the screen's
+        # tie-breaks and report the wrong candidate as rank 1 for tied-score clusters.
         recs = run_screen(elements=elements, config=cfg)
-        ranked = sorted(recs, key=lambda r: (-r.sc_plausibility, _key(r)))
-        for pos, r in enumerate(ranked, start=1):
+        for pos, r in enumerate(recs, start=1):
             k = _key(r)
             scores.setdefault(k, []).append(r.sc_plausibility)
             ranks.setdefault(k, []).append(pos)

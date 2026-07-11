@@ -34,13 +34,14 @@ def test_distributions_are_well_formed():
         assert d.p5_widened >= 0.0
 
 
-def test_top_tied_cluster_is_flagged_not_separated():
-    # The default screen's top candidates share an identical score (a tie-break decides #1),
-    # so the top must be flagged separated_from_next=False — a high rank1_fraction there is
-    # a tie-break artifact, not robustness. This is the honesty guard.
+def test_top_lead_is_not_robust_under_threshold_uncertainty():
+    # Ranks use the screen's real order (_sort_key), not a re-sort. The honesty guard: the
+    # top-by-mean candidate's score interval OVERLAPS the next candidate's (not robustly
+    # ahead), and — because threshold perturbation reshuffles the near-tied top — NO
+    # candidate holds rank 1 across every draw. A naive point-score ranking hides both.
     dists = propagate_mc(n=64, seed=0)
-    assert dists[0].rank1_fraction == 1.0        # wins the deterministic tie-break every draw
-    assert dists[0].separated_from_next is False  # ...but is NOT robustly ahead of the pack
+    assert dists[0].separated_from_next is False          # top not robustly ahead of #2
+    assert max(d.rank1_fraction for d in dists) < 1.0     # no candidate owns rank 1 always
 
 
 def test_exactly_one_rank_one_per_draw():

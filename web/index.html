@@ -106,6 +106,9 @@
     .ledger-measured-badge { font-size: 9px; letter-spacing: 0.08em; text-transform: uppercase;
       color: var(--gold); border: 1px solid rgba(212,175,55,0.4); border-radius: 999px; padding: 1px 7px;
       white-space: nowrap; }
+    /* shown in place of the 3D stage when WebGL is unavailable (the DOM tabs still work) */
+    .stage-nowebgl { max-width: 520px; margin: 18% auto 0; padding: 0 24px; text-align: center;
+      color: var(--slate); font-size: 13px; line-height: 1.6; }
   </style>
   <script type="importmap">
   {

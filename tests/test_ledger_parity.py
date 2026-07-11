@@ -1,6 +1,6 @@
 """Parity: web/ledger.js assessors & gates match hudson_ledger.py exactly (via node)."""
 from __future__ import annotations
-import json, shutil, subprocess
+import json, re, shutil, subprocess
 from pathlib import Path
 import pytest
 from orme_lab.config import DEFAULT_CONFIG
@@ -254,6 +254,68 @@ def test_optical_and_replication_gates_match_python():
         assert _node(js) is py is ok
 
 
+def test_branchflow_results_match_python_gates():
+    # branchFlow's two result booleans must equal the Python ledger's gate bits for the same
+    # single-material inputs (conventional SC gate; Hudson mechanism conjunction).
+    from orme_lab.hudson_ledger import (evaluate_hudson_ledger, MeasuredEvidence,
+                                        ReplicationEvidence)
+    from orme_lab.hudson_optical import evaluate_hudson_optical
+    from orme_lab.identity import IdentityWitness
+    from orme_lab.structure import dispersed_sample
+    from orme_lab.elements import get_element
+    from orme_lab.geometry import make_compact_cluster
+    from orme_lab.spin_states import high_spin_state
+    from orme_lab.pipeline import evaluate_candidate
+    from orme_lab.lineage import singleton_lineage
+    el = get_element("Ir")
+    opt = evaluate_hudson_optical(number_density_m3=9.5e28, anisotropy_score=0.4, thresholds=TH,
+                                  matter_ev=9.0, coupling_fraction=0.3, cavity_loss_ev=0.02,
+                                  matter_loss_ev=0.02, measured_ringdown_fs=1e30,
+                                  measured_dM_dP=1.0, dM_dP_on_resonance=True)
+    # a fully-evidenced single material: conventional SC full AND the Hudson mechanism full
+    cand = evaluate_candidate(el, make_compact_cluster(el, 13), "high_spin",
+                              high_spin_state(el), DEFAULT_CONFIG)
+    m = MeasuredEvidence(zero_resistance=True, flux_exclusion=True, critical_behavior=True,
+                         artifact_excluded=True, optical_result=opt,
+                         replication=ReplicationEvidence(3, 2, True, True, True))
+    w = IdentityWitness("Ir", "nonmetallic-elemental", "monatomic", 0.0, ("XRD", "XPS"))
+    led = evaluate_hudson_ledger([cand], witnesses=[w], distributions=[dispersed_sample(el, 0.95)],
+                                 lineages=[singleton_lineage("m1")], measured={"m1/m1": m},
+                                 observed_doublet=(1429.53, 1490.99), thresholds=TH)
+    py_conv = led.gate.g_conventional_superconductivity
+    py_mech = led.gate.g_hudson_mechanism
+    # JS: the equivalent single material fixture (witness nonmetallic-elemental, dispersed, full evidence)
+    matjs = dict(
+        lineage=dict(familyId="m1", batchId="m1", aliquotId="m1", processing=[]),
+        element="Ir",
+        witness=dict(composition="Ir", phase="nonmetallic-elemental", morphology="monatomic", oxidation=0.0),
+        distribution=dict(f1=0.95, sizeDist={"1": 0.95, "2": 0.03, "13": 0.02},
+                          nnDistances=[[float("inf"), 0.95], [2.82, 0.03], [2.82, 0.02]]),
+        optical=dict(supported=[3, 4, 5, 6, 7], persistence="persistent"),
+        measured=dict(zeroResistance=True, fluxExclusion=True, criticalBehavior=True,
+                      artifactExcluded=True, hc01NonmetallicConfirmed=True, hc02DispersionConfirmed=True,
+                      replication=dict(nBatches=3, nLabs=2, preregistered=True, rawRetained=True, blindedOk=True)),
+        demo=True)
+    js = (f'import {{branchFlow}} from "{_JS.as_posix()}";'
+          f'const bf=branchFlow({json.dumps(matjs)},[1429.53,1490.99],{json.dumps(_th_js())});'
+          f'console.log(JSON.stringify([bf.conventional.result, bf.hudson.result]));')
+    got = _node(js)
+    assert got == [py_conv, py_mech]
+
+
+def test_branchflow_energy_transport_needs_persistent():
+    # the Branch-B energy-transport stage must be false for a metastable ring-down, true for persistent
+    def _bf(persist):
+        matjs = dict(lineage=dict(familyId="x", batchId="x", aliquotId="x", processing=[]), element="Ir",
+                     witness=None, distribution=None,
+                     optical=dict(supported=[3, 4, 5, 6], persistence=persist), measured={}, demo=True)
+        js = (f'import {{branchFlow}} from "{_JS.as_posix()}";'
+              f'console.log(JSON.stringify(branchFlow({json.dumps(matjs)},[1429.53,1490.99],{json.dumps(_th_js())}).hudson.energyTransport));')
+        return _node(js)
+    assert _bf("metastable") is False
+    assert _bf("persistent") is True
+
+
 def test_ledger_js_no_egress_no_nondeterminism_no_innerhtml():
     """Static hygiene guard (Task 7): web/ledger.js must not reach the network, must not read
     wall-clock/RNG into computed output, and must never assign innerHTML (researcher/derived
@@ -264,3 +326,25 @@ def test_ledger_js_no_egress_no_nondeterminism_no_innerhtml():
         assert forbidden not in code, f"forbidden token {forbidden!r} found in web/ledger.js"
     for line in code_lines:
         assert ".innerHTML" not in line, f"innerHTML assignment found in web/ledger.js: {line!r}"
+
+
+def test_branchflow_conventional_and_hudson_blocks_never_cross_read():
+    """Static isolation guard (Task 4): branchFlow's returned `conventional` block must reference
+    only measured.*-derived locals (m.*) and gConventionalSuperconductivity; the returned `hudson`
+    block must reference only optical/material-state/replication locals — never a Branch-A
+    measured field. Enforces the two-branches-never-merge invariant at the source-text level, not
+    just at the computed-output level (test_branchflow_results_match_python_gates)."""
+    src = _JS.read_text()
+    conv_m = re.search(r"conventional:\s*\{([^}]*)\}", src)
+    hud_m = re.search(r"hudson:\s*\{([^}]*)\}", src)
+    assert conv_m and hud_m, "branchFlow's conventional/hudson return blocks not found in web/ledger.js"
+    conv_block, hud_block = conv_m.group(1), hud_m.group(1)
+    # Branch A (conventional) block: only measured.* (m.*) fields and the conventional-SC gate.
+    for forbidden in ("coherentMode", "materialCoupling", "energyTransport", "causalMagnetism",
+                       "materialState", "replication", "opt."):
+        assert forbidden not in conv_block, f"conventional block references Branch-B token {forbidden!r}"
+    # Branch B (hudson) block: only optical/material-state/replication locals, never a Branch-A
+    # measured field or the conventional-SC gate.
+    for forbidden in ("m.zeroResistance", "m.fluxExclusion", "m.criticalBehavior", "m.artifactExcluded",
+                       "gConventionalSuperconductivity"):
+        assert forbidden not in hud_block, f"hudson block references Branch-A token {forbidden!r}"

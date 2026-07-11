@@ -146,6 +146,54 @@ export function replicationGate(rep, th) {
   );
 }
 
+// ---- branchFlow: per-material two-branch gate states for the Phase B flow render. Pure;
+// mirrors evaluateLedger's per-lineage gate computation (rollupIntegrated's same-lineage bits)
+// for a SINGLE material treated as its own one-material lineage — no new decision logic, only
+// the already-parity-locked assessors/gates above. Deterministic; no Date/Math.random.
+export function branchFlow(material, doublet, th) {
+  const m = { ...(material.measured || {}), opticalResult: material.optical || null };
+  const opt = material.optical || null;
+
+  const hc01 = material.witness != null ? assessHc01(material.witness, material.element, th) : _bareRecord("HC-01");
+  const hc01Status =
+    m.hc01NonmetallicConfirmed && hc01.status >= CLAIM_STATUS.PROVISIONALLY_SUPPORTED
+      ? CLAIM_STATUS.SUPPORTED
+      : hc01.status;
+  const hc02 = material.distribution != null ? assessHc02(material.distribution, th) : _bareRecord("HC-02");
+  const hc02Status =
+    m.hc02DispersionConfirmed && hc02.status >= CLAIM_STATUS.PROVISIONALLY_SUPPORTED
+      ? CLAIM_STATUS.SUPPORTED
+      : hc02.status;
+  const materialState =
+    hc01Status >= CLAIM_STATUS.PROVISIONALLY_SUPPORTED && hc02Status >= CLAIM_STATUS.PROVISIONALLY_SUPPORTED;
+
+  const s = new Set((opt && opt.supported) || []);
+  const coherentMode = s.has(HUDSON_CLAIM.STRONG_COUPLING) && s.has(HUDSON_CLAIM.MACRO_COHERENCE);
+  const materialCoupling = s.has(HUDSON_CLAIM.ELECTRONIC_COUPLING);
+  const energyTransport = gCandidateOptical(opt);
+  const causalMagnetism = opticalMagneticCausality(opt);
+  const replication = replicationGate(m.replication, th);
+
+  return {
+    conventional: {
+      zeroR: Boolean(m.zeroResistance),
+      flux: Boolean(m.fluxExclusion),
+      critical: Boolean(m.criticalBehavior),
+      artifact: Boolean(m.artifactExcluded),
+      result: gConventionalSuperconductivity(m),
+    },
+    hudson: {
+      coherentMode,
+      materialCoupling,
+      energyTransport,
+      causalMagnetism,
+      materialState,
+      replication,
+      result: materialState && energyTransport && causalMagnetism && replication,
+    },
+  };
+}
+
 // ---- Procedural claims (HC-03, HC-05, HC-08): a measured confirmation -> SUPPORTED --------
 function procedural(id, confirmed) {
   return {
@@ -784,6 +832,102 @@ function _buildIntegratedCard(entries, result) {
   return card;
 }
 
+// ---- Phase B: two-branch flow render. Reads branchFlow(...) only — no new decision logic, no
+// path that lets one branch's evidence fill the other (Branch A stages/result read only
+// `bf.conventional.*`; Branch B stages/result read only `bf.hudson.*`).
+function _flowStageNode(label, filled) {
+  const node = _el("div", "ledger-flow-node" + (filled ? " filled" : ""));
+  node.appendChild(_el("span", "ledger-flow-node-lbl", label));
+  _attr(node, "aria-label", `${label}: ${filled ? "evidence present" : "no evidence"}`);
+  return node;
+}
+
+function _flowConn(flowing) {
+  return _el("div", "ledger-flow-conn" + (flowing ? " flowing" : ""));
+}
+
+function _flowResultNode(label, open) {
+  const node = _el("div", "ledger-flow-result" + (open ? " open" : " closed"));
+  node.appendChild(_el("span", "ledger-flow-result-lock", open ? "\u{1F513}" : "\u{1F512}"));
+  node.appendChild(_el("span", "ledger-flow-result-lbl", label));
+  node.appendChild(_el("span", "ledger-flow-result-state", open ? "OPEN" : "CLOSED (DEFAULT-BLOCK)"));
+  _attr(node, "aria-label", `${label}: ${open ? "open" : "closed (default-block)"}`);
+  return node;
+}
+
+// Appends [stage, connector, stage, connector, ...] for a chain of (label, filled) pairs; the
+// connector after stage i is `.flowing` iff stage i AND stage i+1 are both filled. Returns the
+// filled-state of the LAST stage, so the caller can decide the connector into the result node.
+function _appendStageChain(row, stages) {
+  let lastFilled = true; // vacuous true before the first stage (no connector precedes it)
+  stages.forEach(([label, filled], i) => {
+    row.appendChild(_flowStageNode(label, filled));
+    if (i < stages.length - 1) row.appendChild(_flowConn(filled && stages[i + 1][1]));
+    lastFilled = filled;
+  });
+  return lastFilled;
+}
+
+function _buildBranchFlow(material, doublet, th) {
+  const bf = branchFlow(material, doublet, th);
+
+  const section = _el("div", "ledger-flow");
+  _attr(section, "role", "region");
+  _attr(section, "aria-labelledby", "ledger-flow-heading");
+  const heading = _el("h3", "ledger-card-title", `Two-branch flow — ${material.title}`);
+  _attr(heading, "id", "ledger-flow-heading");
+  section.appendChild(heading);
+  section.appendChild(
+    _el(
+      "p",
+      "ledger-card-sub",
+      "Conventional superconductivity and the Hudson optical mechanism are independent results — a material may clear one without the other."
+    )
+  );
+
+  // Branch A · conventional SC — reads ONLY bf.conventional.* (never bf.hudson.*).
+  const trackA = _el("div", "ledger-flow-track");
+  trackA.appendChild(_el("div", "ledger-flow-label", "Branch A · conventional SC"));
+  const rowA = _el("div", "ledger-flow-row");
+  const stagesA = [
+    ["zero-R", bf.conventional.zeroR],
+    ["Meissner flux", bf.conventional.flux],
+    ["critical behavior", bf.conventional.critical],
+    ["artifact excluded", bf.conventional.artifact],
+  ];
+  const lastFilledA = _appendStageChain(rowA, stagesA);
+  rowA.appendChild(_flowConn(lastFilledA && bf.conventional.result));
+  rowA.appendChild(_flowResultNode("G_conventional_superconductivity", bf.conventional.result));
+  trackA.appendChild(rowA);
+  section.appendChild(trackA);
+
+  // Branch B · Hudson optical — reads ONLY bf.hudson.* (never bf.conventional.*).
+  const trackB = _el("div", "ledger-flow-track");
+  trackB.appendChild(_el("div", "ledger-flow-label", "Branch B · Hudson optical"));
+  const rowB = _el("div", "ledger-flow-row");
+  const stagesB = [
+    ["coherent mode", bf.hudson.coherentMode],
+    ["material coupling", bf.hudson.materialCoupling],
+    ["energy transport", bf.hudson.energyTransport],
+    ["causal magnetism", bf.hudson.causalMagnetism],
+  ];
+  const lastFilledB = _appendStageChain(rowB, stagesB);
+  rowB.appendChild(_flowConn(lastFilledB && bf.hudson.result));
+  rowB.appendChild(_flowResultNode("G_hudson_mechanism", bf.hudson.result));
+  trackB.appendChild(rowB);
+
+  // Feeder: Hudson material state + replication join into the same result node above.
+  const feederRow = _el("div", "ledger-flow-row ledger-flow-feeder");
+  feederRow.appendChild(_flowStageNode("Hudson material state", bf.hudson.materialState));
+  feederRow.appendChild(_flowConn(bf.hudson.materialState && bf.hudson.replication));
+  feederRow.appendChild(_flowStageNode("replication", bf.hudson.replication));
+  feederRow.appendChild(_flowConn(bf.hudson.replication && bf.hudson.result));
+  trackB.appendChild(feederRow);
+  section.appendChild(trackB);
+
+  return section;
+}
+
 // ---- Claim matrix: HC-01..HC-08 rows x material columns. Column headers are clickable — they
 // set the focused-material control panel (Task 6); default focus = first material (caller's
 // responsibility to pass focusedKey / onFocus consistently with the controls panel below).
@@ -1003,10 +1147,10 @@ function _buildControls(materials, focusedKey, onChange) {
   ring.step = "1";
   ring.value = String(Math.max(0, _PERSISTENCE_STEPS.indexOf(overlay.optical.persistence)));
   _on(ring, "input", () => {
-    const step = _PERSISTENCE_STEPS[Number(ring.value)] || "driven-dissipative";
+    const step = _PERSISTENCE_STEPS[Number(ring.value)] || _PERSISTENCE_STEPS[0];
     overlay.optical.persistence = step;
     const s = new Set(overlay.optical.supported);
-    if (step === "driven-dissipative") {
+    if (step === _PERSISTENCE_STEPS[0]) {   // driven_dissipative — clear the coherent-transport evidence
       _COHERENT_TRANSPORT_LEVELS.forEach((lvl) => s.delete(lvl));
     } else {
       _COHERENT_TRANSPORT_LEVELS.forEach((lvl) => s.add(lvl));
@@ -1088,6 +1232,9 @@ function _renderDash(dash) {
   dash.appendChild(cards);
 
   const focusedKey = _state.focusedLineageId || _lineageKey(DOSSIER[0].lineage);
+  dash.appendChild(
+    _buildBranchFlow(materials.find((m) => _lineageKey(m.lineage) === focusedKey) || materials[0], doublet, th)
+  );
   dash.appendChild(
     _buildMatrix(entries, focusedKey, (key) => {
       _state.focusedLineageId = key;

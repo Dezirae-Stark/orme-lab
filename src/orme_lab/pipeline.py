@@ -133,10 +133,12 @@ class CandidateRecord:
 
     def as_csv_row(self) -> dict[str, object]:
         row = asdict(self)
-        # round floats for stable, readable CSV output
+        # round floats; join tuple fields (e.g. surviving_mechanisms) into a readable cell
         for k, v in row.items():
             if isinstance(v, float):
                 row[k] = round(v, 6)
+            elif isinstance(v, tuple):
+                row[k] = "|".join(str(x) for x in v)
         return row
 
 

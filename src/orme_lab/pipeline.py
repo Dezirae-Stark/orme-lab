@@ -29,6 +29,7 @@ from dataclasses import asdict, dataclass
 from .backends import Capability, DFTBackend
 from .config import DEFAULT_CONFIG, LabConfig
 from .coupling import inter_unit_coupling_score, is_electronically_isolated
+from .identity import IdentityWitness, evaluate_identity
 from .electromagnetic_coherence import evaluate_em_coherence, free_electron_density
 from .evidence import badge as evidence_badge, candidate_evidence_level, LAB_CEILING
 from .electron_density import is_ricebean, ricebean_score
@@ -112,6 +113,13 @@ class CandidateRecord:
     em_regime: str | None = None
     em_rabi_ev: float | None = None
     em_lifetime_fs: float | None = None
+    # Phase-identity gate (G_identity). Off-gate; a hard upstream precondition. In the
+    # pure-simulation lab there is no characterization, so this defaults UNESTABLISHED and
+    # `credited_sc_lead` is False regardless of how well the SC proxies score — nothing is
+    # credited as a superconductivity lead until an IdentityWitness is injected.
+    identity_verdict: str = "unestablished"
+    identity_established: bool = False
+    credited_sc_lead: bool = False
 
     def as_csv_row(self) -> dict[str, object]:
         row = asdict(self)
@@ -144,6 +152,7 @@ def evaluate_candidate(
     state: SpinState,
     config: LabConfig,
     backend: DFTBackend | None = None,
+    identity: IdentityWitness | None = None,
 ) -> CandidateRecord:
     """Run one candidate through the full scoring chain.
 
@@ -225,6 +234,17 @@ def evaluate_candidate(
 
     level = min(candidate_evidence_level(not plaus.all_passed), LAB_CEILING)
 
+    # Phase-identity gate (G_identity): a hard upstream precondition. Even when every SC
+    # proxy gate passes, the candidate is NOT credited as a lead until phase identity is
+    # established by an injected characterization witness (default: unestablished).
+    id_result = evaluate_identity(element.symbol, identity)
+    credited = id_result.established and plaus.all_passed and plaus.score > 0.0
+    verdict_str = f"{plaus.explain()} [{evidence_badge(level)}]"
+    if not id_result.established:
+        verdict_str += (f" — NOT credited: phase identity {id_result.verdict.value}; "
+                        f"decisive next step is characterization (XRD/XPS/ICP-MS/EXAFS), "
+                        f"not magnetometry")
+
     return CandidateRecord(
         element=element.symbol,
         geometry=geometry.label,
@@ -246,7 +266,7 @@ def evaluate_candidate(
         sc_plausibility=plaus.score,
         ruled_out=not plaus.all_passed,
         evidence_level=int(level),
-        verdict=f"{plaus.explain()} [{evidence_badge(level)}]",
+        verdict=verdict_str,
         sc_tc_kelvin=epw.tc_kelvin,
         sc_lambda=epw.lam,
         sc_omega_log_k=epw.omega_log_k,
@@ -257,6 +277,9 @@ def evaluate_candidate(
         em_regime=em_regime,
         em_rabi_ev=em_rabi,
         em_lifetime_fs=em_lifetime,
+        identity_verdict=id_result.verdict.value,
+        identity_established=id_result.established,
+        credited_sc_lead=credited,
     )
 
 

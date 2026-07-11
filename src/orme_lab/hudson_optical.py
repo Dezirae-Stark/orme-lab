@@ -31,8 +31,9 @@ weights. TODO(dft): replace bare couplings with computed mode overlaps.
 from __future__ import annotations
 
 import math
+from dataclasses import dataclass
 
-from .config import ModelThresholds
+from .config import ModelThresholds, SPEED_OF_LIGHT
 
 
 def polariton_branches(matter_ev: float, photon_ev: float, coupling_ev: float) -> tuple[float, float]:
@@ -72,3 +73,44 @@ def is_anticrossing(coupling_ev: float, linewidth_ev: float) -> bool:
     hybrid mode shows a minimum gap of 2g > linewidth at resonance.
     """
     return 2.0 * coupling_ev > linewidth_ev
+
+
+@dataclass(frozen=True)
+class OpticalOrderParameter:
+    """O_H = {omega0, Q, g, tau_coh, L_coh, f_ph, f_el} — the Hudson optical order
+    parameter. All quantities are toy/surrogate and bounded; f_photon + f_electron
+    == 1 by construction."""
+
+    omega0_ev: float        # bare resonance energy
+    quality_factor: float   # Q = omega / kappa
+    coupling_ev: float      # light-matter coupling g
+    tau_coh_fs: float       # temporal coherence lifetime
+    l_coh_nm: float         # spatial coherence length (surrogate)
+    f_photon: float         # photonic (Hopfield) fraction of the lower polariton
+    f_electron: float       # electronic fraction (= 1 - f_photon)
+
+
+def order_parameter_from_mode(mode, matter_ev: float,
+                              thresholds: ModelThresholds) -> OpticalOrderParameter:
+    """Assemble O_H for one coupled mode.
+
+    The spatial coherence length is a flagged surrogate L_coh = frac * c * tau_coh
+    (a propagating coherent mode travels ~v_g * tau before dephasing; v_g is
+    unknown here, so ``hudson_group_velocity_fraction`` stands in for v_g/c).
+    """
+    f_ph, f_el = mode_composition(matter_ev, mode.mode_energy_ev, mode.coupling_energy_ev)
+    tau_s = mode.coherence_lifetime_fs * 1e-15 if math.isfinite(mode.coherence_lifetime_fs) else math.inf
+    if math.isinf(tau_s):
+        l_coh_nm = math.inf
+    else:
+        l_coh_m = thresholds.hudson_group_velocity_fraction * SPEED_OF_LIGHT * tau_s
+        l_coh_nm = l_coh_m * 1e9
+    return OpticalOrderParameter(
+        omega0_ev=mode.mode_energy_ev,
+        quality_factor=mode.quality_factor,
+        coupling_ev=mode.coupling_energy_ev,
+        tau_coh_fs=mode.coherence_lifetime_fs,
+        l_coh_nm=l_coh_nm,
+        f_photon=f_ph,
+        f_electron=f_el,
+    )

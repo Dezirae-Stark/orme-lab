@@ -38,3 +38,36 @@ def test_lower_polariton_is_photon_like_when_photon_below_matter():
 def test_anticrossing_requires_splitting_above_linewidth():
     assert is_anticrossing(0.30, linewidth_ev=0.10) is True    # 2g=0.6 > 0.10
     assert is_anticrossing(0.02, linewidth_ev=0.10) is False   # 2g=0.04 < 0.10
+
+
+from orme_lab.electromagnetic_coherence import ElectromagneticMode
+from orme_lab.hudson_optical import OpticalOrderParameter, order_parameter_from_mode
+
+
+def _resonant_mode(mode_ev=2.0, g=0.3, kappa=0.05, gamma=0.05):
+    return ElectromagneticMode(mode_energy_ev=mode_ev, coupling_energy_ev=g,
+                               cavity_loss_ev=kappa, matter_loss_ev=gamma)
+
+
+def test_order_parameter_bundles_the_seven_quantities():
+    m = _resonant_mode()
+    oh = order_parameter_from_mode(m, matter_ev=2.0, thresholds=TH)
+    assert isinstance(oh, OpticalOrderParameter)
+    assert oh.omega0_ev == 2.0
+    assert oh.coupling_ev == 0.3
+    assert oh.quality_factor == m.quality_factor
+    assert oh.tau_coh_fs == m.coherence_lifetime_fs
+    # on resonance the composition is 50/50
+    assert math.isclose(oh.f_photon, 0.5, rel_tol=1e-9)
+    assert math.isclose(oh.f_electron, 0.5, rel_tol=1e-9)
+    # spatial coherence length is a positive surrogate = frac * c * tau
+    assert oh.l_coh_nm > 0.0
+
+
+def test_order_parameter_is_frozen():
+    oh = order_parameter_from_mode(_resonant_mode(), matter_ev=2.0, thresholds=TH)
+    try:
+        oh.omega0_ev = 1.0  # type: ignore[misc]
+        assert False, "OpticalOrderParameter must be immutable"
+    except Exception:
+        pass

@@ -141,3 +141,28 @@ def test_strongest_band_is_none_when_all_weak():
     results = resonance_survey(1e-6, 1.0, 1.0, TH)
     assert all(r.regime == "weak" for r in results)
     assert strongest_band(results) is None
+
+
+from orme_lab.hudson_optical import CausalLink, magnetism_tracks_resonance
+
+
+def test_causal_link_defaults_to_unestablished_without_measurement():
+    # Hudson linked the circulating mode to the Meissner response. Without a measured
+    # dM/dP at resonance, the model cannot assert the causal link.
+    link = magnetism_tracks_resonance(measured_dM_dP=None, on_resonance=None)
+    assert link.tracks is False
+    assert "requires" in link.note
+
+
+def test_causal_link_requires_response_on_resonance():
+    # a real dM/dP but measured OFF resonance does not support the causal claim
+    off = magnetism_tracks_resonance(measured_dM_dP=1.0, on_resonance=False)
+    assert off.tracks is False
+    on = magnetism_tracks_resonance(measured_dM_dP=1.0, on_resonance=True)
+    assert on.tracks is True
+    assert on.evidence_level_if_confirmed == int(EvidenceLevel.INITIAL_OBSERVATION)
+
+
+def test_causal_link_rejects_negligible_response():
+    link = magnetism_tracks_resonance(measured_dM_dP=1e-15, on_resonance=True)
+    assert link.tracks is False    # below min_response -> no anomaly

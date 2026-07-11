@@ -224,3 +224,40 @@ def strongest_band(results: tuple[BandResult, ...]) -> BandResult | None:
         if r.cooperativity > best.cooperativity:
             best = r
     return best
+
+
+@dataclass(frozen=True)
+class CausalLink:
+    """The C(omega) = dM/dP_drive test: does the magnetic response track the optical
+    resonance? An optical anomaly with NO linked magnetic anomaly does not support
+    full Hudson."""
+    tracks: bool
+    dM_dP: float | None
+    on_resonance: bool | None
+    evidence_level_if_confirmed: int
+    note: str
+
+
+def magnetism_tracks_resonance(*, measured_dM_dP: float | None = None,
+                               on_resonance: bool | None = None,
+                               min_response: float = 1e-9) -> CausalLink:
+    """Default-blocked causal-magnetism gate.
+
+    Requires an externally measured dM/dP that (a) is measured ON resonance and
+    (b) exceeds ``min_response``. Absent a measurement, or off resonance, the link is
+    unestablished. A confirmed on-resonance magnetic response is a Level-4 observation.
+    """
+    if measured_dM_dP is None or on_resonance is None:
+        return CausalLink(False, measured_dM_dP, on_resonance,
+                          int(EvidenceLevel.LABORATORY_PREDICTION),
+                          "unestablished: requires a measured dM/dP taken while sweeping "
+                          "through the optical/RF resonance (a lab input).")
+    tracks = bool(on_resonance) and abs(measured_dM_dP) >= min_response
+    ev = int(EvidenceLevel.INITIAL_OBSERVATION) if tracks else int(EvidenceLevel.LABORATORY_PREDICTION)
+    if not on_resonance:
+        note = "magnetic response measured off resonance: does not support the causal link."
+    elif not tracks:
+        note = "magnetic response at/below the noise floor on resonance: no anomaly."
+    else:
+        note = "magnetic response appears/strengthens on resonance: causal link supported."
+    return CausalLink(tracks, measured_dM_dP, on_resonance, ev, note)

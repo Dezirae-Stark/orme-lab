@@ -29,6 +29,16 @@ def test_field_suppressed_or_unmeasurable_rejects_every_mechanism():
     assert "field-suppressed" in _by(_eval(field=0.05), Mechanism.PHONON).rejection
 
 
+def test_non_finite_field_or_observable_rejects_every_mechanism():
+    # A non-finite gate value (NaN critical field under an applied field) must reject: a bare
+    # `<` lets NaN through (NaN < x is False) while the generic gate's `NaN >= x` also fails,
+    # reintroducing the survivors-vs-all_passed inconsistency this gate prevents.
+    nan = float("nan")
+    assert surviving(_eval(field=nan)) == ()
+    assert surviving(_eval(obs=nan)) == ()
+    assert "field-suppressed" in _by(_eval(field=nan), Mechanism.PHONON).rejection
+
+
 def _by(results, mech):
     return next(m for m in results if m.mechanism == mech.value)
 

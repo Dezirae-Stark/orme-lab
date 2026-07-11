@@ -17,6 +17,7 @@ threshold is a documented constant, not tuned to pass favourites.
 """
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 from enum import Enum
 
@@ -128,11 +129,16 @@ def evaluate_mechanisms(*, coupling: float, carrier_proxy: float, structural_sta
     ``plaus.all_passed``): a candidate destroyed by an applied field, or with no measurable
     observable, has NO viable SC phase regardless of pairing channel — every track is rejected.
     """
-    if field_suppression < thresholds.min_field_tolerance:
+    # A non-finite gate value (NaN/inf, e.g. a FIELD_RESPONSE backend returning a non-finite
+    # critical field under a nonzero applied field) must reject too: `NaN < threshold` is False,
+    # so a bare `<` would let every channel through while the generic gate's `NaN >= threshold`
+    # (also False) fails `field_tolerance` — the exact survivors-vs-all_passed inconsistency this
+    # global gate exists to prevent.
+    if not math.isfinite(field_suppression) or field_suppression < thresholds.min_field_tolerance:
         why = (f"field-suppressed: field tolerance {field_suppression:.2f} < "
                f"{thresholds.min_field_tolerance} (no robust SC phase in any channel)")
         return tuple(_reject(m, why, _SURROGATE[m]) for m in Mechanism)
-    if observable_signal < thresholds.min_observable_signal:
+    if not math.isfinite(observable_signal) or observable_signal < thresholds.min_observable_signal:
         why = (f"no measurable observable: signal {observable_signal:.2f} < "
                f"{thresholds.min_observable_signal} (unfalsifiable in any channel)")
         return tuple(_reject(m, why, _SURROGATE[m]) for m in Mechanism)

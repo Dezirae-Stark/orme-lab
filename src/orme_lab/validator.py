@@ -177,8 +177,12 @@ def design_validation(record: CandidateRecord, *,
                 control_samples=CONTROL_SAMPLES,
                 rejection_threshold="matches the contaminant prediction → mundane surface species, not intrinsic",
                 evidence_level_if_confirmed=_LAB_PRED, decisive=p.decisive,
-                mechanism=Mechanism.EXCITONIC_POLARITONIC.value, evidence_level=int(p.evidence_level),
-                note="IR-doublet control (folded from control_experiment.py)"))
+                # NOT mechanism-routed: an IR-doublet identity/contaminant control is emitted
+                # regardless of which pairing mechanisms survived. Tagging it with a mechanism
+                # (e.g. excitonic) would make explain()/mechanism filters report a mechanism-routed
+                # test on a candidate that REJECTED that mechanism (Os/Au reject excitonic).
+                mechanism=None, evidence_level=int(p.evidence_level),
+                note="IR-doublet control (identity/contaminant, folded from control_experiment.py; not mechanism-routed)"))
 
     tests_t = tuple(tests)
     return ValidationSuite(record.element, record.surviving_mechanisms, tests_t,

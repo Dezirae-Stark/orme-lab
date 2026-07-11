@@ -74,6 +74,19 @@ def test_ir_doublet_control_folds_in():
     assert any("contaminant" in alt[0] for alt in ir.mundane_alternatives)
 
 
+def test_ir_control_is_not_tagged_as_a_surviving_mechanism():
+    # Os rejects M_excitonic_polaritonic (EM channel off), so a folded IR identity control
+    # must NOT carry that (or any) mechanism tag — otherwise explain()/mechanism filters route
+    # users to a mechanism the candidate explicitly rejected.
+    rec = _record("Os")
+    assert "M_excitonic_polaritonic" not in rec.surviving_mechanisms      # precondition
+    s = design_validation(rec, observed_doublet=(1429.53, 1490.99))
+    ir_controls = [t for t in s.tests if "IR-doublet control" in t.note]
+    assert ir_controls                                                    # they were folded in
+    assert all(t.mechanism is None for t in ir_controls)
+    assert "M_excitonic_polaritonic" not in _mechanisms(s)
+
+
 def test_suite_is_deterministic():
     a = design_validation(_record("Os"))
     b = design_validation(_record("Os"))

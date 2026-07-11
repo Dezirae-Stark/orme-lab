@@ -304,6 +304,207 @@ export function assessHc07(candidate, measured, th) {
   return { id: "HC-07", status: CLAIM_STATUS.CANDIDATE, route: ROUTE.NONE, note: "no SC lead" };
 }
 
+// ---- Roll-ups + interim verdict + evaluateLedger (mirror hudson_ledger.evaluate_hudson_ledger
+// §5.2 exactly). A "material" = one lineage's worth of evidence:
+//   { lineage:{familyId,batchId,aliquotId,processing:[]}, element, witness, distribution,
+//     creditedScLead, optical, measured, demo }
+// lineage grouping key = familyId/batchId[/processing-joined-by-">"] (mirrors lineage.py's
+// lineage_key: same processing_history = same material state; different processing = a new
+// lineage node, never stitched to its precursor).
+
+//: CORE claim set for the integrated weakest-link roll-up (mirror hudson_ledger._CORE).
+export const CORE = ["HC-01", "HC-02", "HC-04", "HC-06", "HC-07"];
+
+function _lineageKey(lin) {
+  const base = `${lin.familyId}/${lin.batchId}`;
+  if (lin.processing && lin.processing.length) return base + "/" + lin.processing.join(">");
+  return base;
+}
+
+function _bareRecord(id) {
+  return { id, status: CLAIM_STATUS.CANDIDATE, route: ROUTE.NONE, note: "" };
+}
+
+// All eight ClaimRecords for ONE material (mirror _candidate_claim_records exactly). `doublet`
+// is the single GLOBAL observed IR doublet (mirrors evaluate_hudson_ledger's observed_doublet
+// param — one instrument reading applied to every material, not per-material).
+function _materialClaimRecords(material, doublet, th) {
+  const m = { ...(material.measured || {}), opticalResult: material.optical || null };
+
+  let hc01 = material.witness != null ? assessHc01(material.witness, material.element, th) : _bareRecord("HC-01");
+  if (m.hc01NonmetallicConfirmed && hc01.status >= CLAIM_STATUS.PROVISIONALLY_SUPPORTED) {
+    hc01 = { id: "HC-01", status: CLAIM_STATUS.SUPPORTED, route: hc01.route, note: "measured nonmetallic confirmation" };
+  }
+
+  let hc02 = material.distribution != null ? assessHc02(material.distribution, th) : _bareRecord("HC-02");
+  if (m.hc02DispersionConfirmed && hc02.status >= CLAIM_STATUS.PROVISIONALLY_SUPPORTED) {
+    hc02 = { id: "HC-02", status: CLAIM_STATUS.SUPPORTED, route: hc02.route, note: "measured dispersion confirmation" };
+  }
+
+  const hc03 = assessHc03(m);
+
+  let hc04 = doublet != null ? assessHc04(doublet, th) : _bareRecord("HC-04");
+  if (m.hc04IsotopeConfirmed) {
+    hc04 = { id: "HC-04", status: CLAIM_STATUS.SUPPORTED, route: hc04.route, note: "measured isotope/atmosphere sensitivity" };
+  }
+
+  const hc05 = assessHc05(m);
+  const candidate = { creditedScLead: material.creditedScLead };
+  const hc06 = assessHc06(candidate, m, th);
+  const hc07 = assessHc07(candidate, m, th);
+  const hc08 = assessHc08(m);
+
+  return [hc01, hc02, hc03, hc04, hc05, hc06, hc07, hc08];
+}
+
+function _groupByLineage(entries) {
+  const groups = new Map();
+  for (const e of entries) {
+    if (!groups.has(e.key)) groups.set(e.key, []);
+    groups.get(e.key).push(e);
+  }
+  return new Map([...groups.keys()].sort().map((k) => [k, groups.get(k)]));
+}
+
+// ---- Layer 1: portfolio best-of per claim (max status across materials) -------------------
+// `perMaterialRecords` = one 8-length records array per material (fixed HC order).
+export function rollupBestOf(perMaterialRecords) {
+  const portfolio = [];
+  for (let j = 0; j < HC.length; j++) {
+    let best = perMaterialRecords[0][j];
+    for (let i = 1; i < perMaterialRecords.length; i++) {
+      const r = perMaterialRecords[i][j];
+      if (r.status > best.status) best = r;
+    }
+    portfolio.push(best);
+  }
+  return portfolio;
+}
+
+// ---- Layer 2: integrated weakest-link WITHIN one lineage over CORE, then best ACROSS
+// lineages (max_lineage(min_claim)) — NEVER min_claim(max_candidate). Existential mechanism/
+// conventional gates are each evaluated SAME-LINEAGE, then unioned only at the boolean level
+// (never by stitching claim records across lineages); component bits are reported from ONE
+// representative lineage (mechanism lineage > conventional-SC lineage > CORE winner).
+// `perLineage` = [[key, [{material, records}, ...]], ...] (sorted); `core` = CORE claim ids.
+export function rollupIntegrated(perLineage, core, th) {
+  const coreIdx = core.map((hc) => HC.indexOf(hc));
+  const perLineageStatus = [];
+  const lineageBits = new Map();
+  let bestStatus = null;
+  let bestKey = null;
+
+  for (const [key, entries] of perLineage) {
+    const combined = [];
+    for (let j = 0; j < HC.length; j++) {
+      let best = entries[0].records[j];
+      for (let i = 1; i < entries.length; i++) {
+        if (entries[i].records[j].status > best.status) best = entries[i].records[j];
+      }
+      combined.push(best);
+    }
+    const weakest = Math.min(...coreIdx.map((j) => combined[j].status));
+    perLineageStatus.push([key, weakest]);
+    if (bestStatus === null || weakest > bestStatus) {
+      bestStatus = weakest;
+      bestKey = key;
+    }
+
+    // Same-lineage gate bits — one representative material's measured/optical payload (aliquots
+    // of the same batch carry the same measured evidence, mirroring evaluate_hudson_ledger's
+    // measured.get(key) lookup, which is keyed by lineage, not by candidate).
+    const rep = entries[0].material;
+    const wm = rep.measured || {};
+    const opt = rep.optical || null;
+    const gId = entries.some((e) => gIdentityEstablished(e.material.witness));
+    // G_hudson_material_state from the BATCH-COMBINED records (HC-01 from one aliquot + HC-02
+    // from another aliquot of the SAME batch is legitimate same-batch integration).
+    const gMat =
+      combined[0].status >= CLAIM_STATUS.PROVISIONALLY_SUPPORTED &&
+      combined[1].status >= CLAIM_STATUS.PROVISIONALLY_SUPPORTED;
+    const gConv = gConventionalSuperconductivity(wm);
+    const gOpt = gCandidateOptical(opt);
+    const gCaus = opticalMagneticCausality(opt);
+    const gRep = replicationGate(wm.replication, th);
+    lineageBits.set(key, {
+      gIdentityEstablished: gId,
+      gHudsonMaterialState: gMat,
+      gConventionalSuperconductivity: gConv,
+      gCandidateOptical: gOpt,
+      opticalMagneticCausality: gCaus,
+      replication: gRep,
+      gHudsonMechanism: gMat && gOpt && gCaus && gRep,
+    });
+  }
+
+  const keysInOrder = [...lineageBits.keys()];
+  const mechKeys = keysInOrder.filter((k) => lineageBits.get(k).gHudsonMechanism);
+  const convKeys = keysInOrder.filter((k) => lineageBits.get(k).gConventionalSuperconductivity);
+  const repKey = mechKeys.length ? mechKeys[0] : convKeys.length ? convKeys[0] : bestKey;
+  const defaults = {
+    gIdentityEstablished: false,
+    gHudsonMaterialState: false,
+    gConventionalSuperconductivity: false,
+    gCandidateOptical: false,
+    opticalMagneticCausality: false,
+    replication: false,
+    gHudsonMechanism: false,
+  };
+  const bits = { ...(lineageBits.get(repKey) || defaults) };
+  bits.gHudsonMechanism = mechKeys.length > 0; // existential, same-lineage
+  bits.gConventionalSuperconductivity = convKeys.length > 0; // existential, separate result
+
+  return {
+    integratedStatus: bestStatus === null ? CLAIM_STATUS.CANDIDATE : bestStatus,
+    integratedLineageKey: bestKey,
+    perLineage: perLineageStatus,
+    gate: bits,
+  };
+}
+
+// ---- interimVerdict: deterministic priority ladder. NEVER returns the forbidden affirmative
+// "HUDSON CLAIM VALIDATED" string (the strongest terminal label is independent-replication).
+export function interimVerdict(bits) {
+  if (bits.gHudsonMechanism && bits.replication) {
+    return "independent-replication-achieved (Hudson mechanism supported on one replicated lineage)";
+  }
+  if (bits.gConventionalSuperconductivity) {
+    return "bulk-SC-supported (conventional route; distinct from the Hudson optical mechanism)";
+  }
+  if (bits.gCandidateOptical) {
+    return "SC-like-response (optical coherent transport; mechanism not yet fully closed)";
+  }
+  if (bits.gHudsonMaterialState) {
+    return "novel-phase-candidate (Hudson material state; no transport/magnetism established)";
+  }
+  if (bits.gIdentityEstablished) {
+    return "identity-established (not Hudson-conformant)";
+  }
+  return "identity-unresolved";
+}
+
+// ---- evaluateLedger: the two-layer roll-up + gate assembly + interim verdict, from a list of
+// materials (mirror evaluate_hudson_ledger). `opts.doublet` is the single global observed IR
+// doublet (may be omitted, mirroring observed_doublet=None).
+export function evaluateLedger(materials, { th, doublet } = {}) {
+  const entries = materials.map((material) => ({
+    key: _lineageKey(material.lineage),
+    material,
+    records: _materialClaimRecords(material, doublet, th),
+  }));
+  const portfolio = rollupBestOf(entries.map((e) => e.records));
+  const grouped = _groupByLineage(entries);
+  const integrated = rollupIntegrated([...grouped.entries()], CORE, th);
+  const gate = { ...integrated.gate, interimVerdict: interimVerdict(integrated.gate) };
+  return {
+    claims: portfolio,
+    gate,
+    integratedStatus: integrated.integratedStatus,
+    integratedLineageId: integrated.integratedLineageKey,
+    perLineage: integrated.perLineage,
+  };
+}
+
 export function renderLedger(el) {
   el.textContent = "";
   const p = document.createElement("p");

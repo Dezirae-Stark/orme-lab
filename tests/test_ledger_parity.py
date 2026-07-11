@@ -68,6 +68,129 @@ def test_identity_and_material_state_match_python():
         assert got[0] is py_est and got[1] is py_ms
 
 
+def _witness_js(w):
+    return dict(composition=w.composition, phase=w.phase, morphology=w.morphology, oxidation=w.oxidation_state)
+
+
+def _dist_js(dist):
+    return dict(f1=dist.f1(), sizeDist=dist.size_distribution(),
+                nnDistances=[list(t) for t in dist.nn_distances()])
+
+
+def _optical_js(opt):
+    if opt is None:
+        return None
+    return dict(supported=sorted(int(c) for c in opt.supported), persistence=opt.persistence.persistence.value)
+
+
+def _measured_js(m):
+    return dict(zeroResistance=m.zero_resistance, fluxExclusion=m.flux_exclusion,
+                criticalBehavior=m.critical_behavior, artifactExcluded=m.artifact_excluded,
+                hc01NonmetallicConfirmed=m.hc01_nonmetallic_confirmed,
+                hc02DispersionConfirmed=m.hc02_dispersion_confirmed,
+                hc03OrbitalConfirmed=m.hc03_orbital_confirmed,
+                hc04IsotopeConfirmed=m.hc04_isotope_confirmed,
+                hc05RecoveryConfirmed=m.hc05_recovery_confirmed,
+                hc08MassConfirmed=m.hc08_mass_confirmed,
+                replication=(dict(nBatches=m.replication.n_batches, nLabs=m.replication.n_labs,
+                                  preregistered=m.replication.preregistered_thresholds,
+                                  rawRetained=m.replication.raw_data_retained,
+                                  blindedOk=m.replication.blinded_controls_correct)
+                             if m.replication is not None else None))
+
+
+def _material_js(lineage_key, element, witness, dist, credited_sc_lead, optical, measured):
+    fam, batch = lineage_key.split("/")[:2]
+    return dict(lineage=dict(familyId=fam, batchId=batch, aliquotId=fam, processing=[]),
+               element=element,
+               witness=(_witness_js(witness) if witness is not None else None),
+               distribution=(_dist_js(dist) if dist is not None else None),
+               creditedScLead=bool(credited_sc_lead),
+               optical=_optical_js(optical),
+               measured=_measured_js(measured))
+
+
+def test_anti_frankenstein_max_min_discriminates_js():
+    # Mirrors test_hudson_ledger.test_anti_frankenstein_max_min_discriminates_from_forbidden_min_max:
+    # 5 single-claim Ir lineages, one core claim SUPPORTED each, no lineage clearing more than
+    # one -> forbidden min[max] would read SUPPORTED but the correct max[min] must not.
+    el = get_element("Ir")
+    hud_witness = IdentityWitness("Ir", "nonmetallic-elemental", "monatomic", 0.0, ())
+    metal = IdentityWitness("Ir", "metallic", "bulk", 0.0, ())
+    disp = dispersed_sample(el, 0.95)
+    clustered = make_distribution([(make_compact_cluster(el, 13), 1.0)])
+    from orme_lab.hudson_optical import evaluate_hudson_optical
+    opt_transport = evaluate_hudson_optical(number_density_m3=9.5e28, anisotropy_score=0.4, thresholds=TH,
+                                            matter_ev=9.0, coupling_fraction=0.3, cavity_loss_ev=0.02,
+                                            matter_loss_ev=0.02, measured_ringdown_fs=1e30)
+    from orme_lab.hudson_ledger import MeasuredEvidence
+    witnesses = [hud_witness, metal, metal, metal, metal]
+    distributions = [clustered, disp, clustered, clustered, clustered]
+    opticals = [None, None, None, None, opt_transport]
+    measured = [
+        MeasuredEvidence(hc01_nonmetallic_confirmed=True),
+        MeasuredEvidence(hc02_dispersion_confirmed=True),
+        MeasuredEvidence(hc04_isotope_confirmed=True),
+        MeasuredEvidence(flux_exclusion=True),
+        MeasuredEvidence(),
+    ]
+    doublet = (1429.53, 1490.99)
+    materials = [
+        _material_js(f"lin{i}/lin{i}", "Ir", witnesses[i], distributions[i], False, opticals[i], measured[i])
+        for i in range(5)
+    ]
+    js = (f'import {{evaluateLedger,CLAIM_STATUS}} from "{_JS.as_posix()}";'
+          f'const led=evaluateLedger({json.dumps(materials)},{{th:{json.dumps(_th_js())},doublet:{json.dumps(doublet)}}});'
+          f'const core=["HC-01","HC-02","HC-04","HC-06","HC-07"];'
+          f'const forbidden=Math.min(...led.claims.filter(c=>core.includes(c.id)).map(c=>c.status));'
+          f'console.log(JSON.stringify({{integratedStatus:led.integratedStatus,gHudsonMechanism:led.gate.gHudsonMechanism,'
+          f'gConventional:led.gate.gConventionalSuperconductivity,forbidden,verdict:led.gate.interimVerdict}}));')
+    got = _node(js)
+    assert got["forbidden"] >= 4          # SUPPORTED somewhere for every core claim (portfolio)
+    assert got["integratedStatus"] < 4    # no single lineage clears the core conjunction
+    assert got["forbidden"] > got["integratedStatus"]
+    assert got["gHudsonMechanism"] is False
+    assert got["gConventional"] is False
+    assert got["verdict"] != "HUDSON CLAIM VALIDATED"
+
+
+def test_single_lineage_full_stack_matches_python():
+    # Mirrors test_hudson_ledger.test_single_lineage_full_stack_supports_integrated_but_still_not_validated,
+    # cell-for-cell against HL.evaluate_hudson_ledger built from equivalent Python objects.
+    el = get_element("Ir")
+    hud_witness = IdentityWitness("Ir", "nonmetallic-elemental", "monatomic", 0.0, ())
+    disp = dispersed_sample(el, 0.95)
+    from orme_lab.hudson_optical import evaluate_hudson_optical
+    opt = evaluate_hudson_optical(number_density_m3=9.5e28, anisotropy_score=0.4, thresholds=TH,
+                                  matter_ev=9.0, coupling_fraction=0.3, cavity_loss_ev=0.02,
+                                  matter_loss_ev=0.02, measured_ringdown_fs=1e30, measured_dM_dP=1.0,
+                                  dM_dP_on_resonance=True)
+    from orme_lab.hudson_ledger import MeasuredEvidence, ReplicationEvidence
+    from orme_lab.pipeline import evaluate_candidate
+    from orme_lab.spin_states import high_spin_state
+    from orme_lab.geometry import make_compact_cluster
+    from orme_lab.lineage import singleton_lineage
+    cand = evaluate_candidate(el, make_compact_cluster(el, 13), "high_spin", high_spin_state(el), DEFAULT_CONFIG)
+    m = MeasuredEvidence(optical_result=opt, hc01_nonmetallic_confirmed=True, flux_exclusion=True,
+                         hc04_isotope_confirmed=True, replication=ReplicationEvidence(3, 2, True, True, True))
+    doublet = (1429.53, 1490.99)
+    py = HL.evaluate_hudson_ledger([cand], witnesses=[hud_witness], distributions=[disp],
+                                   lineages=[singleton_lineage("Ir")], measured={"Ir/Ir": m},
+                                   observed_doublet=doublet, thresholds=TH)
+
+    material = _material_js("Ir/Ir", "Ir", hud_witness, disp, cand.credited_sc_lead, opt, m)
+    js = (f'import {{evaluateLedger}} from "{_JS.as_posix()}";'
+          f'const led=evaluateLedger([{json.dumps(material)}],{{th:{json.dumps(_th_js())},doublet:{json.dumps(doublet)}}});'
+          f'console.log(JSON.stringify({{integratedStatus:led.integratedStatus,gHudsonMechanism:led.gate.gHudsonMechanism,'
+          f'verdict:led.gate.interimVerdict,claims:led.claims.map(c=>c.status)}}));')
+    got = _node(js)
+    assert got["integratedStatus"] == py.integrated_status.value
+    assert got["gHudsonMechanism"] is py.gate.g_hudson_mechanism
+    assert got["verdict"] == py.gate.interim_verdict
+    assert got["verdict"] != "HUDSON CLAIM VALIDATED"
+    assert got["claims"] == [c.status.value for c in py.claims]
+
+
 def test_optical_and_replication_gates_match_python():
     # optical persistent vs metastable; replication thresholds
     supported = [3, 4, 5, 6]  # STRONG,MACRO,LOW_LOSS,ELECTRONIC as int levels

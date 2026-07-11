@@ -21,6 +21,8 @@ from .config import DEFAULT_CONFIG, LabConfig, ModelThresholds
 from .coupling import inter_unit_coupling_score
 from .elements import Element
 from .geometry import ClusterGeometry, make_compact_cluster, make_dimer, make_monomer
+from .identity import IdentityWitness
+from .pipeline import evaluate_candidate
 from .spin_states import SpinState
 
 
@@ -58,7 +60,12 @@ class StructuralDistribution:
 def make_distribution(pairs: list[tuple[ClusterGeometry, float]]) -> StructuralDistribution:
     """Build a normalized distribution from (geometry, weight) pairs. The existing geometries
     (monomer/dimer/cluster) are the distribution's support; weights are normalized to sum to 1."""
-    total = sum(f for _, f in pairs) or 1.0
+    total = sum(f for _, f in pairs)
+    if total <= 0.0:
+        # Degenerate / all-zero weights: fall back to uniform over the given geometries so the
+        # 'fractions sum to 1' invariant holds (an empty input yields an empty distribution).
+        n = len(pairs)
+        return StructuralDistribution(tuple(Population(g, 1.0 / n) for g, _ in pairs) if n else ())
     return StructuralDistribution(tuple(Population(g, f / total) for g, f in pairs))
 
 
@@ -82,6 +89,8 @@ class PopulationVerdict:
     fraction: float
     sc_plausibility: float
     ruled_out: bool
+    credited_sc_lead: bool               # carries the G_identity dimension (False w/o a witness)
+    identity_verdict: str
 
 
 @dataclass(frozen=True)
@@ -91,6 +100,7 @@ class SampleRecord:
     f1: float
     expected_coupling: float
     surviving_fraction: float            # Σ fraction of populations NOT ruled out
+    credited_fraction: float             # Σ fraction CREDITED as SC leads (needs identity; 0 w/o)
     populations: tuple[PopulationVerdict, ...]
     note: str
 
@@ -99,23 +109,35 @@ class SampleRecord:
 
 
 def evaluate_sample(element: Element, distribution: StructuralDistribution, spin_label: str,
-                    state: SpinState, config: LabConfig = DEFAULT_CONFIG) -> SampleRecord:
-    """Score a heterogeneous sample: per-population verdicts + coverage-weighted aggregate."""
-    from .pipeline import evaluate_candidate   # local import avoids a module-load cycle
+                    state: SpinState, config: LabConfig = DEFAULT_CONFIG,
+                    identity: IdentityWitness | None = None) -> SampleRecord:
+    """Score a heterogeneous sample: per-population verdicts + coverage-weighted aggregate.
 
+    ``identity`` (one characterization witness for the whole sample) threads into every
+    population's G_identity gate. Without it, no population is *credited* — ``credited_fraction``
+    is 0 even where the SC proxies pass, consistent with the per-candidate layer.
+    """
     verdicts = []
     surviving = 0.0
+    credited = 0.0
     for p in distribution.populations:
-        rec = evaluate_candidate(element, p.geometry, spin_label, state, config)
+        rec = evaluate_candidate(element, p.geometry, spin_label, state, config, identity=identity)
         verdicts.append(PopulationVerdict(
             geometry=p.geometry.label, n_atoms=p.geometry.n_atoms, fraction=p.fraction,
-            sc_plausibility=rec.sc_plausibility, ruled_out=rec.ruled_out))
+            sc_plausibility=rec.sc_plausibility, ruled_out=rec.ruled_out,
+            credited_sc_lead=rec.credited_sc_lead, identity_verdict=rec.identity_verdict))
         if not rec.ruled_out:
             surviving += p.fraction
+        if rec.credited_sc_lead:
+            credited += p.fraction
 
     f1 = distribution.f1()
+    # NOTE: expected_coupling recomputes coupling from geometry; identical to the per-population
+    # values on the toy path. If a backend is ever threaded through, reuse rec.coupling here.
     exp_c = distribution.expected_coupling(config.thresholds)
-    note = (f"f1={f1:.2f} isolated; expected coupling {exp_c:.3f}; surviving fraction "
-            f"{surviving:.2f} (only non-ruled-out populations advance — the rest are ruled out "
-            f"as isolated/small).")
-    return SampleRecord(element.symbol, spin_label, f1, exp_c, surviving, tuple(verdicts), note)
+    note = (f"f1={f1:.2f} isolated; expected coupling {exp_c:.3f}; surviving (not-ruled-out) "
+            f"{surviving:.2f}; CREDITED {credited:.2f}. Surviving ≠ credited — crediting needs an "
+            f"identity witness (characterization is the decisive next step); the rest are ruled "
+            f"out as isolated/small.")
+    return SampleRecord(element.symbol, spin_label, f1, exp_c, surviving, credited,
+                        tuple(verdicts), note)

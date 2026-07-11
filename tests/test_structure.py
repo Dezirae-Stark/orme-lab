@@ -58,6 +58,26 @@ def test_evaluate_sample_survivor_is_only_the_cluster_tail():
     assert s.expected_coupling >= 0.0
 
 
+def test_credited_fraction_needs_identity_witness():
+    from orme_lab.identity import IdentityWitness
+    d = make_distribution([(MONO, 0.5), (CLUST, 0.5)])
+    # no witness -> nothing credited, even the surviving cluster (consistent w/ per-candidate layer)
+    s0 = evaluate_sample(PT, d, "high_spin", high_spin_state(PT), DEFAULT_CONFIG)
+    assert s0.credited_fraction == 0.0
+    assert s0.surviving_fraction > 0.0
+    # a metallic witness for the whole sample -> the surviving fraction becomes credited
+    w = IdentityWitness("Pt", "metallic", "sub-nm-cluster", 0.0, ("XRD", "XPS"))
+    s1 = evaluate_sample(PT, d, "high_spin", high_spin_state(PT), DEFAULT_CONFIG, identity=w)
+    assert s1.credited_fraction == s1.surviving_fraction
+    assert s1.credited_fraction > 0.0
+
+
+def test_all_zero_weights_fall_back_to_uniform():
+    d = make_distribution([(MONO, 0.0), (CLUST, 0.0)])
+    assert math.isclose(sum(p.fraction for p in d.populations), 1.0)
+    assert all(math.isclose(p.fraction, 0.5) for p in d.populations)
+
+
 def test_dispersed_sample_factory():
     d = dispersed_sample(PT, f1=0.9)
     assert math.isclose(d.f1(), 0.9)

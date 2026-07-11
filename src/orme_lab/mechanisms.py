@@ -110,10 +110,33 @@ def _granular(coupling: float, n_atoms: int, th: ModelThresholds) -> MechanismRe
                            f"granular Josephson network E_J/E_C={ratio:.2f} (Abeles 1977; Ambegaokar–Baratoff)")
 
 
+#: is_surrogate flag per mechanism (for the global-rejection path).
+_SURROGATE = {
+    Mechanism.PHONON: False, Mechanism.SPIN_FLUCTUATION: True, Mechanism.TRIPLET: True,
+    Mechanism.EXCITONIC_POLARITONIC: True, Mechanism.GRANULAR_JOSEPHSON: False,
+}
+
+
 def evaluate_mechanisms(*, coupling: float, carrier_proxy: float, structural_stability: float,
+                        field_suppression: float, observable_signal: float,
                         spin_polarization: float, em_coherence_score: float | None, n_atoms: int,
                         thresholds: ModelThresholds) -> tuple[MechanismResult, ...]:
-    """Evaluate all five pairing-mechanism tracks. Order is fixed and deterministic."""
+    """Evaluate all five pairing-mechanism tracks. Order is fixed and deterministic.
+
+    Global necessary conditions shared by EVERY mechanism (they mirror the generic SC gate's
+    field/observable floors, so the mechanism attribution stays consistent with
+    ``plaus.all_passed``): a candidate destroyed by an applied field, or with no measurable
+    observable, has NO viable SC phase regardless of pairing channel — every track is rejected.
+    """
+    if field_suppression < thresholds.min_field_tolerance:
+        why = (f"field-suppressed: field tolerance {field_suppression:.2f} < "
+               f"{thresholds.min_field_tolerance} (no robust SC phase in any channel)")
+        return tuple(_reject(m, why, _SURROGATE[m]) for m in Mechanism)
+    if observable_signal < thresholds.min_observable_signal:
+        why = (f"no measurable observable: signal {observable_signal:.2f} < "
+               f"{thresholds.min_observable_signal} (unfalsifiable in any channel)")
+        return tuple(_reject(m, why, _SURROGATE[m]) for m in Mechanism)
+
     return (
         _phonon(coupling, carrier_proxy, structural_stability, spin_polarization, thresholds),
         _spin_fluctuation(coupling, spin_polarization, thresholds),

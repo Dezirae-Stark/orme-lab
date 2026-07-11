@@ -12,10 +12,21 @@ from orme_lab.mechanisms import (
 TH = DEFAULT_CONFIG.thresholds
 
 
-def _eval(*, coupling=0.657, carrier=0.657, stability=0.333, spin_pol=0.0, em=None, n=13):
+def _eval(*, coupling=0.657, carrier=0.657, stability=0.333, spin_pol=0.0, em=None, n=13,
+          field=1.0, obs=1.0):
     return evaluate_mechanisms(coupling=coupling, carrier_proxy=carrier,
-                               structural_stability=stability, spin_polarization=spin_pol,
+                               structural_stability=stability, field_suppression=field,
+                               observable_signal=obs, spin_polarization=spin_pol,
                                em_coherence_score=em, n_atoms=n, thresholds=TH)
+
+
+def test_field_suppressed_or_unmeasurable_rejects_every_mechanism():
+    # Global necessary conditions: a candidate destroyed by an applied field, or with no
+    # measurable observable, has no viable SC phase in ANY channel -> zero survivors.
+    assert surviving(_eval(spin_pol=0.6, field=0.05)) == ()   # below min_field_tolerance
+    assert surviving(_eval(spin_pol=0.0, obs=0.0)) == ()       # below min_observable_signal
+    # and the rejection reason names the global condition
+    assert "field-suppressed" in _by(_eval(field=0.05), Mechanism.PHONON).rejection
 
 
 def _by(results, mech):

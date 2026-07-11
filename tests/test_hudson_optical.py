@@ -1,0 +1,40 @@
+"""Tests for the Hudson optical-coherence branch (Branch B)."""
+from __future__ import annotations
+
+import math
+
+from orme_lab.config import DEFAULT_CONFIG
+from orme_lab.hudson_optical import (
+    is_anticrossing,
+    mode_composition,
+    polariton_branches,
+)
+
+TH = DEFAULT_CONFIG.thresholds
+
+
+def test_polariton_branches_split_by_rabi_at_resonance():
+    # On resonance (matter == photon), the branches are separated by 2g (the Rabi
+    # splitting), symmetric about the shared bare energy.
+    lower, upper = polariton_branches(2.0, 2.0, 0.3)
+    assert math.isclose(upper - lower, 0.6, rel_tol=1e-9)   # 2g
+    assert math.isclose((upper + lower) / 2, 2.0, rel_tol=1e-9)
+
+
+def test_mode_composition_is_5050_on_resonance():
+    f_ph, f_el = mode_composition(2.0, 2.0, 0.3)
+    assert math.isclose(f_ph, 0.5, rel_tol=1e-9)
+    assert math.isclose(f_el, 0.5, rel_tol=1e-9)
+    assert math.isclose(f_ph + f_el, 1.0, rel_tol=1e-12)
+
+
+def test_lower_polariton_is_photon_like_when_photon_below_matter():
+    # matter well ABOVE photon -> the lower polariton tracks the photon -> photon-like.
+    f_ph, f_el = mode_composition(3.0, 1.0, 0.05)
+    assert f_ph > 0.9
+    assert f_el < 0.1
+
+
+def test_anticrossing_requires_splitting_above_linewidth():
+    assert is_anticrossing(0.30, linewidth_ev=0.10) is True    # 2g=0.6 > 0.10
+    assert is_anticrossing(0.02, linewidth_ev=0.10) is False   # 2g=0.04 < 0.10

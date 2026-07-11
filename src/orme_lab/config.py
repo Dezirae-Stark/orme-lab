@@ -86,6 +86,20 @@ class ModelThresholds:
     (strong-coupling) regime to be considered established. C>1 is the standard
     strong-coupling threshold."""
 
+    # --- Branch B (Hudson optical-coherence) -----------------------------------
+    #: Minimum photonic (Hopfield) fraction of the lower polariton for the mode to
+    #: count as a genuine light-matter HYBRID rather than a bare matter excitation.
+    hudson_min_photon_fraction: float = 0.20
+    #: measured/predicted ring-down ratio at/above which a decayed mode is
+    #: "metastable" (long-lived but not self-sustaining).
+    hudson_metastable_ratio: float = 10.0
+    #: measured/predicted ring-down ratio at/above which the mode is treated as
+    #: effectively self-sustaining ("persistent") — Hudson's extraordinary claim.
+    hudson_persistent_ratio: float = 1.0e6
+    #: group velocity as a fraction of c, for the toy spatial-coherence-length
+    #: surrogate L_coh = frac * c * tau_coh. Flagged toy; TODO(dft): compute v_g.
+    hudson_group_velocity_fraction: float = 0.01
+
 
 @dataclass(frozen=True)
 class LabConfig:

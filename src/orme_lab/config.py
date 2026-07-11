@@ -100,6 +100,15 @@ class ModelThresholds:
     #: surrogate L_coh = frac * c * tau_coh. Flagged toy; TODO(dft): compute v_g.
     hudson_group_velocity_fraction: float = 0.01
 
+    # --- Hudson Claim Ledger (HC-02 dispersion policy + replication minima) -----
+    hudson_hc02_min_isolated_fraction: float = 0.85   # f_single floor for "atomically dispersed"
+    hudson_hc02_max_clustered_fraction: float = 0.20  # upper-bound cap on the clustered fraction
+    hudson_hc02_cluster_margin: float = 0.05          # uncertainty margin added to clustered fraction
+    hudson_hc02_pgm_pgm_tolerance: float = 0.15       # max fraction with a real PGM-PGM bond
+    hudson_hc02_bond_length_ang: float = 3.2          # nn distance at/below this = a PGM-PGM bond
+    hudson_replication_min_batches: int = 3           # G_replication: >= 3 independent batches
+    hudson_replication_min_labs: int = 2              # G_replication: > 1 lab
+
 
 @dataclass(frozen=True)
 class LabConfig:

@@ -172,3 +172,22 @@ def test_hc04_folds_the_ir_control():
     r = assess_hc04((1429.53, 1490.99), TH)
     assert r.id.value == "HC-04"
     assert "contaminant" in r.mundane_alternative.lower()
+
+
+from orme_lab.hudson_ledger import assess_hc03, assess_hc05, assess_hc08
+
+
+def test_procedural_claims_emit_level3_designs_and_default_to_candidate():
+    for fn, hc in ((assess_hc03, "HC-03"), (assess_hc05, "HC-05"), (assess_hc08, "HC-08")):
+        r = fn(MeasuredEvidence())
+        assert r.id.value == hc
+        assert r.computable is False
+        assert r.evidence_level == 3                    # a laboratory-prediction design
+        assert r.status is ClaimStatus.CANDIDATE
+        assert r.mundane_alternative and r.required_observation
+
+
+def test_procedural_claims_reach_supported_only_with_measured_confirmation():
+    assert assess_hc05(MeasuredEvidence(hc05_recovery_confirmed=True)).status >= ClaimStatus.SUPPORTED
+    assert assess_hc08(MeasuredEvidence(hc08_mass_confirmed=True)).status >= ClaimStatus.SUPPORTED
+    assert assess_hc03(MeasuredEvidence(hc03_orbital_confirmed=True)).status >= ClaimStatus.SUPPORTED

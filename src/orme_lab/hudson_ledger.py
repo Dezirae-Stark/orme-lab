@@ -250,3 +250,29 @@ def assess_hc07(candidate: CandidateRecord, measured: MeasuredEvidence,
                            Route.NONE, True, None, "credited_sc_lead (simulation lead, not support)")
     return ClaimRecord(HudsonClaimId.HC_07, text, req, mundane, ClaimStatus.CANDIDATE, 2,
                        Route.NONE, True, None, "no SC lead")
+
+
+def _procedural(hc, text, required, mundane, confirmed) -> ClaimRecord:
+    status = ClaimStatus.SUPPORTED if confirmed else ClaimStatus.CANDIDATE
+    ev = 4 if confirmed else 3   # a measured confirmation is an observation (L4); the design is L3
+    note = ("measured confirmation loaded" if confirmed
+            else f"Level-3 decisive-experiment design; attack the mundane alternative first: {mundane}")
+    return ClaimRecord(hc, text, required, mundane, status, ev, Route.NONE, False, None, note)
+
+
+def assess_hc03(measured: MeasuredEvidence) -> ClaimRecord:
+    return _procedural(HudsonClaimId.HC_03, "orbital rearrangement",
+                       "reproducible electronic structure distinct from known compounds (XPS/XAS/EELS)",
+                       "ordinary crystal-field / oxidation-state change", measured.hc03_orbital_confirmed)
+
+
+def assess_hc05(measured: MeasuredEvidence) -> ClaimRecord:
+    return _procedural(HudsonClaimId.HC_05, "conversion back to metal",
+                       "mass-balanced recovery of the original PGM",
+                       "contamination / reduction of an ordinary salt", measured.hc05_recovery_confirmed)
+
+
+def assess_hc08(measured: MeasuredEvidence) -> ClaimRecord:
+    return _procedural(HudsonClaimId.HC_08, "anomalous apparent mass",
+                       "replication on independent balances under controlled gas flow",
+                       "buoyancy / convection / magnetic force / balance coupling", measured.hc08_mass_confirmed)

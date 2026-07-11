@@ -66,13 +66,21 @@ export function assessHc01(witness, target, th) {
 }
 
 // ---- HC-02: atomically dispersed ("monoatomic") — a POLICY, not a Boolean ------------------
-export function assessHc02(distribution, th) {
+// _hc02Metrics is shared by the assessor and the HC-02 detail render (renderLedger below) so
+// the dashboard reads the identical numbers the parity-locked assessor computed — never a
+// second, drifting computation.
+function _hc02Metrics(distribution, th) {
   const fSingle = distribution.f1;
   const clusteredUb = Math.min(1.0, 1.0 - fSingle + th.hc02ClusterMargin);
   let coordinated = 0.0;
   for (const [dist, frac] of distribution.nnDistances) {
     if (isFinite(dist) && dist <= th.hc02BondLen) coordinated += frac;
   }
+  return { fSingle, clusteredUb, coordinated };
+}
+
+export function assessHc02(distribution, th) {
+  const { fSingle, clusteredUb, coordinated } = _hc02Metrics(distribution, th);
   const clears =
     fSingle >= th.hc02MinIsolated && clusteredUb <= th.hc02MaxClustered && coordinated <= th.hc02PgmPgmTol;
   if (clears) {
@@ -595,10 +603,266 @@ export const DOSSIER = [
   }),
 ];
 
+// ---- Default assessment inputs for the Ledger tab (Task 5: static render; Task 6 makes the
+// evidence controls live). DEFAULT_TH mirrors DEFAULT_CONFIG.thresholds exactly (see
+// tests/test_ledger_parity.py::_th_js — same numbers). DEFAULT_DOUBLET is the single observed
+// IR doublet already characterised in research.js (the same (1429.53, 1490.99) cm^-1 pair the
+// "contaminant" finding scored as a plausible carboxylate match, residual 0.59).
+export const DEFAULT_TH = Object.freeze({
+  hc02MinIsolated: 0.85,
+  hc02MaxClustered: 0.2,
+  hc02ClusterMargin: 0.05,
+  hc02PgmPgmTol: 0.15,
+  hc02BondLen: 3.2,
+  replMinBatches: 3,
+  replMinLabs: 2,
+});
+export const DEFAULT_DOUBLET = Object.freeze([1429.53, 1490.99]);
+
+// ---- status-ladder presentation (label + CSS palette class). Purely cosmetic — never fed back
+// into any computed value.
+const STATUS_LABEL = [
+  "Candidate",
+  "Lead",
+  "Anomalous",
+  "Provisionally Supported",
+  "Supported",
+  "Independently Replicated",
+];
+function _statusLabel(status) {
+  return STATUS_LABEL[status] || "Candidate";
+}
+function _statusClass(status) {
+  return `lvl-${status}`;
+}
+const _ROUTE_GLYPH = { [ROUTE.CONVENTIONAL]: "⚡ conv.", [ROUTE.OPTICAL]: "✦ opt.", [ROUTE.NONE]: "" };
+
+// ---- tiny DOM-building helpers. All researcher/derived text goes through textContent — never
+// innerHTML (Phase-3 recorder security posture, carried here).
+function _el(tag, className, text) {
+  const node = document.createElement(tag);
+  if (className) node.className = className;
+  if (text != null) node.textContent = text;
+  return node;
+}
+function _statusDot(status) {
+  const dot = _el("span", `status-dot ${_statusClass(status)}`);
+  dot.title = _statusLabel(status);
+  return dot;
+}
+
+// ---- Legend: the status ladder + neutrality banner. ----------------------------------------
+function _buildLegend() {
+  const wrap = _el("div", "ledger-legend");
+  const row = _el("div", "ledger-legend-row");
+  for (let s = CLAIM_STATUS.CANDIDATE; s <= CLAIM_STATUS.INDEPENDENTLY_REPLICATED; s++) {
+    const item = _el("span", "ledger-legend-item");
+    item.appendChild(_statusDot(s));
+    item.appendChild(_el("span", "ledger-legend-label", _statusLabel(s)));
+    row.appendChild(item);
+    if (s < CLAIM_STATUS.INDEPENDENTLY_REPLICATED) row.appendChild(_el("span", "ledger-legend-arrow", "→"));
+  }
+  wrap.appendChild(row);
+  wrap.appendChild(
+    _el("p", "ledger-neutrality", "Triage, not proof — the lab never asserts a validated verdict.")
+  );
+  return wrap;
+}
+
+// ---- Roll-up cards: portfolio best-of + integrated max_lineage(min_claim). ------------------
+function _bestMaterialsForClaim(entries, hcIdx) {
+  let best = null;
+  const winners = [];
+  for (const e of entries) {
+    const rec = e.records[hcIdx];
+    if (best === null || rec.status > best) {
+      best = rec.status;
+      winners.length = 0;
+    }
+    if (rec.status === best) winners.push(e);
+  }
+  return { best, winners };
+}
+
+function _buildPortfolioCard(entries, portfolioClaims) {
+  const card = _el("div", "ledger-card");
+  card.appendChild(_el("div", "ledger-card-title", "Portfolio claim coverage"));
+  const nCovered = portfolioClaims.filter((c) => c.status >= CLAIM_STATUS.PROVISIONALLY_SUPPORTED).length;
+  card.appendChild(
+    _el("p", "ledger-card-sub", `${nCovered} of ${HC.length} claims ≥ Provisionally Supported (best-of, across ALL materials — not one coherent lineage).`)
+  );
+  const list = _el("div", "ledger-rollup-list");
+  HC.forEach((hc, j) => {
+    const rec = portfolioClaims[j];
+    const row = _el("div", "ledger-rollup-row");
+    row.appendChild(_el("span", "ledger-rollup-hc", hc));
+    row.appendChild(_statusDot(rec.status));
+    row.appendChild(_el("span", "ledger-rollup-status", _statusLabel(rec.status)));
+    if (rec.status >= CLAIM_STATUS.PROVISIONALLY_SUPPORTED) {
+      const { winners } = _bestMaterialsForClaim(entries, j);
+      const names = winners.map((w) => w.material.title).join(", ");
+      row.appendChild(_el("span", "ledger-rollup-via", `via ${names}`));
+    } else {
+      row.appendChild(_el("span", "ledger-rollup-via muted", "no supporting material"));
+    }
+    list.appendChild(row);
+  });
+  card.appendChild(list);
+  return card;
+}
+
+function _buildIntegratedCard(entries, result) {
+  const card = _el("div", "ledger-card");
+  card.appendChild(_el("div", "ledger-card-title", "Best coherent same-material candidate"));
+  card.appendChild(
+    _el(
+      "p",
+      "ledger-card-sub",
+      `integrated = max_lineage(min_claim over CORE) — the strongest SINGLE lineage's weakest-link status, never the best cell from different materials stitched together.`
+    )
+  );
+  const statusRow = _el("div", "ledger-rollup-row");
+  statusRow.appendChild(_statusDot(result.integratedStatus));
+  statusRow.appendChild(_el("span", "ledger-rollup-status", _statusLabel(result.integratedStatus)));
+  const bestEntry = entries.find((e) => e.key === result.integratedLineageId);
+  statusRow.appendChild(
+    _el("span", "ledger-rollup-via", bestEntry ? `lineage: ${bestEntry.material.title}` : "no lineage clears any core claim")
+  );
+  card.appendChild(statusRow);
+
+  const gateList = _el("div", "ledger-gate-list");
+  const gateRow = (label, value) => {
+    const row = _el("div", `ledger-gate-row ${value ? "pass" : "fail"}`);
+    row.appendChild(_el("span", "ledger-gate-lbl", label));
+    row.appendChild(_el("span", "ledger-gate-val", value ? "closed-with-evidence" : "closed (default-block)"));
+    return row;
+  };
+  gateList.appendChild(gateRow("g_conventional_superconductivity", result.gate.gConventionalSuperconductivity));
+  gateList.appendChild(gateRow("g_hudson_mechanism", result.gate.gHudsonMechanism));
+  card.appendChild(gateList);
+  card.appendChild(_el("p", "ledger-verdict", result.gate.interimVerdict));
+
+  // Anti-Frankenstein divergence, made visible: when the portfolio's best per CORE claim beats
+  // the integrated (single-lineage) status, name which material earned each CORE claim so the
+  // divergence — never stitched together as a single candidate — is legible.
+  const coreIdx = CORE.map((hc) => HC.indexOf(hc));
+  const perClaimBest = coreIdx.map((j) => _bestMaterialsForClaim(entries, j));
+  const forbiddenMax = Math.max(...perClaimBest.map((b) => (b.best === null ? CLAIM_STATUS.CANDIDATE : b.best)));
+  if (forbiddenMax > result.integratedStatus) {
+    const reasons = CORE.map((hc, i) => {
+      const b = perClaimBest[i];
+      if (b.best === null || b.best < CLAIM_STATUS.PROVISIONALLY_SUPPORTED) return null;
+      const names = b.winners.map((w) => w.material.title).join("/");
+      return `${hc} on ${names}`;
+    }).filter(Boolean);
+    if (reasons.length) {
+      card.appendChild(
+        _el("p", "ledger-divergence", `Diverges from the portfolio card: no single material clears the core set — ${reasons.join(", ")}.`)
+      );
+    }
+  }
+  return card;
+}
+
+// ---- Claim matrix: HC-01..HC-08 rows x material columns. ------------------------------------
+function _buildMatrix(entries) {
+  const wrap = _el("div", "ledger-matrix-wrap");
+  const table = _el("table", "ledger-matrix");
+  const thead = _el("thead");
+  const headRow = _el("tr");
+  headRow.appendChild(_el("th", "ledger-matrix-corner", "Claim"));
+  entries.forEach((e) => {
+    const th = _el("th", "ledger-matrix-colhead");
+    th.appendChild(_el("span", "ledger-matrix-coltitle", e.material.title));
+    if (e.material.demo) th.appendChild(_el("span", "ledger-demo-badge", "demo"));
+    headRow.appendChild(th);
+  });
+  thead.appendChild(headRow);
+  table.appendChild(thead);
+
+  const tbody = _el("tbody");
+  HC.forEach((hc, j) => {
+    const row = _el("tr");
+    row.appendChild(_el("th", "ledger-matrix-rowhead", hc));
+    entries.forEach((e) => {
+      const rec = e.records[j];
+      const td = _el("td", "ledger-matrix-cell");
+      const dotWrap = _el("div", "ledger-cell-dotwrap");
+      dotWrap.appendChild(_statusDot(rec.status));
+      if ((hc === "HC-06" || hc === "HC-07") && _ROUTE_GLYPH[rec.route]) {
+        dotWrap.appendChild(_el("span", "ledger-route-glyph", _ROUTE_GLYPH[rec.route]));
+      }
+      td.appendChild(dotWrap);
+      if (rec.status >= CLAIM_STATUS.PROVISIONALLY_SUPPORTED) {
+        td.appendChild(_el("span", "ledger-cell-material", e.material.title));
+        const noteEl = _el("span", "ledger-cell-note", rec.note);
+        noteEl.title = rec.note;
+        td.appendChild(noteEl);
+      }
+      row.appendChild(td);
+    });
+    tbody.appendChild(row);
+  });
+  table.appendChild(tbody);
+  wrap.appendChild(table);
+  return wrap;
+}
+
+// ---- HC-02 detail: f1 fraction + margin band + PGM-PGM coordination as a bar (never a bare
+// checkmark). None of the Phase-A dossier entries carry a StructuralDistribution yet (both
+// findings and demo states leave `distribution: null`) — the panel says so honestly rather
+// than fabricating a number.
+function _buildHc02Detail(entries, th) {
+  const panel = _el("div", "ledger-hc02");
+  panel.appendChild(_el("div", "ledger-card-title", "HC-02 detail — atomically dispersed"));
+  const withDist = entries.find((e) => e.material.distribution != null);
+  if (!withDist) {
+    panel.appendChild(
+      _el("p", "ledger-card-sub", "No structural distribution (f1 / P(n) / nearest-neighbour) loaded for any dossier material — the policy bar reads empty, not clear.")
+    );
+    const bar = _el("div", "ledger-hc02-bar");
+    bar.appendChild(_el("div", "ledger-hc02-bar-fill empty"));
+    panel.appendChild(bar);
+    return panel;
+  }
+  const { fSingle, clusteredUb, coordinated } = _hc02Metrics(withDist.material.distribution, th);
+  panel.appendChild(_el("p", "ledger-card-sub", `${withDist.material.title} — f_single=${fSingle.toFixed(2)}, clustered_ub=${clusteredUb.toFixed(2)}, pgm-pgm=${coordinated.toFixed(2)} against policy (isolated≥${th.hc02MinIsolated}, clustered≤${th.hc02MaxClustered}, pgm-pgm≤${th.hc02PgmPgmTol}).`));
+  const bar = _el("div", "ledger-hc02-bar");
+  const fill = _el("div", fSingle >= th.hc02MinIsolated ? "ledger-hc02-bar-fill pass" : "ledger-hc02-bar-fill");
+  fill.style.width = `${Math.max(0, Math.min(100, fSingle * 100))}%`;
+  bar.appendChild(fill);
+  const marker = _el("div", "ledger-hc02-bar-marker");
+  marker.style.left = `${th.hc02MinIsolated * 100}%`;
+  bar.appendChild(marker);
+  panel.appendChild(bar);
+  return panel;
+}
+
+// ---- renderLedger: the full 2D dashboard over evaluateLedger(DOSSIER, ...). Task 5 is a
+// static render from the frozen dossier; Task 6 wires the evidence controls that recompute and
+// re-render this same structure live.
 export function renderLedger(el) {
   el.textContent = "";
-  const p = document.createElement("p");
-  p.className = "reg-sub";
-  p.textContent = "Ledger dashboard loading…";
-  el.appendChild(p);
+  const th = DEFAULT_TH;
+  const doublet = DEFAULT_DOUBLET;
+
+  const entries = DOSSIER.map((material) => ({
+    key: _lineageKey(material.lineage),
+    material,
+    records: _materialClaimRecords(material, doublet, th),
+  }));
+  const result = evaluateLedger(DOSSIER, { th, doublet });
+
+  const dash = _el("div", "ledger-dash");
+  dash.appendChild(_buildLegend());
+
+  const cards = _el("div", "ledger-cards");
+  cards.appendChild(_buildPortfolioCard(entries, result.claims));
+  cards.appendChild(_buildIntegratedCard(entries, result));
+  dash.appendChild(cards);
+
+  dash.appendChild(_buildMatrix(entries));
+  dash.appendChild(_buildHc02Detail(entries, th));
+
+  el.appendChild(dash);
 }

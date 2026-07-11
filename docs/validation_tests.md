@@ -18,9 +18,14 @@ A superconductor is not "a material with zero resistance." It is a
 
 1. **A pairing mechanism** binding carriers into a condensate (Cooper pairs in
    BCS; some other boson in exotic scenarios). An energy gap Δ opens at the Fermi
-   level. For ambient operation the effective pairing scale must give
-   `k_B T_c ≳ Δ` at `T ≈ 300 K` → `Δ` on the order of tens of meV *and* a coupling
-   strong enough to sustain it without destroying the lattice.
+   level and **closes at `T_c`**. For a weak-coupling *isotropic BCS reference*,
+   `2Δ(0) ≈ 3.53 k_B T_c`, i.e. `Δ(0) ≈ 1.76 k_B T_c`; a 300 K transition
+   (`k_B T_c ≈ 25.85 meV`) implies a *zero-temperature* gap `Δ(0) ≈ 45.5 meV`. This
+   is a **mechanism-dependent reference scale, not a universal requirement** —
+   strong-coupling, anisotropic, multiband, and unconventional phases give other
+   `2Δ/k_B T_c` ratios — and because Δ closes at `T_c`, the gap is *not* tens of meV
+   at 300 K itself. The pairing must also be strong enough to sustain the phase
+   without destroying the lattice.
 2. **Macroscopic phase coherence** — a single complex order parameter
    `ψ = |ψ| e^{iφ}` with `φ` rigid across the sample. This is what an isolated
    atom cannot provide (see §4).
@@ -42,8 +47,8 @@ electrodynamics → `meissner_screening_proxy`.
 | Observable | Instrument | Confirms | Falsifies |
 |-----------|-----------|----------|-----------|
 | **Zero DC resistance** | 4-probe transport | Necessary (not sufficient) | Finite `R` at all `T` |
-| **Meissner flux expulsion** | SQUID magnetometry (ZFC/FC), susceptibility → −1 (SI) | The phase is genuinely superconducting | No diamagnetic screening despite "zero R" ⇒ artifact/short |
-| **Specific-heat jump** at `T_c` | calorimetry (`ΔC/C ≈ 1.43` in BCS) | A true thermodynamic phase transition | No anomaly ⇒ no bulk transition |
+| **Meissner flux expulsion** | SQUID (ZFC/FC); **demagnetization-corrected** `χ_int → −1` (SI), not raw `χ` | The phase is genuinely superconducting | No diamagnetic screening despite "zero R" ⇒ artifact/short |
+| **Specific-heat jump** at `T_c` | calorimetry (`ΔC/γT_c ≈ 1.43` in *weak-coupling* BCS) | A true thermodynamic phase transition | No resolvable anomaly ⇒ *upper bound on bulk SC fraction* (does not alone exclude filamentary/granular/broadened/unconventional SC) |
 | **Critical field `H_c`/`H_c2`** | transport/magnetization vs field | Field destroys SC as expected | No field dependence ⇒ not SC |
 | **Isotope effect** (if phonon-mediated) | `T_c` vs isotopic mass | Phonon pairing mechanism | Absent ⇒ non-phononic or artifact |
 | **Magnetic susceptibility** (normal state) | SQUID/VSM | High-spin PGM moment consistent with H1/H2 | No moment ⇒ high-spin claim fails |
@@ -51,6 +56,27 @@ electrodynamics → `meissner_screening_proxy`.
 The model's `predict_observables` routes each candidate to the experiment that
 would matter most for it (`resistance_regime` = `candidate-sc` means "go measure
 the Meissner effect").
+
+### Gate-calibration notes (do not universalize the BCS benchmarks)
+
+- **Meissner / susceptibility — demagnetization is not optional.** A raw `χ → −1`
+  target is directionally right but geometry-dependent. Report the
+  demagnetization-corrected intrinsic susceptibility
+  `χ_int = χ_meas / (1 − N χ_meas)` (subject to the unit/sign convention in use),
+  because apparent shielding fractions depend on demagnetization factor `N`, sample
+  shape, packing density, porosity, grain orientation, SC volume fraction, field
+  amplitude, and ZFC-vs-FC — and can even exceed 100 % when `N` is underestimated.
+  The validation output should carry: raw magnetic moment; mass- and
+  volume-normalized susceptibility; assumed sample density; `N`; corrected shielding
+  fraction; ZFC/FC divergence; and field-amplitude dependence.
+- **Specific-heat jump — `ΔC/γT_c ≈ 1.43` is the weak-coupling isotropic BCS value,
+  not a universal requirement.** Strong coupling, anisotropic/nodal gaps, multiband
+  structure, inhomogeneous volume fractions, and broadened transitions all shift it
+  (reported values run from well below to ~2.3 and beyond). A missing calorimetric
+  anomaly therefore bounds the *bulk* SC fraction and argues against a homogeneous
+  bulk transition — it does not by itself exclude a small-volume, filamentary,
+  granular, strongly broadened, or unconventional component. The calorimetry gate
+  stays important; it is not universalized past its actual discriminating power.
 
 ---
 
@@ -136,6 +162,31 @@ these more-mundane explanations must be excluded by a specific measurement:
 The model does not "rule these out" by itself — it **routes** a candidate toward
 the experiment that would. Ruling out is an empirical act; the code's job is to
 say which experiment is decisive for a given candidate.
+
+### G_identity — phase identity is a hard upstream gate
+
+The "oxide / hydroxide / salt phase" row above is not just one alternative among
+many — it is *upstream* of the whole superconductivity interpretation. A specimen
+must clear a **phase-identity gate before it may enter the superconductivity branch
+at all**:
+
+```
+G_identity = G_composition ∧ G_phase ∧ G_morphology ∧ G_oxidation
+```
+
+Until there is enough characterization to distinguish among **metallic PGM · oxide ·
+hydroxide · chloride/other salt · ligand complex · carbon-supported single atoms ·
+nanoparticles · sub-nanometre clusters · mixed/contaminated phases**, a "zero
+resistance" or "diamagnetic" reading cannot be attributed to a superconducting phase
+of the metal, because it may belong to a different compound entirely. The
+characterization package that discharges this gate draws on some combination of:
+**XRD or total-scattering/PDF · XPS · ICP-MS/OES · STEM-HAADF · EDS/EELS ·
+XANES/EXAFS · Raman/FTIR · TGA**. The charter's "independent, instrumented,
+reproducible observation" standard already implies these witnesses; `G_identity`
+makes them a *compulsory precondition* rather than a parallel caveat.
+
+*Implementation status:* documented here as a gate; the pipeline does not yet enforce
+`G_identity` as code upstream of the superconductivity AND-gate (scoped follow-up).
 
 ---
 

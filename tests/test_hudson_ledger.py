@@ -61,3 +61,36 @@ def test_hc01_supported_only_for_nonmetallic_elemental():
 def test_identity_unresolved_when_uncharacterized():
     blank = IdentityWitness(None, None, None, None, ())
     assert g_identity_established(blank) is False
+
+
+from orme_lab.hudson_ledger import assess_hc02, g_hudson_material_state
+from orme_lab.elements import get_element
+from orme_lab.structure import dispersed_sample, make_distribution
+from orme_lab.geometry import make_compact_cluster, make_monomer
+
+
+def test_hc02_clears_for_well_dispersed_sample():
+    el = get_element("Ir")
+    disp = dispersed_sample(el, 0.95)                    # 95% isolated
+    r = assess_hc02(disp, TH)
+    assert r.status >= ClaimStatus.PROVISIONALLY_SUPPORTED
+    # a clustered sample fails the policy
+    clustered = make_distribution([(make_compact_cluster(el, 13), 1.0)])
+    assert assess_hc02(clustered, TH).status.name == "CANDIDATE"
+
+
+def test_hc02_flags_pgm_pgm_coordination():
+    el = get_element("Ir")
+    # 60% isolated / 40% clustered: below the isolated floor AND above clustered cap -> fails
+    mixed = dispersed_sample(el, 0.60)
+    assert assess_hc02(mixed, TH).status.name == "CANDIDATE"
+
+
+def test_material_state_gate_combines_hc01_and_hc02():
+    el = get_element("Ir")
+    hud_witness = IdentityWitness("Ir", NONMETALLIC_ELEMENTAL, "monatomic", 0.0, ())
+    ok, ident = g_hudson_material_state(hud_witness, dispersed_sample(el, 0.95), "Ir", TH)
+    assert ok is True and ident is HudsonIdentity.HUDSON_SATISFIED
+    metal_witness = IdentityWitness("Ir", "metallic", "bulk", 0.0, ())
+    ok2, ident2 = g_hudson_material_state(metal_witness, dispersed_sample(el, 0.95), "Ir", TH)
+    assert ok2 is False and ident2 is HudsonIdentity.HUDSON_FAILED

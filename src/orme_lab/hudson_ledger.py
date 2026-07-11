@@ -9,11 +9,13 @@ See docs/hudson_claim_ledger.md and the design spec.
 """
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 from enum import Enum, IntEnum
 
 from .config import ModelThresholds
 from .identity import IdentityWitness
+from .structure import StructuralDistribution
 
 
 class HudsonClaimId(str, Enum):
@@ -123,3 +125,40 @@ def assess_hc01(witness: IdentityWitness, target: str, th: ModelThresholds) -> C
                        mundane, ClaimStatus.CANDIDATE, 2, Route.NONE, True, None,
                        f"phase '{witness.phase}' is not nonmetallic-elemental "
                        f"(mundane alternative: {mundane})")
+
+
+def assess_hc02(distribution: StructuralDistribution, th: ModelThresholds) -> ClaimRecord:
+    """HC-02 is a POLICY over measurements, not a Boolean. Clears when: isolated fraction is
+    above the floor AND the upper-bounded clustered fraction is under the cap AND no PGM-PGM
+    coordination signal exceeds tolerance. A monomer has nn distance +inf (no bond)."""
+    f_single = distribution.f1()
+    clustered_ub = min(1.0, (1.0 - f_single) + th.hudson_hc02_cluster_margin)
+    coordinated = sum(frac for dist, frac in distribution.nn_distances()
+                      if math.isfinite(dist) and dist <= th.hudson_hc02_bond_length_ang)
+    text, mundane = "atomically dispersed ('monoatomic')", "undetected clusters / nanoparticles"
+    req = "predominantly isolated atoms (EXAFS/STEM/PDF)"
+    clears = (f_single >= th.hudson_hc02_min_isolated_fraction
+              and clustered_ub <= th.hudson_hc02_max_clustered_fraction
+              and coordinated <= th.hudson_hc02_pgm_pgm_tolerance)
+    if clears:
+        return ClaimRecord(HudsonClaimId.HC_02, text, req, mundane,
+                           ClaimStatus.PROVISIONALLY_SUPPORTED, 2, Route.NONE, True, None,
+                           f"f_single={f_single:.2f}, clustered_ub={clustered_ub:.2f}, "
+                           f"pgm-pgm={coordinated:.2f}")
+    return ClaimRecord(HudsonClaimId.HC_02, text, req, mundane, ClaimStatus.CANDIDATE, 2,
+                       Route.NONE, True, None,
+                       f"dispersion policy not met (f_single={f_single:.2f}, "
+                       f"clustered_ub={clustered_ub:.2f}, pgm-pgm={coordinated:.2f})")
+
+
+def g_hudson_material_state(witness: IdentityWitness, distribution: StructuralDistribution,
+                            target: str, th: ModelThresholds) -> tuple[bool, "HudsonIdentity"]:
+    """G_hudson_material_state = HC-01 (nonmetallic-elemental) AND HC-02 (atomically dispersed).
+    Returns (passed, HudsonIdentity outcome)."""
+    if not g_identity_established(witness):
+        return False, HudsonIdentity.HUDSON_UNRESOLVED
+    hc01 = assess_hc01(witness, target, th).status >= ClaimStatus.PROVISIONALLY_SUPPORTED
+    hc02 = assess_hc02(distribution, th).status >= ClaimStatus.PROVISIONALLY_SUPPORTED
+    if hc01 and hc02:
+        return True, HudsonIdentity.HUDSON_SATISFIED
+    return False, HudsonIdentity.HUDSON_FAILED

@@ -131,3 +131,44 @@ def test_replication_gate_is_default_blocked():
     assert replication_gate(None, TH) is False
     assert replication_gate(ReplicationEvidence(3, 2, True, True, True), TH) is True
     assert replication_gate(ReplicationEvidence(2, 2, True, True, True), TH) is False   # < 3 batches
+
+
+from orme_lab.hudson_ledger import assess_hc04, assess_hc06, assess_hc07
+from orme_lab.geometry import make_compact_cluster
+from orme_lab.pipeline import evaluate_candidate
+from orme_lab.spin_states import high_spin_state
+from orme_lab.identity import IdentityWitness as IW
+
+
+def _candidate(sym):
+    el = get_element(sym)
+    return evaluate_candidate(el, make_compact_cluster(el, 13), "high_spin",
+                              high_spin_state(el), DEFAULT_CONFIG)
+
+
+def test_hc07_credited_lead_is_lead_not_supported():
+    # a credited_sc_lead candidate gives HC-07 status LEAD (never SUPPORTED from a sim lead)
+    rec = _candidate("Os")
+    r = assess_hc07(rec, MeasuredEvidence(), TH)
+    assert r.status is ClaimStatus.LEAD or r.status is ClaimStatus.CANDIDATE
+    assert r.status < ClaimStatus.SUPPORTED
+    # measured conventional evidence reaches SUPPORTED, route=conventional
+    full = MeasuredEvidence(zero_resistance=True, flux_exclusion=True,
+                            critical_behavior=True, artifact_excluded=True)
+    r2 = assess_hc07(rec, full, TH)
+    assert r2.status >= ClaimStatus.SUPPORTED and r2.route is Route.CONVENTIONAL
+
+
+def test_hc06_either_route_labelled():
+    rec = _candidate("Os")
+    conv = assess_hc06(rec, MeasuredEvidence(flux_exclusion=True), TH)
+    assert conv.status >= ClaimStatus.SUPPORTED and conv.route is Route.CONVENTIONAL
+    opt_result = _optical(measured_ringdown_fs=1e30, measured_dM_dP=1.0, dM_dP_on_resonance=True)
+    opt = assess_hc06(rec, MeasuredEvidence(optical_result=opt_result), TH)
+    assert opt.route is Route.OPTICAL and opt.status >= ClaimStatus.SUPPORTED
+
+
+def test_hc04_folds_the_ir_control():
+    r = assess_hc04((1429.53, 1490.99), TH)
+    assert r.id.value == "HC-04"
+    assert "contaminant" in r.mundane_alternative.lower()

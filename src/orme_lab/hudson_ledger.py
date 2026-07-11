@@ -16,6 +16,9 @@ from enum import Enum, IntEnum
 from .config import ModelThresholds
 from .hudson_optical import HudsonClaim
 from .identity import IdentityWitness
+from .ir_contaminant import screen_contaminants
+from .meissner_field import screen_meissner
+from .pipeline import CandidateRecord
 from .structure import StructuralDistribution
 
 
@@ -196,3 +199,54 @@ def replication_gate(rep: "ReplicationEvidence | None", th: ModelThresholds) -> 
             and rep.n_labs >= th.hudson_replication_min_labs
             and rep.preregistered_thresholds and rep.raw_data_retained
             and rep.blinded_controls_correct)
+
+
+def assess_hc04(observed_doublet, th: ModelThresholds) -> ClaimRecord:
+    """HC-04: the 1400-1600 cm^-1 doublet. Attacks the contaminant alternative first via the
+    IR contaminant screen. A plausible match to a mundane species keeps HC-04 at LEAD/CANDIDATE
+    (the doublet is explained by contamination); intrinsic assignment needs measured isotope/
+    atmosphere sensitivity (loaded separately)."""
+    text = "1400-1600 cm^-1 doublet"
+    mundane = "water / carbonate / nitrate / ligand / instrument bkg (carboxylate contaminant)"
+    match = screen_contaminants(tuple(observed_doublet))
+    note = getattr(match, "explain", lambda: "")()
+    return ClaimRecord(HudsonClaimId.HC_04, text, "reproducible isotope- & atmosphere-sensitive assignment",
+                       mundane, ClaimStatus.LEAD, 2, Route.NONE, True, None,
+                       f"IR contaminant screen: {note}")
+
+
+def assess_hc06(candidate: CandidateRecord, measured: MeasuredEvidence,
+                th: ModelThresholds) -> ClaimRecord:
+    """HC-06: flux exclusion > 200 K. Either route, labelled. Conventional = Meissner screen
+    (LEAD) / measured flux exclusion (SUPPORTED); optical = Branch-B level-7 (measured dM/dP)."""
+    text, mundane = "flux exclusion > 200 K", "magnetic artifact / ordinary diamagnetism"
+    req = "geometry-corrected diamagnetic shielding"
+    if measured.flux_exclusion:
+        return ClaimRecord(HudsonClaimId.HC_06, text, req, mundane, ClaimStatus.SUPPORTED, 4,
+                           Route.CONVENTIONAL, True, None, "measured diamagnetic flux exclusion")
+    if optical_magnetic_causality(measured.optical_result):
+        return ClaimRecord(HudsonClaimId.HC_06, text, req, mundane, ClaimStatus.SUPPORTED, 4,
+                           Route.OPTICAL, True, None, "measured dM/dP tracks the optical resonance")
+    screen = screen_meissner(isolated_premise=True)
+    return ClaimRecord(HudsonClaimId.HC_06, text, req, mundane, ClaimStatus.LEAD, 2,
+                       Route.CONVENTIONAL, True, None, f"Meissner screen: {screen.verdict}")
+
+
+def assess_hc07(candidate: CandidateRecord, measured: MeasuredEvidence,
+                th: ModelThresholds) -> ClaimRecord:
+    """HC-07: superconductivity. credited_sc_lead -> LEAD (never SUPPORTED from a sim lead).
+    Measured conventional evidence -> SUPPORTED route=conventional; measured optical phase
+    (Branch-B transport) -> SUPPORTED route=optical."""
+    text, mundane = "superconductivity", "ionic conduction / percolation / contact artifact"
+    req = "R->0 + magnetic + thermodynamic evidence"
+    if g_conventional_superconductivity(measured):
+        return ClaimRecord(HudsonClaimId.HC_07, text, req, mundane, ClaimStatus.SUPPORTED, 4,
+                           Route.CONVENTIONAL, True, None, "measured R->0 + magnetic + thermodynamic")
+    if g_candidate_optical(measured.optical_result):
+        return ClaimRecord(HudsonClaimId.HC_07, text, req, mundane, ClaimStatus.SUPPORTED, 4,
+                           Route.OPTICAL, True, None, "measured persistent optical transport (Branch B)")
+    if candidate.credited_sc_lead:
+        return ClaimRecord(HudsonClaimId.HC_07, text, req, mundane, ClaimStatus.LEAD, 2,
+                           Route.NONE, True, None, "credited_sc_lead (simulation lead, not support)")
+    return ClaimRecord(HudsonClaimId.HC_07, text, req, mundane, ClaimStatus.CANDIDATE, 2,
+                       Route.NONE, True, None, "no SC lead")

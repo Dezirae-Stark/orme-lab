@@ -63,9 +63,16 @@ class ScoreDistribution:
     p5: float
     p50: float
     p95: float
+    penalty: float              # missing-data widening factor applied to the interval
+    p5_widened: float           # p5/p95 after the missing-data penalty (the interval to trust)
+    p95_widened: float
     rank1_fraction: float       # fraction of draws where this candidate ranked #1
     rank_p5: float
     rank_p95: float
+    separated_from_next: bool   # True iff this candidate's widened interval clears the
+    #                             next-ranked candidate's — i.e. it is ROBUSTLY ahead. When
+    #                             False, a high rank1_fraction is a tie-break artifact, not a
+    #                             real lead, and must not be read as robustness.
     n: int
     seed: int
 
@@ -83,6 +90,9 @@ def propagate_mc(elements: list[Element] | None = None, config: LabConfig = DEFA
     """Seeded Monte-Carlo over the tunable thresholds → per-candidate score distribution +
     rank stability. Deterministic: same (elements, config, n, seed, frac) → identical output."""
     rng = Random(seed)
+    # Base (unperturbed) screen: the per-candidate record supplies the missing-data penalty.
+    penalties = {_key(r): missing_data_penalty(r) for r in run_screen(elements=elements, config=config)}
+
     scores: dict[tuple, list[float]] = {}
     ranks: dict[tuple, list[int]] = {}
     for _ in range(n):
@@ -94,22 +104,44 @@ def propagate_mc(elements: list[Element] | None = None, config: LabConfig = DEFA
             scores.setdefault(k, []).append(r.sc_plausibility)
             ranks.setdefault(k, []).append(pos)
 
-    out: list[ScoreDistribution] = []
+    # First pass: per-candidate stats + the penalty-widened interval.
+    rows = []
     for k, sv in scores.items():
         ss = sorted(sv)
         rv = ranks[k]
-        rr = sorted(rv)
+        rr = sorted([float(x) for x in rv])
+        mean = statistics.fmean(sv)
+        p5, p50, p95 = _pct(ss, 0.05), _pct(ss, 0.50), _pct(ss, 0.95)
+        pen = penalties.get(k, 1.0)
+        rows.append({
+            "key": k, "mean": mean,
+            "std": statistics.pstdev(sv) if len(sv) > 1 else 0.0,
+            "p5": p5, "p50": p50, "p95": p95, "penalty": pen,
+            # Widen [p5, p95] outward by the penalty about the MEDIAN (always inside the
+            # interval, unlike the mean for a skewed distribution) so the widened interval
+            # always contains [p5, p95]. An under-constrained candidate reads as LESS
+            # precise, never falsely sharp. Score is >= 0.
+            "p5_widened": max(0.0, p50 - pen * (p50 - p5)),
+            "p95_widened": p50 + pen * (p95 - p50),
+            "rank1_fraction": sum(1 for x in rv if x == 1) / len(rv),
+            "rank_p5": _pct(rr, 0.05), "rank_p95": _pct(rr, 0.95),
+            "n": len(sv),
+        })
+    rows.sort(key=lambda d: (-d["mean"], d["key"]))
+
+    # Second pass: a candidate is 'separated' only if its widened interval clears the
+    # NEXT-ranked candidate's — otherwise a high rank1_fraction is just the tie-break.
+    out: list[ScoreDistribution] = []
+    for i, d in enumerate(rows):
+        nxt = rows[i + 1] if i + 1 < len(rows) else None
+        separated = nxt is None or d["p5_widened"] > nxt["p95_widened"]
         out.append(ScoreDistribution(
-            key=k,
-            mean=statistics.fmean(sv),
-            std=statistics.pstdev(sv) if len(sv) > 1 else 0.0,
-            p5=_pct(ss, 0.05), p50=_pct(ss, 0.50), p95=_pct(ss, 0.95),
-            rank1_fraction=sum(1 for x in rv if x == 1) / len(rv),
-            rank_p5=_pct([float(x) for x in rr], 0.05),
-            rank_p95=_pct([float(x) for x in rr], 0.95),
-            n=len(sv), seed=seed,
+            key=d["key"], mean=d["mean"], std=d["std"],
+            p5=d["p5"], p50=d["p50"], p95=d["p95"],
+            penalty=d["penalty"], p5_widened=d["p5_widened"], p95_widened=d["p95_widened"],
+            rank1_fraction=d["rank1_fraction"], rank_p5=d["rank_p5"], rank_p95=d["rank_p95"],
+            separated_from_next=separated, n=d["n"], seed=seed,
         ))
-    out.sort(key=lambda d: (-d.mean, d.key))
     return out
 
 
@@ -133,4 +165,4 @@ def analytic_interval(key: tuple[str, str, str], config: LabConfig = DEFAULT_CON
         dn = score_for(replace(config, thresholds=replace(config.thresholds, **{f: getattr(config.thresholds, f) - d})))
         var += ((up - dn) / 2.0) ** 2
     delta = var ** 0.5
-    return (base - delta, base + delta)
+    return (max(0.0, base - delta), base + delta)   # sc_plausibility is >= 0

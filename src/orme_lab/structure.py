@@ -60,6 +60,9 @@ class StructuralDistribution:
 def make_distribution(pairs: list[tuple[ClusterGeometry, float]]) -> StructuralDistribution:
     """Build a normalized distribution from (geometry, weight) pairs. The existing geometries
     (monomer/dimer/cluster) are the distribution's support; weights are normalized to sum to 1."""
+    if any(f < 0.0 for _, f in pairs):
+        raise ValueError("structural population weights must be non-negative "
+                         "(a fraction of the material cannot be negative)")
     total = sum(f for _, f in pairs)
     if total <= 0.0:
         # Degenerate / all-zero weights: fall back to uniform over the given geometries so the

@@ -78,6 +78,14 @@ def test_all_zero_weights_fall_back_to_uniform():
     assert all(math.isclose(p.fraction, 0.5) for p in d.populations)
 
 
+def test_negative_weights_are_rejected():
+    # A negative population weight is invalid input (a fraction of the material can't be < 0)
+    # and would otherwise push f1/surviving_fraction outside [0,1]. Fail loud.
+    import pytest
+    with pytest.raises(ValueError):
+        make_distribution([(MONO, -0.1), (CLUST, 1.1)])
+
+
 def test_dispersed_sample_factory():
     d = dispersed_sample(PT, f1=0.9)
     assert math.isclose(d.f1(), 0.9)

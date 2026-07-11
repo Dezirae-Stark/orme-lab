@@ -90,8 +90,10 @@
 
     /* ---- Phase B: two-branch flow — Branch A (conventional SC) and Branch B (Hudson optical)
        as parallel, independent, CSS-only pipelines. Same card idiom + palette vars as the rest
-       of the Ledger tab; no new hues. Kinetics (fill/flow/lock transitions, reduced-motion) land
-       in Task 3 — this block is the static base (nodes, connectors, result node, lock glyph). */
+       of the Ledger tab; no new hues. Task 3 kinetics: node fill gets a soft glow transition,
+       a flowing connector (both adjacent nodes filled) gets a slow animated pulse, and an open
+       result node animates the lock glyph. @media (prefers-reduced-motion: reduce) strips all
+       animation, leaving only the static filled/unfilled/open/closed color states. */
     .ledger-flow { background: linear-gradient(180deg, var(--panel) 0%, var(--void-2) 100%);
       border: 1px solid var(--line); border-radius: 6px; padding: 16px 18px; box-shadow: var(--shadow); }
     .ledger-flow-track { margin-top: 16px; }
@@ -104,24 +106,45 @@
     .ledger-flow-node { display: flex; align-items: center; justify-content: center; min-width: 108px;
       padding: 8px 10px; border: 1px solid var(--line); border-radius: 5px; background: var(--void);
       color: var(--muted-2); font-size: 10.5px; text-align: center; line-height: 1.3; transition: background .2s ease,
-      border-color .2s ease, color .2s ease, box-shadow .2s ease; }
-    .ledger-flow-node.filled { background: rgba(53,214,196,0.12); border-color: var(--coherent); color: var(--platinum); }
+      border-color .2s ease, color .2s ease, box-shadow .3s ease; }
+    .ledger-flow-node.filled { background: rgba(53,214,196,0.12); border-color: var(--coherent); color: var(--platinum);
+      box-shadow: 0 0 0 1px rgba(53,214,196,0.18), 0 0 10px 1px rgba(53,214,196,0.22); }
     .ledger-flow-node-lbl { display: block; }
 
     .ledger-flow-conn { flex: 1 1 20px; min-width: 20px; height: 2px; background: var(--line-soft);
-      margin: 0 4px; transition: background .2s ease; }
-    .ledger-flow-conn.flowing { background: var(--coherent); }
+      margin: 0 4px; transition: background .2s ease; background-size: 200% 100%; }
+    .ledger-flow-conn.flowing { background-image: linear-gradient(90deg, var(--coherent) 0%, rgba(53,214,196,0.35) 50%, var(--coherent) 100%);
+      background-color: var(--coherent); background-size: 200% 100%; animation: ledger-flow-pulse 2.4s linear infinite; }
+
+    @keyframes ledger-flow-pulse {
+      0% { background-position: 0% 0; }
+      100% { background-position: -200% 0; }
+    }
 
     .ledger-flow-result { display: flex; flex-direction: column; align-items: center; justify-content: center;
       min-width: 190px; padding: 10px 14px; margin-left: 4px; border: 1px solid var(--line); border-radius: 8px;
       background: var(--void); text-align: center; transition: background .2s ease, border-color .2s ease; }
-    .ledger-flow-result-lock { font-size: 15px; line-height: 1; margin-bottom: 3px; }
+    .ledger-flow-result-lock { font-size: 15px; line-height: 1; margin-bottom: 3px; display: inline-block; }
     .ledger-flow-result-lbl { font-family: "IBM Plex Mono", monospace; font-size: 10.5px; color: var(--platinum); }
     .ledger-flow-result-state { margin-top: 3px; font-size: 9.5px; letter-spacing: 0.08em; text-transform: uppercase;
       color: var(--muted-2); }
     .ledger-flow-result.closed { border-color: var(--line); }
-    .ledger-flow-result.open { background: rgba(212,175,55,0.12); border-color: var(--gold); }
+    .ledger-flow-result.open { background: rgba(212,175,55,0.12); border-color: var(--gold);
+      box-shadow: 0 0 0 1px rgba(212,175,55,0.18), 0 0 12px 1px rgba(212,175,55,0.25); }
     .ledger-flow-result.open .ledger-flow-result-state { color: var(--gold); }
+    .ledger-flow-result.open .ledger-flow-result-lock { animation: ledger-lock-open .5s ease-out; }
+
+    @keyframes ledger-lock-open {
+      0% { transform: rotate(0deg) scale(1); }
+      40% { transform: rotate(-18deg) scale(1.15); }
+      100% { transform: rotate(0deg) scale(1); }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .ledger-flow-node, .ledger-flow-conn, .ledger-flow-result, .ledger-flow-result-lock {
+        transition: none !important; animation: none !important; }
+      .ledger-flow-conn.flowing { background-image: none; background-position: 0 0; }
+    }
 
     /* ---- Task 6: interactive evidence controls — same card idiom, "measured lab input"
        badge distinguishes researcher-entered fields from computed matrix/card values. */

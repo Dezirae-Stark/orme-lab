@@ -14,6 +14,7 @@ from dataclasses import dataclass
 from enum import Enum, IntEnum
 
 from .config import ModelThresholds
+from .hudson_optical import HudsonClaim
 from .identity import IdentityWitness
 from .structure import StructuralDistribution
 
@@ -162,3 +163,36 @@ def g_hudson_material_state(witness: IdentityWitness, distribution: StructuralDi
     if hc01 and hc02:
         return True, HudsonIdentity.HUDSON_SATISFIED
     return False, HudsonIdentity.HUDSON_FAILED
+
+
+def g_conventional_superconductivity(measured: MeasuredEvidence) -> bool:
+    """Branch A, measured: zero_resistance AND flux_exclusion AND critical_behavior AND
+    artifact_excluded. Default-blocked (all False by default)."""
+    return (measured.zero_resistance and measured.flux_exclusion
+            and measured.critical_behavior and measured.artifact_excluded)
+
+
+def g_candidate_optical(optical_result) -> bool:
+    """Branch B: coherent-mode (L3+L4) AND material-coupling (L6) AND energy-transport (L5).
+    L5 requires a PERSISTENT measured ring-down, so this is default-blocked at sim level."""
+    if optical_result is None:
+        return False
+    s = optical_result.supported
+    return {HudsonClaim.STRONG_COUPLING, HudsonClaim.MACRO_COHERENCE,
+            HudsonClaim.ELECTRONIC_COUPLING, HudsonClaim.LOW_LOSS_TRANSPORT}.issubset(s)
+
+
+def optical_magnetic_causality(optical_result) -> bool:
+    """Branch B level-7: magnetic response tracks the optical resonance (measured dM/dP)."""
+    return optical_result is not None and HudsonClaim.MAGNETISM_COUPLED in optical_result.supported
+
+
+def replication_gate(rep: "ReplicationEvidence | None", th: ModelThresholds) -> bool:
+    """Default-blocked: >= min_batches, > 1 lab (>= min_labs), preregistered thresholds, raw data
+    retained, blinded controls correctly classified."""
+    if rep is None:
+        return False
+    return (rep.n_batches >= th.hudson_replication_min_batches
+            and rep.n_labs >= th.hudson_replication_min_labs
+            and rep.preregistered_thresholds and rep.raw_data_retained
+            and rep.blinded_controls_correct)

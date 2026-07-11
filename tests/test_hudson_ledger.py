@@ -94,3 +94,40 @@ def test_material_state_gate_combines_hc01_and_hc02():
     metal_witness = IdentityWitness("Ir", "metallic", "bulk", 0.0, ())
     ok2, ident2 = g_hudson_material_state(metal_witness, dispersed_sample(el, 0.95), "Ir", TH)
     assert ok2 is False and ident2 is HudsonIdentity.HUDSON_FAILED
+
+
+from orme_lab.hudson_ledger import (
+    g_candidate_optical,
+    g_conventional_superconductivity,
+    optical_magnetic_causality,
+    replication_gate,
+)
+from orme_lab.hudson_optical import evaluate_hudson_optical
+
+
+def _optical(**kw):
+    return evaluate_hudson_optical(number_density_m3=9.5e28, anisotropy_score=0.4, thresholds=TH,
+                                   matter_ev=9.0, coupling_fraction=0.3, cavity_loss_ev=0.02,
+                                   matter_loss_ev=0.02, **kw)
+
+
+def test_conventional_sc_gate_is_default_blocked():
+    assert g_conventional_superconductivity(MeasuredEvidence()) is False
+    full = MeasuredEvidence(zero_resistance=True, flux_exclusion=True,
+                            critical_behavior=True, artifact_excluded=True)
+    assert g_conventional_superconductivity(full) is True
+
+
+def test_optical_gates_need_measured_persistence_and_magnetism():
+    # simulation-only optical result: strong coupling but NO persistence/magnetism -> gates False
+    assert g_candidate_optical(_optical()) is False
+    assert optical_magnetic_causality(_optical()) is False
+    full = _optical(measured_ringdown_fs=1e30, measured_dM_dP=1.0, dM_dP_on_resonance=True)
+    assert g_candidate_optical(full) is True
+    assert optical_magnetic_causality(full) is True
+
+
+def test_replication_gate_is_default_blocked():
+    assert replication_gate(None, TH) is False
+    assert replication_gate(ReplicationEvidence(3, 2, True, True, True), TH) is True
+    assert replication_gate(ReplicationEvidence(2, 2, True, True, True), TH) is False   # < 3 batches

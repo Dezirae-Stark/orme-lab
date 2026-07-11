@@ -32,8 +32,10 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
+from enum import Enum
 
 from .config import ModelThresholds, SPEED_OF_LIGHT
+from .evidence import EvidenceLevel
 
 
 def polariton_branches(matter_ev: float, photon_ev: float, coupling_ev: float) -> tuple[float, float]:
@@ -114,3 +116,56 @@ def order_parameter_from_mode(mode, matter_ev: float,
         f_photon=f_ph,
         f_electron=f_el,
     )
+
+
+class Persistence(str, Enum):
+    """Post-drive ring-down class of the coherent mode."""
+    DRIVEN_DISSIPATIVE = "driven_dissipative"   # decays on the mode timescale; needs pumping
+    METASTABLE = "metastable"                   # long-lived but not self-sustaining
+    PERSISTENT = "persistent"                   # effectively self-sustaining (Hudson's claim)
+
+
+@dataclass(frozen=True)
+class PersistenceResult:
+    persistence: Persistence
+    ratio: float | None            # measured / model-predicted decay time (None if unmeasured)
+    predicted_fs: float            # driven-dissipative expectation (~ mode lifetime)
+    measured_fs: float | None      # externally supplied ring-down time
+    evidence_level_if_confirmed: int
+    note: str
+
+
+def classify_persistence(o_h: OpticalOrderParameter, *,
+                         measured_ringdown_fs: float | None,
+                         thresholds: ModelThresholds) -> PersistenceResult:
+    """Classify the mode's post-drive ring-down.
+
+    Persistence is Hudson's EXTRAORDINARY claim, so it is default-blocked: the model's
+    predicted decay time is the mode lifetime (driven-dissipative expectation), and
+    without an external measured ring-down the result is DRIVEN_DISSIPATIVE. A supplied
+    measurement is compared to the prediction; a genuinely self-sustaining mode
+    (ratio >= persistent_ratio) is the only path to a Level-4 observation.
+    """
+    predicted = o_h.tau_coh_fs
+    if measured_ringdown_fs is None:
+        return PersistenceResult(
+            Persistence.DRIVEN_DISSIPATIVE, None, predicted, None,
+            int(EvidenceLevel.LABORATORY_PREDICTION),
+            "no measured ring-down; conservative driven-dissipative null. Persistence "
+            "requires an external post-drive ring-down measurement (a lab input).")
+    if not math.isfinite(predicted) or predicted <= 0:
+        # a lossless model prediction is degenerate; refuse to credit persistence from it
+        return PersistenceResult(
+            Persistence.DRIVEN_DISSIPATIVE, None, predicted, measured_ringdown_fs,
+            int(EvidenceLevel.LABORATORY_PREDICTION),
+            "model predicts no finite decay (degenerate); cannot ratio a measurement against it.")
+    ratio = measured_ringdown_fs / predicted
+    if ratio >= thresholds.hudson_persistent_ratio:
+        cls, note = Persistence.PERSISTENT, "measured ring-down >> mode lifetime: effectively self-sustaining."
+    elif ratio >= thresholds.hudson_metastable_ratio:
+        cls, note = Persistence.METASTABLE, "measured ring-down long but finite: metastable, not self-sustaining."
+    else:
+        cls, note = Persistence.DRIVEN_DISSIPATIVE, "measured ring-down ~ mode lifetime: driven-dissipative."
+    ev = int(EvidenceLevel.INITIAL_OBSERVATION) if cls is Persistence.PERSISTENT \
+        else int(EvidenceLevel.LABORATORY_PREDICTION)
+    return PersistenceResult(cls, ratio, predicted, measured_ringdown_fs, ev, note)

@@ -71,3 +71,37 @@ def test_order_parameter_is_frozen():
         assert False, "OpticalOrderParameter must be immutable"
     except Exception:
         pass
+
+
+from orme_lab.evidence import EvidenceLevel
+from orme_lab.hudson_optical import Persistence, classify_persistence
+
+
+def test_persistence_defaults_to_driven_dissipative_without_measurement():
+    # The simulation CANNOT assert persistence. With no measured ring-down, the
+    # conservative null is driven-dissipative.
+    oh = order_parameter_from_mode(_resonant_mode(), matter_ev=2.0, thresholds=TH)
+    r = classify_persistence(oh, measured_ringdown_fs=None, thresholds=TH)
+    assert r.persistence is Persistence.DRIVEN_DISSIPATIVE
+    assert r.measured_fs is None
+    assert "requires an external" in r.note
+
+
+def test_measured_ringdown_below_metastable_is_driven_dissipative():
+    oh = order_parameter_from_mode(_resonant_mode(), matter_ev=2.0, thresholds=TH)
+    r = classify_persistence(oh, measured_ringdown_fs=oh.tau_coh_fs * 2, thresholds=TH)
+    assert r.persistence is Persistence.DRIVEN_DISSIPATIVE     # ratio 2 < 10
+
+
+def test_measured_ringdown_metastable_band():
+    oh = order_parameter_from_mode(_resonant_mode(), matter_ev=2.0, thresholds=TH)
+    r = classify_persistence(oh, measured_ringdown_fs=oh.tau_coh_fs * 100, thresholds=TH)
+    assert r.persistence is Persistence.METASTABLE            # 10 <= 100 < 1e6
+
+
+def test_measured_ringdown_persistent_reaches_observation_if_confirmed():
+    oh = order_parameter_from_mode(_resonant_mode(), matter_ev=2.0, thresholds=TH)
+    r = classify_persistence(oh, measured_ringdown_fs=oh.tau_coh_fs * 1e7, thresholds=TH)
+    assert r.persistence is Persistence.PERSISTENT
+    # a MEASURED persistent ring-down is an observation, not a simulation output
+    assert r.evidence_level_if_confirmed == int(EvidenceLevel.INITIAL_OBSERVATION)

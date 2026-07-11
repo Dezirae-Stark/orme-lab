@@ -61,12 +61,19 @@ def evaluate_identity(target_metal: str, witness: IdentityWitness | None) -> Ide
             "(XRD/XPS/ICP-MS/EXAFS/…) before crediting superconductivity",
         )
 
+    # An empty string means "field present but unmeasured", not affirmative evidence of a
+    # different material — normalize it to None so it reads as MISSING, uniformly across
+    # every descriptor (else composition="" would hard-fail while morphology="" would pass).
+    composition = witness.composition or None
+    phase = witness.phase or None
+    morphology = witness.morphology or None
+
     # Affirmative evidence that the specimen is NOT the target metal -> hard fail.
     contradictions = []
-    if witness.composition is not None and witness.composition != target_metal:
-        contradictions.append(f"composition {witness.composition} ≠ {target_metal}")
-    if witness.phase is not None and witness.phase != "metallic":
-        contradictions.append(f"phase '{witness.phase}' is not metallic")
+    if composition is not None and composition != target_metal:
+        contradictions.append(f"composition {composition} ≠ {target_metal}")
+    if phase is not None and phase != "metallic":
+        contradictions.append(f"phase '{phase}' is not metallic")
     if witness.oxidation_state is not None and abs(witness.oxidation_state) > _OX_TOL:
         contradictions.append(f"oxidation state {witness.oxidation_state:g} implies a compound")
     if contradictions:
@@ -77,11 +84,11 @@ def evaluate_identity(target_metal: str, witness: IdentityWitness | None) -> Ide
 
     # No contradiction: are all four sub-gates positively witnessed as the metal?
     missing = []
-    if witness.composition != target_metal:
+    if composition != target_metal:
         missing.append("composition")
-    if witness.phase != "metallic":
+    if phase != "metallic":
         missing.append("phase")
-    if witness.morphology is None:
+    if morphology is None:
         missing.append("morphology")
     if witness.oxidation_state is None:
         missing.append("oxidation")

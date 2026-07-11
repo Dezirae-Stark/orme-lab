@@ -50,6 +50,16 @@ def test_partial_witness_is_unestablished_with_missing():
     assert set(r.missing) == {"morphology", "oxidation"}
 
 
+def test_empty_strings_are_missing_not_contradictions():
+    # "" means field-present-but-unmeasured -> treated as missing (UNESTABLISHED),
+    # uniformly across descriptors; it is NOT affirmative evidence of a different material.
+    w = IdentityWitness(composition="", phase="", morphology="",
+                        oxidation_state=0.0, instruments=("XPS",))
+    r = evaluate_identity("Ir", w)
+    assert r.verdict == IdentityVerdict.UNESTABLISHED
+    assert set(r.missing) == {"composition", "phase", "morphology"}
+
+
 def test_witness_with_no_instrument_is_not_a_witness():
     w = IdentityWitness(composition="Ir", phase="metallic", morphology="bulk",
                         oxidation_state=0.0, instruments=())

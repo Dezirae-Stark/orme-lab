@@ -73,15 +73,34 @@ scene.fog = new THREE.FogExp2(0x090c14, 0.012);
 const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 2000);
 camera.position.set(14, 9, 18);
 
-const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-stage.appendChild(renderer.domElement);
-
-const controls = new OrbitControls(camera, renderer.domElement);
-controls.enableDamping = true;
-controls.dampingFactor = 0.08;
-controls.autoRotate = true;
-controls.autoRotateSpeed = 0.6;
+// The 3D stage needs a WebGL context. Where one is unavailable (headless, WebGL disabled, some
+// VM/remote setups) `new THREE.WebGLRenderer` THROWS — and because it runs at module top level it
+// would abort the whole module, taking the pure-DOM tabs (Registry / Research / Loop / Ledger)
+// down with it. Guard it: on failure the 3D stage is skipped and STAGE_3D gates every renderer/
+// controls use, but boot() still runs and the dashboards stay fully usable.
+let renderer = null, controls = null, STAGE_3D = false;
+try {
+  // The one line that needs a WebGL context. If it succeeds the 3D stage is available; STAGE_3D
+  // gates only on this, so nothing downstream can silently disable the stage.
+  renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+  STAGE_3D = true;
+} catch (err) {
+  console.warn("[orme-lab] 3D stage unavailable (no WebGL context) — dashboards still work.", err);
+  const note = document.createElement("div");
+  note.className = "stage-nowebgl";
+  note.textContent = "3D stage unavailable in this browser (WebGL required). The Registry, "
+    + "Research, Loop, and Ledger tabs are fully usable.";
+  stage.appendChild(note);
+}
+if (STAGE_3D) {
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  stage.appendChild(renderer.domElement);
+  controls = new OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true;
+  controls.dampingFactor = 0.08;
+  controls.autoRotate = true;
+  controls.autoRotateSpeed = 0.6;
+}
 
 scene.add(new THREE.AmbientLight(0x4a5a80, 0.9));
 const key = new THREE.DirectionalLight(0xffffff, 1.4); key.position.set(8, 14, 10); scene.add(key);
@@ -205,7 +224,7 @@ function buildCandidate(res) {
   }
 
   // fit camera target to the cluster
-  controls.target.set(0, 0, 0);
+  if (controls) controls.target.set(0, 0, 0);
 }
 
 // ---- magnetic field visualization ---------------------------------------
@@ -819,6 +838,7 @@ function wireControls() {
   });
   // auto-rotate toggle
   $("rotToggle").addEventListener("click", (e) => {
+    if (!controls) return;
     controls.autoRotate = !controls.autoRotate;
     e.target.setAttribute("aria-pressed", controls.autoRotate);
   });
@@ -1006,11 +1026,11 @@ function setVibOn(on) {
   if (on) {
     // The candidate camera (14,9,18) frames a ~13-atom cluster; a 2-unit molecule is a speck
     // in it. Reframe close so the molecule fills the stage. Restored on exit.
-    camera.position.set(5, 3.2, 6.5); controls.target.set(0, 0.4, 0); controls.update();
+    camera.position.set(5, 3.2, 6.5); if (controls) { controls.target.set(0, 0.4, 0); controls.update(); }
     refreshVibration();
   } else {
     clearGroup(moleculeGroup);
-    camera.position.set(14, 9, 18); controls.target.set(0, 0, 0); controls.update();
+    camera.position.set(14, 9, 18); if (controls) { controls.target.set(0, 0, 0); controls.update(); }
     recompute();   // rebuild + restore the candidate stage title and framing
   }
 }
@@ -1184,6 +1204,7 @@ function wireRecorder() {
 
 // ---- resize + render loop ------------------------------------------------
 function resize() {
+  if (!renderer) return;
   const w = stage.clientWidth, h = stage.clientHeight;
   renderer.setSize(w, h);
   camera.aspect = w / h; camera.updateProjectionMatrix();
@@ -1191,6 +1212,7 @@ function resize() {
 window.addEventListener("resize", () => { resize(); if (current) drawPlasmon(current.em); if (vib.on) drawIrSpectrum(); });
 
 function loop() {
+  if (!STAGE_3D) return;            // no WebGL stage — nothing to drive; the DOM tabs run without it
   requestAnimationFrame(loop);
   controls.update();
   animateMolecule();

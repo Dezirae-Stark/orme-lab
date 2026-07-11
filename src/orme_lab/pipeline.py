@@ -30,6 +30,11 @@ from .backends import Capability, DFTBackend
 from .config import DEFAULT_CONFIG, LabConfig
 from .coupling import inter_unit_coupling_score, is_electronically_isolated
 from .identity import IdentityVerdict, IdentityWitness, evaluate_identity
+from .mechanisms import (
+    evaluate_mechanisms,
+    summarize as mechanism_summarize,
+    surviving as mechanism_surviving,
+)
 from .electromagnetic_coherence import evaluate_em_coherence, free_electron_density
 from .evidence import badge as evidence_badge, candidate_evidence_level, LAB_CEILING
 from .electron_density import is_ricebean, ricebean_score
@@ -120,13 +125,20 @@ class CandidateRecord:
     identity_verdict: str = "unestablished"
     identity_established: bool = False
     credited_sc_lead: bool = False
+    # Pairing-mechanism tracks (#6): which mechanisms survive end-to-end. Crediting requires
+    # >= 1 survivor — a candidate with no viable mechanism (e.g. high-spin killing M_phonon and
+    # nothing else surviving) is not credited even with identity + passing proxies.
+    surviving_mechanisms: tuple[str, ...] = ()
+    mechanism_summary: str = ""
 
     def as_csv_row(self) -> dict[str, object]:
         row = asdict(self)
-        # round floats for stable, readable CSV output
+        # round floats; join tuple fields (e.g. surviving_mechanisms) into a readable cell
         for k, v in row.items():
             if isinstance(v, float):
                 row[k] = round(v, 6)
+            elif isinstance(v, tuple):
+                row[k] = "|".join(str(x) for x in v)
         return row
 
 
@@ -241,7 +253,19 @@ def evaluate_candidate(
     id_result = evaluate_identity(element.symbol, identity)
     contradicted = id_result.verdict == IdentityVerdict.CONTRADICTED
     ruled_out = (not plaus.all_passed) or contradicted
-    credited = id_result.established and plaus.all_passed and plaus.score > 0.0
+
+    # Pairing-mechanism tracks (#6): a candidate is credited only if >= 1 mechanism survives
+    # end-to-end (no synthetic combining). A large local moment pair-breaks singlet M_phonon
+    # but enables the magnetic channels, so high-spin candidates route out of phonon.
+    mech_results = evaluate_mechanisms(
+        coupling=coupling, carrier_proxy=carrier, structural_stability=stability,
+        spin_polarization=spin_pol, em_coherence_score=em_score, n_atoms=geometry.n_atoms,
+        thresholds=th)
+    surviving_mechanisms = mechanism_surviving(mech_results)
+    mechanism_summary = mechanism_summarize(mech_results)
+
+    credited = (id_result.established and plaus.all_passed and plaus.score > 0.0
+                and len(surviving_mechanisms) > 0)
     level = min(candidate_evidence_level(ruled_out), LAB_CEILING)
     verdict_str = f"{plaus.explain()} [{evidence_badge(level)}]"
     if contradicted:
@@ -286,6 +310,8 @@ def evaluate_candidate(
         identity_verdict=id_result.verdict.value,
         identity_established=id_result.established,
         credited_sc_lead=credited,
+        surviving_mechanisms=surviving_mechanisms,
+        mechanism_summary=mechanism_summary,
     )
 
 

@@ -146,6 +146,54 @@ export function replicationGate(rep, th) {
   );
 }
 
+// ---- branchFlow: per-material two-branch gate states for the Phase B flow render. Pure;
+// mirrors evaluateLedger's per-lineage gate computation (rollupIntegrated's same-lineage bits)
+// for a SINGLE material treated as its own one-material lineage — no new decision logic, only
+// the already-parity-locked assessors/gates above. Deterministic; no Date/Math.random.
+export function branchFlow(material, doublet, th) {
+  const m = { ...(material.measured || {}), opticalResult: material.optical || null };
+  const opt = material.optical || null;
+
+  const hc01 = material.witness != null ? assessHc01(material.witness, material.element, th) : _bareRecord("HC-01");
+  const hc01Status =
+    m.hc01NonmetallicConfirmed && hc01.status >= CLAIM_STATUS.PROVISIONALLY_SUPPORTED
+      ? CLAIM_STATUS.SUPPORTED
+      : hc01.status;
+  const hc02 = material.distribution != null ? assessHc02(material.distribution, th) : _bareRecord("HC-02");
+  const hc02Status =
+    m.hc02DispersionConfirmed && hc02.status >= CLAIM_STATUS.PROVISIONALLY_SUPPORTED
+      ? CLAIM_STATUS.SUPPORTED
+      : hc02.status;
+  const materialState =
+    hc01Status >= CLAIM_STATUS.PROVISIONALLY_SUPPORTED && hc02Status >= CLAIM_STATUS.PROVISIONALLY_SUPPORTED;
+
+  const s = new Set((opt && opt.supported) || []);
+  const coherentMode = s.has(HUDSON_CLAIM.STRONG_COUPLING) && s.has(HUDSON_CLAIM.MACRO_COHERENCE);
+  const materialCoupling = s.has(HUDSON_CLAIM.ELECTRONIC_COUPLING);
+  const energyTransport = gCandidateOptical(opt);
+  const causalMagnetism = opticalMagneticCausality(opt);
+  const replication = replicationGate(m.replication, th);
+
+  return {
+    conventional: {
+      zeroR: Boolean(m.zeroResistance),
+      flux: Boolean(m.fluxExclusion),
+      critical: Boolean(m.criticalBehavior),
+      artifact: Boolean(m.artifactExcluded),
+      result: gConventionalSuperconductivity(m),
+    },
+    hudson: {
+      coherentMode,
+      materialCoupling,
+      energyTransport,
+      causalMagnetism,
+      materialState,
+      replication,
+      result: materialState && energyTransport && causalMagnetism && replication,
+    },
+  };
+}
+
 // ---- Procedural claims (HC-03, HC-05, HC-08): a measured confirmation -> SUPPORTED --------
 function procedural(id, confirmed) {
   return {

@@ -175,13 +175,100 @@ Each module owns one hypothesis and exposes one bounded `[0, 1]` score:
 | `electromagnetic_coherence.py` | polariton/plasmon coherence (H12/H16) | `polariton_coherence_score` |
 | `pipeline.py` | orchestration, ranking, CSV | — |
 
-Three further modules are infrastructure rather than hypotheses: `evidence.py`
-(the 0–6 evidence hierarchy and the Level-2 lab ceiling), `backends.py` (the
-optional ab-initio `DFTBackend` seams), and `config.py` (the deterministic
-`LabConfig`).
+Beyond the per-hypothesis modules, the package carries the **evidence and gate
+infrastructure**: `evidence.py` (the 0–6 hierarchy, the Level-2 lab ceiling and
+the Level-3 prediction ceiling), `backends.py` (the optional ab-initio
+`DFTBackend` seams), `config.py` (the deterministic `LabConfig`), and the
+**falsifiability spine** — `identity.py`, `structure.py`, `mechanisms.py`,
+`uncertainty.py`, `validator.py`, `hudson_optical.py`, `branch_verdict.py`,
+`lineage.py`, `hudson_ledger.py` — described in the next section.
 
 Full detail: `docs/simulation_pipeline.md`. The determinism guarantee (same
 config → byte-identical CSV) is documented there too.
+
+## The falsifiability spine — identity, mechanism, and the Hudson Claim Ledger
+
+Layered over the triage screen is a second architecture whose entire job is to
+**stop a promising number from being mistaken for evidence**. Every gate here
+*default-blocks*: it stays closed until real, instrumented, reproducible data is
+supplied, and the simulation can never open it on its own.
+
+- **Phase-identity gate (`identity.py`).** No candidate is credited as a
+  superconductivity lead until an injected characterization witness (composition /
+  phase / morphology / oxidation) shows it actually *is* the target material. An
+  oxide, salt, or wrong element is a **contradiction** — ruled out, not merely
+  uncredited. Default: unestablished.
+- **Uncertainty & rank stability (`uncertainty.py`).** Scores carry seeded
+  Monte-Carlo intervals plus an analytic cross-check and a rank-stability measure,
+  so a ranking never implies more precision than the thresholds support (a sharp
+  early result: no candidate holds rank 1 across all draws).
+- **Structural distribution (`structure.py`).** A real preparation is a
+  *distribution* over populations (isolated atoms, dimers, sub-nm clusters), not a
+  single geometry; the screen evaluates the mixture (`f1`, P(n), R_PGM–PGM) and
+  reports the credited *fraction*.
+- **Mechanism-specific pairing tracks (`mechanisms.py`).** Five independent
+  channels (phonon, spin-fluctuation, triplet, excitonic/polaritonic,
+  granular-Josephson), each with its own necessary conditions. A static local
+  moment **pair-breaks** singlet phonon pairing (Abrikosov–Gor'kov) but *enables*
+  the magnetic channels — so a high-spin candidate is credited only via a magnetic
+  mechanism, never phonon. Partial strengths are never blended into one score.
+- **Adversarial validator (`validator.py`).** For a candidate it designs the
+  decisive experiments that separate a genuine coherent phase from the mundane
+  alternatives (metallic filament, ionic conduction, artifact), routed *per
+  surviving mechanism* — isotope effect for phonon, Shapiro steps for granular,
+  NMR Knight shift for triplet, and so on.
+
+### Two independent branches
+
+Hudson did not describe an ordinary zero-resistance metal; he described a
+resonantly-accessible, macroscopically coherent hybrid light–matter state. The lab
+therefore tests **two independent branches, never merged**:
+
+- **Branch A — conventional superconductivity:** the AND-gate + mechanism tracks above.
+- **Branch B — Hudson optical coherence (`hudson_optical.py`):** an order parameter
+  *O_H = {ω₀, Q, g, τ_coh, L_coh, f_ph, f_el}* with polariton mode composition and
+  anticrossing, a broadband RF→near-UV resonance survey, and an eight-level claim
+  ladder. Its two extraordinary claims — a **self-sustaining** (persistent, not
+  merely metastable) post-drive ring-down, and a magnetic response **causally
+  tracking** the optical resonance (∂M/∂P) — are default-blocked behind measured
+  input. `branch_verdict.py` reports the two branches side by side; the full
+  "Hudson optical superconductive phase" is a top-level *prediction*, never a
+  crediting verdict or a blended score.
+
+### The Hudson Claim Ledger
+
+`hudson_ledger.py` assesses Hudson's eight ORME claims (HC-01…HC-08) falsify-first
+— each with its strongest mundane alternative attacked first — and composes the
+compound gate
+
+```
+G_Hudson = G_identity ∧ G_transport ∧ G_magnetism ∧ G_replication
+```
+
+Its objective is **not to validate Hudson** but to *determine whether a
+reproducible material state exists that satisfies Hudson's stated properties*. Two
+commitments keep that honest:
+
+- **Two roll-ups, kept separate.** A claim-level *best-of* ("has any material
+  supported this individual claim?") and an integrated `max_lineage(min_claim)`
+  ("does *one materially continuous lineage* satisfy the combined state?"). The
+  forbidden `min_claim(max_candidate)` — which would let a nonmetallic specimen, a
+  superconducting specimen, and an optically-coherent specimen be **stitched into a
+  fake success** — is never computed. Material provenance (`lineage.py`) tracks
+  same-specimen / same-batch / same-lineage, so a claim observed after annealing or
+  field treatment attaches to the *resulting* state, not the precursor.
+- **Default-blocked and never "validated".** Transport, magnetism, and replication
+  gates are false without measured evidence; the ledger never self-asserts the
+  Hudson mechanism from simulation and never emits "HUDSON CLAIM VALIDATED." The
+  strongest terminal verdict is `independent-replication-achieved`, reachable only
+  with real cross-lab replication metadata. `credited_sc_lead` maps to a *lead*,
+  never *supported*.
+
+That is the lab's contribution: the place where each of Hudson's claims is
+separated into exact experiments, the ordinary explanation attacked first, and only
+surviving effects advanced. Design:
+[`docs/superpowers/specs/2026-07-11-hudson-claim-ledger-design.md`](docs/superpowers/specs/2026-07-11-hudson-claim-ledger-design.md);
+reference: [`docs/hudson_claim_ledger.md`](docs/hudson_claim_ledger.md).
 
 ## The EPW backend — a real electron-phonon Tc (the endgame seam)
 
@@ -233,12 +320,16 @@ fully unit-tested against analytic and reference-code oracles (e.g. the golden
 
 ```
 docs/          hypothesis matrix, pipeline, validation tests, terminology, CHARTER,
-               superpowers/ (the EPW backend design spec + implementation plan)
-src/orme_lab/  the package (one module per hypothesis + evidence/backends/config)
+               patent-claim tests, the Hudson Claim Ledger reference,
+               superpowers/ (design specs + implementation plans for each feature)
+src/orme_lab/  the package: pipeline + the falsifiability spine (identity, structure,
+               mechanisms, uncertainty, validator, hudson_optical, branch_verdict,
+               lineage, hudson_ledger) + patent-triage screens (ir_signature,
+               ir_contaminant, thermal_stability, meissner_field, control_experiment)
 src/orme_lab/epw/  the EPW electron-phonon Tc backend (SC_GAP seam; see above)
-web/           the interactive 3D lab (static; deployed to GitHub Pages)
+web/           the interactive 3D lab + research platform (static; GitHub Pages)
 tools/         eigenstate_to_cube.py, the loopback Claude proxy, tools/README
-tests/         pytest suite — 95 tests (core toy models + the EPW backend)
+tests/         pytest suite — 375 tests (toy models, EPW backend, the whole spine)
 examples/      runnable screens + density plot
 notebooks/     00 project overview, 01 hypothesis mapping
 outputs/       generated CSVs / figures (git-ignored except .gitkeep)
@@ -290,8 +381,10 @@ order (each gap is marked `TODO(<backend>)` in the source):
 - `docs/CHARTER.md` — mission, principles, the evidence hierarchy (0–6), and the instrumented-reproducibility standard
 - `docs/hypothesis_matrix.md` — every claim as a falsifiable hypothesis + rejection condition
 - `docs/simulation_pipeline.md` — data flow, score meanings, determinism, backends
-- `docs/validation_tests.md` — the falsification playbook (why zero-R ≠ SC, etc.)
+- `docs/validation_tests.md` — the falsification playbook (why zero-R ≠ SC, the corrected gap relation, G_identity)
 - `docs/terminology_translation.md` — the Physics Translation Matrix (ORME → modern physics)
+- `docs/hudson_claim_ledger.md` — the HC-01…HC-08 ledger: gates, the two roll-ups, default-blocks, and the never-"validated" invariant
+- `docs/patent-claim-tests.md` — the patent-signature triage screens (IR doublet, thermal stability, Meissner) that feed HC-04/HC-06
 
 ## License
 

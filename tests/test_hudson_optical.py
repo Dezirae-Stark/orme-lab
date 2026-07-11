@@ -166,3 +166,50 @@ def test_causal_link_requires_response_on_resonance():
 def test_causal_link_rejects_negligible_response():
     link = magnetism_tracks_resonance(measured_dM_dP=1e-15, on_resonance=True)
     assert link.tracks is False    # below min_response -> no anomaly
+
+
+from orme_lab.evidence import LAB_CEILING
+from orme_lab.hudson_optical import (
+    HudsonClaim,
+    HudsonOpticalResult,
+    evaluate_hudson_optical,
+)
+
+
+def _strong_coherent(**kw):
+    # a strongly-coupled, coherent candidate (high density -> real plasmon, strong g)
+    return evaluate_hudson_optical(number_density_m3=9.5e28, anisotropy_score=0.4,
+                                   thresholds=TH, matter_ev=9.0, coupling_fraction=0.3,
+                                   cavity_loss_ev=0.02, matter_loss_ev=0.02, **kw)
+
+
+def test_levels_are_independent_none_implies_the_next():
+    # Strong coupling (L3) supported by SIMULATION, but transport (L5, needs persistence)
+    # and magnetism (L7, needs dM/dP) are NOT — because both are default-blocked.
+    r = _strong_coherent()
+    assert HudsonClaim.STRONG_COUPLING in r.supported
+    assert HudsonClaim.LOW_LOSS_TRANSPORT not in r.supported     # no measured ring-down
+    assert HudsonClaim.MAGNETISM_COUPLED not in r.supported      # no measured dM/dP
+    assert HudsonClaim.HUDSON_PHASE not in r.supported           # conjunction at the top
+
+
+def test_full_stack_supported_only_with_both_lab_inputs():
+    r = _strong_coherent(measured_ringdown_fs=1e30,             # persistent
+                         measured_dM_dP=1.0, dM_dP_on_resonance=True)
+    assert HudsonClaim.LOW_LOSS_TRANSPORT in r.supported
+    assert HudsonClaim.MAGNETISM_COUPLED in r.supported
+    assert HudsonClaim.HUDSON_PHASE in r.supported
+
+
+def test_result_evidence_level_is_clamped_to_lab_ceiling():
+    # What the SIMULATION produces never exceeds Level 2, even with lab inputs folded in.
+    r = _strong_coherent(measured_ringdown_fs=1e30, measured_dM_dP=1.0, dM_dP_on_resonance=True)
+    assert r.evidence_level <= int(LAB_CEILING)
+
+
+def test_weak_candidate_supports_at_most_resonance_detection():
+    r = evaluate_hudson_optical(number_density_m3=9.5e28, anisotropy_score=0.0,
+                                thresholds=TH, matter_ev=9.0, coupling_fraction=1e-6,
+                                cavity_loss_ev=1.0, matter_loss_ev=1.0)
+    assert HudsonClaim.STRONG_COUPLING not in r.supported
+    assert r.explain()   # non-empty, mentions the branch is not superconductivity evidence

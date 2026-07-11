@@ -32,11 +32,11 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
-from enum import Enum
+from enum import Enum, IntEnum
 
 from .config import ModelThresholds, SPEED_OF_LIGHT
-from .electromagnetic_coherence import ElectromagneticMode, coupling_regime
-from .evidence import EvidenceLevel
+from .electromagnetic_coherence import ElectromagneticMode, coupling_regime, evaluate_em_coherence
+from .evidence import EvidenceLevel, LAB_CEILING
 
 
 def polariton_branches(matter_ev: float, photon_ev: float, coupling_ev: float) -> tuple[float, float]:
@@ -261,3 +261,102 @@ def magnetism_tracks_resonance(*, measured_dM_dP: float | None = None,
     else:
         note = "magnetic response appears/strengthens on resonance: causal link supported."
     return CausalLink(tracks, measured_dM_dP, on_resonance, ev, note)
+
+
+class HudsonClaim(IntEnum):
+    """Hudson optical-coherence claim hierarchy (Branch B). Each level is an
+    INDEPENDENT finding: a supported level does NOT imply the one below it. Levels
+    9 (independent reproduction) and 10 (practical transduction) require real labs
+    and are out of this module's scope."""
+    RESONANCE_DETECTED = 1        # an EM resonance exists
+    RESONANCE_ASSIGNED = 2        # assigned to the candidate material
+    STRONG_COUPLING = 3           # strong light-matter coupling (hybrid mode)
+    MACRO_COHERENCE = 4           # macroscopic optical coherence
+    LOW_LOSS_TRANSPORT = 5        # low-loss coherent energy transport (persistence)
+    ELECTRONIC_COUPLING = 6       # electronic coupling to the coherent mode
+    MAGNETISM_COUPLED = 7         # magnetic response coupled to the coherent mode
+    HUDSON_PHASE = 8              # full Hudson-type optical superconductive phase
+
+
+@dataclass(frozen=True)
+class HudsonOpticalResult:
+    order_parameter: OpticalOrderParameter
+    regime: str
+    persistence: PersistenceResult
+    causal_link: CausalLink
+    strongest_band: "BandResult | None"
+    supported: frozenset            # frozenset[HudsonClaim]
+    evidence_level: int             # clamped to LAB_CEILING
+
+    @property
+    def highest_supported(self) -> int:
+        return max((int(c) for c in self.supported), default=0)
+
+    def explain(self) -> str:
+        levels = ", ".join(str(int(c)) for c in sorted(self.supported)) or "none"
+        return (
+            f"Branch B (Hudson optical coherence): {self.regime} coupling; supported "
+            f"claim levels {{{levels}}}. Persistence={self.persistence.persistence.value}; "
+            f"causal magnetism tracks resonance={self.causal_link.tracks}. This is NOT "
+            f"evidence of DC superconductivity (Branch A); a coherent optical mode without "
+            f"a linked persistent, magnetically-coupled state remains an ordinary "
+            f"driven-dissipative response. All quantities are toy/surrogate."
+        )
+
+
+def evaluate_hudson_optical(*, number_density_m3: float, anisotropy_score: float,
+                            thresholds: ModelThresholds, matter_ev: float | None = None,
+                            coupling_fraction: float = 0.05, cavity_loss_ev: float = 0.10,
+                            matter_loss_ev: float = 0.05, effective_mass_ratio: float = 1.0,
+                            measured_ringdown_fs: float | None = None,
+                            measured_dM_dP: float | None = None,
+                            dM_dP_on_resonance: bool | None = None) -> HudsonOpticalResult:
+    """Full Branch-B evaluation for one candidate.
+
+    Simulation-supportable levels (1-4, 6) come from the mode algebra; levels 5
+    (transport/persistence) and 7 (causal magnetism) are default-blocked and require
+    the optional measured inputs. Level 8 (full Hudson phase) is the conjunction of
+    the strong-coupling, coherence, transport, electronic, and magnetism levels — a
+    top-level PREDICTION, never a crediting verdict. ``evidence_level`` is what the
+    SIMULATION produces and is clamped to LAB_CEILING regardless of folded lab inputs.
+    """
+    coh = evaluate_em_coherence(number_density_m3, anisotropy_score, thresholds,
+                                coupling_fraction=coupling_fraction, cavity_loss_ev=cavity_loss_ev,
+                                matter_loss_ev=matter_loss_ev, effective_mass_ratio=effective_mass_ratio)
+    mode = coh.mode
+    mev = mode.mode_energy_ev if matter_ev is None else matter_ev   # None -> on resonance
+    o_h = order_parameter_from_mode(mode, mev, thresholds)
+    persistence = classify_persistence(o_h, measured_ringdown_fs=measured_ringdown_fs, thresholds=thresholds)
+    link = magnetism_tracks_resonance(measured_dM_dP=measured_dM_dP, on_resonance=dM_dP_on_resonance)
+    survey = resonance_survey(coupling_fraction, cavity_loss_ev, matter_loss_ev, thresholds)
+    best = strongest_band(survey)
+
+    s: set = set()
+    if mode.mode_energy_ev > 0:
+        s.add(HudsonClaim.RESONANCE_DETECTED)
+        s.add(HudsonClaim.RESONANCE_ASSIGNED)           # assigned to this candidate's carriers
+    strong = coh.regime != "weak"
+    if strong:
+        s.add(HudsonClaim.STRONG_COUPLING)
+    # macroscopic coherence: a genuine hybrid (photon fraction above floor) in a
+    # non-weak regime with a positive coherence score.
+    if strong and o_h.f_photon >= thresholds.hudson_min_photon_fraction and coh.coherence_score > 0:
+        s.add(HudsonClaim.MACRO_COHERENCE)
+    # electronic coupling to the mode: a non-negligible electronic (matter) fraction.
+    if strong and o_h.f_electron >= thresholds.hudson_min_photon_fraction:
+        s.add(HudsonClaim.ELECTRONIC_COUPLING)
+    # transport (level 5) requires a persistent (or at least metastable) measured ring-down.
+    if persistence.persistence in (Persistence.PERSISTENT, Persistence.METASTABLE):
+        s.add(HudsonClaim.LOW_LOSS_TRANSPORT)
+    # magnetism (level 7) requires the measured causal link.
+    if link.tracks:
+        s.add(HudsonClaim.MAGNETISM_COUPLED)
+    # full Hudson phase (level 8): conjunction at the top — the coherent, transporting,
+    # electronically-coupled, magnetically-coupled state.
+    if {HudsonClaim.STRONG_COUPLING, HudsonClaim.MACRO_COHERENCE, HudsonClaim.LOW_LOSS_TRANSPORT,
+        HudsonClaim.ELECTRONIC_COUPLING, HudsonClaim.MAGNETISM_COUPLED}.issubset(s):
+        s.add(HudsonClaim.HUDSON_PHASE)
+
+    ev = int(min(EvidenceLevel(int(LAB_CEILING)),
+                 EvidenceLevel.SIMULATION_CANDIDATE if s else EvidenceLevel.CONCEPT))
+    return HudsonOpticalResult(o_h, coh.regime, persistence, link, best, frozenset(s), ev)

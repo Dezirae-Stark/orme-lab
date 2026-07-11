@@ -191,6 +191,53 @@ def test_single_lineage_full_stack_matches_python():
     assert got["claims"] == [c.status.value for c in py.claims]
 
 
+def test_dossier_findings_match_python_and_demo_states_are_labelled():
+    # Findings (demo:false): HC-04 (IR-doublet contaminant screen) and HC-06 (Meissner screen)
+    # carry no witness/distribution/optical/measured input of their own, so their computed
+    # status must equal the bare Python assessors for the SAME (empty) inputs -- parity, not
+    # a hand-set number here.
+    doublet = (1429.53, 1490.99)
+    py_hc04 = HL.assess_hc04(doublet, TH).status.value
+    py_hc06 = HL.assess_hc06(None, HL.MeasuredEvidence(), TH).status.value
+
+    js = (f'import {{DOSSIER, assessHc04, assessHc06, CLAIM_STATUS}} from "{_JS.as_posix()}";'
+          f'const doublet={json.dumps(doublet)};'
+          f'const th={json.dumps(_th_js())};'
+          f'const findings=DOSSIER.filter(d=>d.demo===false);'
+          f'const demos=DOSSIER.filter(d=>d.demo===true);'
+          f'console.log(JSON.stringify({{'
+          f'hc04:assessHc04(doublet,th).status,'
+          f'hc06:assessHc06(null,{{}},th).status,'
+          f'findingsNotDemo:findings.every(d=>d.demo===false),'
+          f'demosLabelled:demos.every(d=>d.demo===true && typeof d.note==="string" && d.note.includes("demonstration")),'
+          f'noFindingIsDemo:!findings.some(d=>d.note && d.note.includes("demonstration")),'
+          f'}}));')
+    got = _node(js)
+    assert got["hc04"] == py_hc04
+    assert got["hc06"] == py_hc06
+    assert got["findingsNotDemo"] is True
+    assert got["demosLabelled"] is True
+    assert got["noFindingIsDemo"] is True
+
+
+def test_dossier_evaluates_never_validated_and_portfolio_vs_integrated_diverges():
+    # evaluateLedger(DOSSIER) never yields the forbidden affirmative verdict, and the demo
+    # states are arranged so the portfolio best-of clears HC-06 AND HC-07 (SUPPORTED) while no
+    # single lineage clears the core conjunction -- integrated stays below SUPPORTED. This is
+    # the anti-Frankenstein divergence made visible from the dossier itself.
+    doublet = (1429.53, 1490.99)
+    js = (f'import {{DOSSIER, evaluateLedger, CLAIM_STATUS}} from "{_JS.as_posix()}";'
+          f'const led=evaluateLedger(DOSSIER,{{th:{json.dumps(_th_js())},doublet:{json.dumps(doublet)}}});'
+          f'const hc06=led.claims.find(c=>c.id==="HC-06").status;'
+          f'const hc07=led.claims.find(c=>c.id==="HC-07").status;'
+          f'console.log(JSON.stringify({{verdict:led.gate.interimVerdict,integratedStatus:led.integratedStatus,hc06,hc07}}));')
+    got = _node(js)
+    assert got["verdict"] != "HUDSON CLAIM VALIDATED"
+    assert got["hc06"] >= HL.ClaimStatus.SUPPORTED.value
+    assert got["hc07"] >= HL.ClaimStatus.SUPPORTED.value
+    assert got["integratedStatus"] < HL.ClaimStatus.SUPPORTED.value
+
+
 def test_optical_and_replication_gates_match_python():
     # optical persistent vs metastable; replication thresholds
     supported = [3, 4, 5, 6]  # STRONG,MACRO,LOW_LOSS,ELECTRONIC as int levels

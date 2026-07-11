@@ -505,6 +505,96 @@ export function evaluateLedger(materials, { th, doublet } = {}) {
   };
 }
 
+// ---- DOSSIER: the seed material states for the Ledger tab ---------------------------------
+// Two frozen groups, never mixed:
+//   - conducted-research findings (demo:false) — our actual results, provenance + doc link,
+//     exactly like research.js entries. A finding's status is whatever evaluateLedger computes
+//     for it (parity-locked by tests/test_ledger_parity.py) — never hand-set here.
+//   - illustrative demo states (demo:true) — synthetic lineages carrying partial measured
+//     evidence so the interactive controls have something to move and the portfolio-vs-
+//     integrated (anti-Frankenstein) divergence is visible. Always labelled "demonstration,
+//     not a finding"; never presented as evidence.
+const DOC = "https://github.com/Dezirae-Stark/orme-lab/blob/master/docs/";
+const DEMO_NOTE = "demonstration, not a finding";
+
+export const DOSSIER = [
+  Object.freeze({
+    id: "ir-doublet-finding",
+    title: "IR doublet — contaminant screen (HC-04)",
+    hc: "HC-04",
+    demo: false,
+    provenance: "ir_contaminant.py · Steill & Oomens 2009 · Deacon & Phillips 1980 · Grigorev 1963 (one-hop)",
+    doc: DOC + "patent-claim-tests.md",
+    note: "Conducted research: the top mundane match for the 1400-1600 cm^-1 doublet is a plausible " +
+      "(not tight) carboxylate — the mundane alternative HC-04 must rule out.",
+    lineage: { familyId: "ir-doublet", batchId: "run-1", aliquotId: "ir-doublet", processing: [] },
+    element: "Rh",
+    witness: null,
+    distribution: null,
+    creditedScLead: false,
+    optical: null,
+    measured: {},
+  }),
+  Object.freeze({
+    id: "meissner-finding",
+    title: "Meissner Hc1 screen (HC-06)",
+    hc: "HC-06",
+    demo: false,
+    provenance: "meissner_field.py · Tinkham, Introduction to Superconductivity · CODATA 2018 Φ0",
+    doc: DOC + "patent-claim-tests.md",
+    note: "Conducted research: Hc1≈50µT implies λ/nₛ in tension with the isolated-monomer premise " +
+      "(conventional route, screen only — not a measured flux exclusion).",
+    lineage: { familyId: "meissner", batchId: "run-1", aliquotId: "meissner", processing: [] },
+    element: "Ir",
+    witness: null,
+    distribution: null,
+    creditedScLead: false,
+    optical: null,
+    measured: {},
+  }),
+  Object.freeze({
+    id: "demo-batch-7",
+    title: "demo/batch-7",
+    hc: null,
+    demo: true,
+    provenance: null,
+    doc: null,
+    note: DEMO_NOTE + " — illustrative measured optical transport (clears HC-07, not HC-06).",
+    lineage: { familyId: "demo", batchId: "batch-7", aliquotId: "demo", processing: [] },
+    element: "Ir",
+    witness: null,
+    distribution: null,
+    creditedScLead: false,
+    optical: {
+      supported: [
+        HUDSON_CLAIM.STRONG_COUPLING,
+        HUDSON_CLAIM.MACRO_COHERENCE,
+        HUDSON_CLAIM.LOW_LOSS_TRANSPORT,
+        HUDSON_CLAIM.ELECTRONIC_COUPLING,
+      ],
+      persistence: "persistent",
+    },
+    measured: {},
+  }),
+  Object.freeze({
+    id: "demo-batch-7-anneal",
+    title: "demo/batch-7▸anneal",
+    hc: null,
+    demo: true,
+    provenance: null,
+    doc: null,
+    note: DEMO_NOTE + " — illustrative measured flux exclusion (clears HC-06, not HC-07); a " +
+      "separate processing lineage from demo/batch-7, never stitched to it.",
+    lineage: { familyId: "demo", batchId: "batch-7", aliquotId: "demo", processing: ["anneal"] },
+    element: "Ir",
+    witness: null,
+    distribution: null,
+    creditedScLead: false,
+    optical: null,
+    measured: { fluxExclusion: true },
+  }),
+];
+
 export function renderLedger(el) {
   el.textContent = "";
   const p = document.createElement("p");

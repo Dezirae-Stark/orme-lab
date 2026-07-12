@@ -316,16 +316,69 @@ def test_branchflow_energy_transport_needs_persistent():
     assert _bf("persistent") is True
 
 
-def test_ledger_js_no_egress_no_nondeterminism_no_innerhtml():
-    """Static hygiene guard (Task 7): web/ledger.js must not reach the network, must not read
-    wall-clock/RNG into computed output, and must never assign innerHTML (researcher/derived
-    text goes through textContent/createElement only — see the module's own comment at its top)."""
-    code_lines = [line for line in _JS.read_text().splitlines() if not line.strip().startswith("//")]
+_LEDGER_JS_FILES = [
+    Path(__file__).resolve().parents[1] / "web" / "ledger.js",
+    Path(__file__).resolve().parents[1] / "web" / "ledger3d.js",
+]
+
+
+@pytest.mark.parametrize("path", _LEDGER_JS_FILES, ids=lambda p: p.name)
+def test_ledger_js_no_egress_no_nondeterminism_no_innerhtml(path):
+    """Static hygiene guard (Task 7 / Phase C Task 4): web/ledger.js and web/ledger3d.js must not
+    reach the network, must not read wall-clock/RNG into computed output, must never assign
+    innerHTML (researcher/derived text goes through textContent/createElement only — see each
+    module's own comment at its top), and must never emit the forbidden affirmative verdict
+    string. `performance.now()` is exempt — ledger3d.js's render loop uses it ONLY to animate the
+    polariton pulse, never as a returned/serialized gate value (see ledger3d.js's own comment)."""
+    code_lines = [line for line in path.read_text().splitlines() if not line.strip().startswith("//")]
     code = "\n".join(code_lines)
-    for forbidden in ("fetch(", "XMLHttpRequest", "WebSocket", "Date.now", "Math.random"):
-        assert forbidden not in code, f"forbidden token {forbidden!r} found in web/ledger.js"
+    for forbidden in ("fetch(", "XMLHttpRequest", "WebSocket", "Date.now", "Math.random", "new Date(",
+                       "HUDSON CLAIM VALIDATED"):
+        assert forbidden not in code, f"forbidden token {forbidden!r} found in {path.name}"
     for line in code_lines:
-        assert ".innerHTML" not in line, f"innerHTML assignment found in web/ledger.js: {line!r}"
+        assert ".innerHTML" not in line, f"innerHTML assignment found in {path.name}: {line!r}"
+
+
+def test_gatering_matches_python_gates():
+    # the six ring states are the parity-locked ledger gates for a single focused material
+    from orme_lab.hudson_ledger import (evaluate_hudson_ledger, MeasuredEvidence, ReplicationEvidence)
+    from orme_lab.hudson_optical import evaluate_hudson_optical
+    from orme_lab.identity import IdentityWitness
+    from orme_lab.structure import dispersed_sample
+    from orme_lab.elements import get_element
+    from orme_lab.geometry import make_compact_cluster
+    from orme_lab.spin_states import high_spin_state
+    from orme_lab.pipeline import evaluate_candidate
+    from orme_lab.lineage import singleton_lineage
+    el = get_element("Ir")
+    opt = evaluate_hudson_optical(number_density_m3=9.5e28, anisotropy_score=0.4, thresholds=TH,
+                                  matter_ev=9.0, coupling_fraction=0.3, cavity_loss_ev=0.02,
+                                  matter_loss_ev=0.02, measured_ringdown_fs=1e30,
+                                  measured_dM_dP=1.0, dM_dP_on_resonance=True)
+    cand = evaluate_candidate(el, make_compact_cluster(el, 13), "high_spin",
+                              high_spin_state(el), DEFAULT_CONFIG)
+    m = MeasuredEvidence(optical_result=opt, replication=ReplicationEvidence(3, 2, True, True, True))
+    w = IdentityWitness("Ir", "nonmetallic-elemental", "monatomic", 0.0, ("XRD", "XPS"))
+    led = evaluate_hudson_ledger([cand], witnesses=[w], distributions=[dispersed_sample(el, 0.95)],
+                                 lineages=[singleton_lineage("m1")], measured={"m1/m1": m},
+                                 observed_doublet=(1429.53, 1490.99), thresholds=TH)
+    py = dict(identity=led.gate.g_identity_established,
+              materialState=led.gate.g_hudson_material_state,
+              mechanism=led.gate.g_hudson_mechanism)
+    matjs = dict(lineage=dict(familyId="m1", batchId="m1", aliquotId="m1", processing=[]), element="Ir",
+                 witness=dict(composition="Ir", phase="nonmetallic-elemental", morphology="monatomic", oxidation=0.0),
+                 distribution=dict(f1=0.95, sizeDist={"1": 0.95, "2": 0.03, "13": 0.02},
+                                   nnDistances=[[float("inf"), 0.95], [2.82, 0.03], [2.82, 0.02]]),
+                 optical=dict(supported=[3, 4, 5, 6, 7], persistence="persistent"),
+                 measured=dict(hc01NonmetallicConfirmed=True, hc02DispersionConfirmed=True,
+                               replication=dict(nBatches=3, nLabs=2, preregistered=True, rawRetained=True, blindedOk=True)),
+                 demo=True)
+    js = (f'import {{gateRing}} from "{_JS.as_posix()}";'
+          f'const r=gateRing({json.dumps(matjs)},[1429.53,1490.99],{json.dumps(_th_js())});'
+          f'console.log(JSON.stringify([r.identity, r.materialState, r.mechanism, r.transport, r.magnetism, r.replication]));')
+    got = _node(js)
+    assert got[0] == py["identity"] and got[1] == py["materialState"] and got[2] == py["mechanism"]
+    assert got[3] is True and got[4] is True and got[5] is True   # transport/magnetism/replication all open here
 
 
 def test_branchflow_conventional_and_hudson_blocks_never_cross_read():

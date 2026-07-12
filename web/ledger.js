@@ -1,7 +1,14 @@
-// web/ledger.js — Hudson Claim Ledger dashboard (Phase A). Parity-locked to hudson_ledger.py.
+// web/ledger.js — Hudson Claim Ledger dashboard (Phase A/B/C). Parity-locked to hudson_ledger.py.
 // Every assessor/gate below is a faithful port of src/orme_lab/hudson_ledger.py (read that file
 // for the authoritative thresholds/branch order — this module must not compute anything the
 // Python doesn't). Pure/deterministic: no Date, no Math.random, no network.
+//
+// Phase C: mountLedger3d/updateLedger3d (imported below) drive the guarded 3D material-state
+// stage atop _renderDash; ledger3d.js imports gateRing/branchFlow back from this module (a
+// deliberate, safe ES-module circular import — neither side calls the other's exports at
+// top-level module-evaluation time, only from inside functions invoked after the graph is
+// fully linked).
+import { mountLedger3d, updateLedger3d } from "./ledger3d.js?v=__BUILD__";
 
 // ---- Enums (mirror hudson_ledger.ClaimStatus / .Route / .HudsonClaimId) --------------------
 export const CLAIM_STATUS = {
@@ -191,6 +198,22 @@ export function branchFlow(material, doublet, th) {
       replication,
       result: materialState && energyTransport && causalMagnetism && replication,
     },
+  };
+}
+
+// ---- gateRing: the six-gate ring states for the Phase C 3D stage (and its text-legend
+// fallback). Reuses ONLY the parity-locked branchFlow(...)/gIdentityEstablished(...) above — no
+// new decision logic. `identity` is read from gIdentityEstablished directly (branchFlow doesn't
+// surface it) so the ring's first gate matches the same identity check the matrix/cards use.
+export function gateRing(material, doublet, th) {
+  const bf = branchFlow(material, doublet, th);
+  return {
+    identity: gIdentityEstablished(material.witness),
+    materialState: bf.hudson.materialState,
+    transport: bf.hudson.energyTransport,
+    magnetism: bf.hudson.causalMagnetism,
+    replication: bf.hudson.replication,
+    mechanism: bf.hudson.result,
   };
 }
 
@@ -1200,6 +1223,133 @@ function _buildControls(materials, focusedKey, onChange) {
   return panel;
 }
 
+// ---- Phase C: the 3D material-state stage region (breadcrumb + canvas host + gate legend). ---
+// The canvas host div is created ONCE and cached module-level (`_ledger3dCanvasHost`) — every
+// `_renderDash` call clears and rebuilds `dash`'s children, but re-appending the SAME cached
+// node (never a fresh one) keeps the live WebGL canvas/renderer mounted across re-renders
+// instead of tearing it down and recreating it on every focus/evidence change.
+let _ledger3dCanvasHost = null;
+let _ledger3dMounted = false;
+
+const _GATE3D_LABELS = [
+  ["identity", "identity established"],
+  ["materialState", "material state"],
+  ["transport", "transport"],
+  ["magnetism", "magnetism"],
+  ["replication", "replication"],
+  ["mechanism", "mechanism"],
+];
+
+// Text-fallback legend for the six ring gates — always rendered (WebGL or not) so the ring's
+// meaning is available without the canvas. Reads gateRing(...) only; no new decision logic.
+function _buildGateLegend3d(ring) {
+  const legend = _el("div", "ledger3d-legend");
+  _attr(legend, "role", "list");
+  _attr(legend, "aria-label", "Six-gate ring states");
+  _GATE3D_LABELS.forEach(([key, label]) => {
+    const open = Boolean(ring[key]);
+    const chip = _el(
+      "span",
+      "ledger3d-gate-chip" + (open ? " open" : " closed") + (key === "mechanism" ? " mechanism" : "")
+    );
+    _attr(chip, "role", "listitem");
+    _attr(chip, "aria-label", `${label}: ${open ? "open" : "closed"}`);
+    chip.appendChild(_el("span", "ledger3d-gate-dot"));
+    chip.appendChild(_el("span", "ledger3d-gate-lbl", label));
+    chip.appendChild(_el("span", "ledger3d-gate-state", open ? "OPEN" : "CLOSED"));
+    legend.appendChild(chip);
+  });
+  return legend;
+}
+
+// Lineage breadcrumb for the focused material: family ▸ batch ▸ aliquot ▸ [processing...]. Each
+// segment is clickable ONLY when a real DOSSIER material exists at that exact lineage prefix
+// (same familyId/batchId, processing truncated to that depth) — never a fabricated node; a
+// segment with no matching material renders as inert text.
+function _buildCrumb(material, onFocus) {
+  const lin = material.lineage;
+  const segments = [{ label: lin.familyId, processing: [] }];
+  if (lin.batchId !== lin.familyId) segments.push({ label: lin.batchId, processing: [] });
+  if (lin.aliquotId !== lin.batchId && lin.aliquotId !== lin.familyId) {
+    segments.push({ label: lin.aliquotId, processing: [] });
+  }
+  (lin.processing || []).forEach((step, i) => {
+    segments.push({ label: step, processing: lin.processing.slice(0, i + 1) });
+  });
+
+  const currentKey = _lineageKey(lin);
+  const crumb = _el("nav", "ledger3d-crumb");
+  _attr(crumb, "aria-label", "Material lineage");
+  segments.forEach((seg, i) => {
+    const target = DOSSIER.find(
+      (m) =>
+        m.lineage.familyId === lin.familyId &&
+        m.lineage.batchId === lin.batchId &&
+        JSON.stringify(m.lineage.processing || []) === JSON.stringify(seg.processing)
+    );
+    if (target) {
+      const key = _lineageKey(target.lineage);
+      const btn = _el("button", "crumb-node" + (key === currentKey ? " current" : ""));
+      btn.type = "button";
+      btn.textContent = seg.label;
+      _attr(btn, "aria-label", `Focus ${target.title}`);
+      _on(btn, "click", () => onFocus(key));
+      crumb.appendChild(btn);
+    } else {
+      crumb.appendChild(_el("span", "crumb-node crumb-node-inert", seg.label));
+    }
+    if (i < segments.length - 1) crumb.appendChild(_el("span", "crumb-sep", "▸"));
+  });
+  return crumb;
+}
+
+function _buildLedger3dRegion(material, doublet, th, onFocus) {
+  const region = _el("div", "ledger3d-region");
+  _attr(region, "role", "region");
+  _attr(region, "aria-labelledby", "ledger3d-heading");
+  const heading = _el("h3", "ledger-card-title", "Material-state stage");
+  _attr(heading, "id", "ledger3d-heading");
+  region.appendChild(heading);
+  region.appendChild(
+    _el(
+      "p",
+      "ledger-card-sub",
+      "Schematic — the cluster is a fixed icon, not a computed structure. The six-gate ring and " +
+        "O_H polariton read the parity-locked ledger gates below for the focused material only."
+    )
+  );
+  region.appendChild(_buildCrumb(material, onFocus));
+
+  if (!_ledger3dCanvasHost) {
+    _ledger3dCanvasHost = _el("div", "ledger3d-canvas");
+    _attr(_ledger3dCanvasHost, "role", "img");
+    _attr(
+      _ledger3dCanvasHost,
+      "aria-label",
+      "3D material-state stage (schematic; degrades to a text legend without WebGL)"
+    );
+  }
+  region.appendChild(_ledger3dCanvasHost);
+  region.appendChild(_buildGateLegend3d(gateRing(material, doublet, th)));
+  return region;
+}
+
+// Mount once (fire-and-forget async — mountLedger3d never throws, it resolves {ok:false} on any
+// failure), then only ever recompute via updateLedger3d on subsequent renders. updateLedger3d
+// itself no-ops when the stage never came up (no WebGL) — see ledger3d.js.
+function _mountOrUpdateLedger3d(material, doublet, th) {
+  if (!_ledger3dMounted) {
+    _ledger3dMounted = true;
+    mountLedger3d(_ledger3dCanvasHost)
+      .then((r) => {
+        if (r.ok) updateLedger3d(material, doublet, th);
+      })
+      .catch(() => {});
+  } else {
+    updateLedger3d(material, doublet, th);
+  }
+}
+
 // ---- renderLedger: the full 2D dashboard over evaluateLedger(materials, ...). Task 5 shipped a
 // static render from the frozen dossier; Task 6 layers the evidence-controls overlay (state
 // above) so any change recomputes evaluateLedger and re-renders the matrix + cards + HC-02
@@ -1224,6 +1374,19 @@ function _renderDash(dash) {
   }));
   const result = evaluateLedger(materials, { th, doublet });
 
+  const focusedKey = _state.focusedLineageId || _lineageKey(DOSSIER[0].lineage);
+  const focusedMaterial = materials.find((m) => _lineageKey(m.lineage) === focusedKey) || materials[0];
+  const onFocus = (key) => {
+    _state.focusedLineageId = key;
+    _renderDash(dash);
+  };
+
+  // Phase C: the 3D material-state stage region, ahead of the legend — the "spine" the rest of
+  // the dashboard relates to. Mounted once; every render (focus change or evidence edit) just
+  // recomputes the schematic for the currently-focused material.
+  dash.appendChild(_buildLedger3dRegion(focusedMaterial, doublet, th, onFocus));
+  _mountOrUpdateLedger3d(focusedMaterial, doublet, th);
+
   dash.appendChild(_buildLegend());
 
   const cards = _el("div", "ledger-cards");
@@ -1231,16 +1394,8 @@ function _renderDash(dash) {
   cards.appendChild(_buildIntegratedCard(entries, result));
   dash.appendChild(cards);
 
-  const focusedKey = _state.focusedLineageId || _lineageKey(DOSSIER[0].lineage);
-  dash.appendChild(
-    _buildBranchFlow(materials.find((m) => _lineageKey(m.lineage) === focusedKey) || materials[0], doublet, th)
-  );
-  dash.appendChild(
-    _buildMatrix(entries, focusedKey, (key) => {
-      _state.focusedLineageId = key;
-      _renderDash(dash);
-    })
-  );
+  dash.appendChild(_buildBranchFlow(focusedMaterial, doublet, th));
+  dash.appendChild(_buildMatrix(entries, focusedKey, onFocus));
   dash.appendChild(_buildHc02Detail(entries, th));
   dash.appendChild(_buildControls(materials, focusedKey, () => _renderDash(dash)));
 }

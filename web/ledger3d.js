@@ -83,7 +83,9 @@ function _clearGroups() {
     if (!g) return;
     while (g.children.length) {
       const c = g.children.pop();
-      c.geometry?.dispose?.();
+      // Dispose only the per-build MATERIAL (created fresh each rebuild). The geometries
+      // (_sphereGeo/_nodeGeo/_keystoneGeo/_torusGeo) are SHARED and reused across rebuilds —
+      // disposing them here would free GPU buffers still referenced on the next update.
       c.material?.dispose?.();
     }
   });

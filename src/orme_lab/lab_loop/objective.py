@@ -23,6 +23,7 @@ def action_key(avenue: Avenue) -> tuple:
     return (
         a.elements, a.geometry_kinds, a.spin_labels, a.applied_field_t,
         a.temperature_k, a.use_epw, a.use_em, a.coupling_channel,
+        a.pairing_symmetry,   # singlet vs triplet over the same grid are DISTINCT actions
     )
 
 

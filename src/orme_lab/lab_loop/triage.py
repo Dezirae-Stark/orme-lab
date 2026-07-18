@@ -45,6 +45,12 @@ def triage(result: AvenueResult, open_hypotheses: frozenset[str]) -> TriageOutco
     if not live:
         return TriageOutcome(Verdict.INCONCLUSIVE, 0.0, None)
 
+    # 2c. Absent off-gate evidence (discriminator not measured -> None) is INCONCLUSIVE, never a
+    # kill. Distinguishes "not measured" from a real zero, so a falsifier cannot fire on missing
+    # data (which would retire a hypothesis having tested nothing).
+    if result.metrics.get(av.falsification.metric) is None:
+        return TriageOutcome(Verdict.INCONCLUSIVE, 0.0, None)
+
     # 3. Did the falsification condition fire? A fire kills the hypothesis.
     if av.falsification.evaluate(result.metrics):
         return TriageOutcome(Verdict.KILLED_HYPOTHESIS, 1.0, av.targeted_hypothesis)

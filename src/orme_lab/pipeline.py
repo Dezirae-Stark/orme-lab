@@ -260,6 +260,14 @@ def evaluate_candidate(
     if sym is PairingSymmetry.SINGLET and epw.tc_kelvin is not None:
         crit_field = pairing_critical_field(spin_pol, coupling, sym, tc_kelvin=epw.tc_kelvin)
         suppression = magnetic_field_suppression_factor(config.applied_field_t, crit_field)
+        # Recompute observables with the capped field: a lower Hc lowers the Meissner/observable
+        # signal too, so the observable_signal gate (and the recorded screening fields) must not
+        # keep the pre-cap value — else a low-Tc singlet under a field overstates a candidate.
+        obs = predict_observables(
+            state=state, coupling_score=coupling, carrier_proxy=carrier,
+            temperature_k=config.temperature_k, applied_field_t=config.applied_field_t,
+            critical_field_t=crit_field)
+        observable_signal = min(1.0, max(obs.meissner_screening, math.tanh(abs(obs.molar_susceptibility))))
         plaus = superconductivity_plausibility_score(
             coupling_score=coupling, carrier_proxy=carrier, field_suppression=suppression,
             structural_stability=stability, observable_signal=observable_signal, thresholds=th)

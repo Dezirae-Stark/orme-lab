@@ -34,6 +34,12 @@ def validate_runnable(avenue: Avenue) -> tuple[bool, str]:
     m = avenue.falsification.metric
     if m not in METRIC_RANGES:
         return False, f"unknown falsification metric {m!r}"
+    # Discriminator falsifiers need their data source, else the metric is never measured
+    # (perpetually None) and the avenue can decide nothing. Require it at intake.
+    if m == "max_field_response_ratio" and not avenue.action.use_epw:
+        return False, "max_field_response_ratio falsifier requires use_epw (Pauli ratio needs a Tc scale)"
+    if m == "max_em_drive_response" and not avenue.action.use_em:
+        return False, "max_em_drive_response falsifier requires use_em (drive response needs the EM channel)"
     # An empty screening grid produces zero records and all-0.0 metrics, which
     # would spuriously FIRE any "less-than" falsifier (a hypothesis retired having
     # tested nothing). Reject empty axes before they can reach the screen.
@@ -75,13 +81,22 @@ _METRIC_KEYS = (
 )
 
 
-def _metrics(records: tuple[CandidateRecord, ...]) -> dict[str, float]:
+# Discriminator metrics that must stay None (not 0.0) when unmeasured, so a falsifier cannot
+# fire on absent evidence (0.0 is a real in-range value that fires `<=` conditions).
+_NONE_WHEN_UNMEASURED = frozenset({"max_field_response_ratio", "max_em_drive_response"})
+
+
+def _metrics(records: tuple[CandidateRecord, ...]) -> dict[str, float | None]:
     if not records:
-        return {k: 0.0 for k in _METRIC_KEYS}
+        return {k: (None if k in _NONE_WHEN_UNMEASURED else 0.0) for k in _METRIC_KEYS}
 
     def _max(attr: str) -> float:
         vals = [getattr(r, attr) for r in records if getattr(r, attr) is not None]
         return float(max(vals)) if vals else 0.0
+
+    def _max_or_none(attr: str) -> float | None:
+        vals = [getattr(r, attr) for r in records if getattr(r, attr) is not None]
+        return float(max(vals)) if vals else None
 
     return {
         "max_sc_plausibility": _max("sc_plausibility"),
@@ -95,8 +110,8 @@ def _metrics(records: tuple[CandidateRecord, ...]) -> dict[str, float]:
         "max_carrier_proxy": _max("carrier_proxy"),
         "n_isolated": float(sum(1 for r in records if r.isolated)),
         "max_em_coherence_score": _max("em_coherence_score"),
-        "max_field_response_ratio": _max("field_response_ratio"),
-        "max_em_drive_response": _max("em_drive_response"),
+        "max_field_response_ratio": _max_or_none("field_response_ratio"),
+        "max_em_drive_response": _max_or_none("em_drive_response"),
     }
 
 

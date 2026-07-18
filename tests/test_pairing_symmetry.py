@@ -45,3 +45,33 @@ def test_field_response_ratio_gt_one_signals_enhancement():
     # Bc above the Pauli limit -> ratio > 1 -> only triplet can host it.
     r = field_response_ratio(pauli_limit_tesla(2.0) * 1.5, 2.0)
     assert r == pytest.approx(1.5)
+
+
+from dataclasses import replace
+from orme_lab.config import DEFAULT_CONFIG
+from orme_lab.pipeline import evaluate_candidate
+from orme_lab.elements import get_element
+from orme_lab.geometry import make_compact_cluster
+from orme_lab.spin_states import high_spin_state
+
+
+def _rec(symmetry="undetermined", field_t=0.0):
+    el = get_element("Ir")
+    geo = make_compact_cluster(el, 13)
+    cfg = replace(DEFAULT_CONFIG, pairing_symmetry=symmetry, applied_field_t=field_t)
+    return evaluate_candidate(el, geo, "high_spin", high_spin_state(el), cfg)
+
+
+def test_default_symmetry_is_byte_identical():
+    # UNDETERMINED default: field_suppression identical to a run with no symmetry concept.
+    r = _rec("undetermined", field_t=0.0)
+    assert r.pairing_symmetry == "undetermined"
+    assert r.field_suppression == pytest.approx(1.0)   # zero field
+    assert r.field_response_ratio is None               # no Tc on the toy path
+
+
+def test_singlet_high_spin_lower_field_than_triplet_under_field():
+    s = _rec("singlet", field_t=2.0)
+    t = _rec("triplet", field_t=2.0)
+    # Under an applied field, a high-spin singlet is suppressed more than a triplet.
+    assert s.field_suppression <= t.field_suppression

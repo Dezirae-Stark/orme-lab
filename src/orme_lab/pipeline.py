@@ -46,7 +46,13 @@ from .geometry import (
     make_linear_chain,
     make_monomer,
 )
-from .magnetic_field import magnetic_field_suppression_factor
+from .magnetic_field import (
+    PairingSymmetry,
+    field_response_ratio,
+    magnetic_field_suppression_factor,
+    pairing_critical_field,
+)
+from .mechanisms import filter_by_symmetry
 from .observables import ObservableSet, predict_observables
 from .spin_states import SpinState, high_spin_state, low_spin_state, spin_polarization_score
 from .superconductivity import (
@@ -101,6 +107,11 @@ class CandidateRecord:
     ruled_out: bool
     evidence_level: int
     verdict: str
+    # Field-response seam (#7), pairing-symmetry-conditional (Task 3). Defaults keep the
+    # toy path byte-identical: UNDETERMINED is the default symmetry and field_response_ratio
+    # is None without a Tc.
+    field_response_ratio: float | None = None   # off-gate: Bc/Bc_pauli (None without Tc)
+    pairing_symmetry: str = "undetermined"
     # EPW electron-phonon Tc of a periodic approximant (phonon-channel,
     # spin-singlet counterfactual -- NOT evidence of superconductivity;
     # Level 2). None on the toy path.
@@ -201,8 +212,9 @@ def evaluate_candidate(
 
     carrier = carrier_coherence_proxy(coupling, anisotropy)
 
-    # Field-response seam (orbital + paramagnetic pair-breaking).
-    crit_field = critical_field_proxy(spin_pol, coupling)
+    sym = PairingSymmetry(config.pairing_symmetry)
+    # Field-response seam (orbital + paramagnetic pair-breaking), pairing-symmetry-conditional.
+    crit_field = pairing_critical_field(spin_pol, coupling, sym)  # tc unknown here; refined below if EPW runs
     if backend is not None and backend.provides(Capability.FIELD_RESPONSE):
         crit_field = backend.critical_field(spin_pol, coupling)
     suppression = magnetic_field_suppression_factor(config.applied_field_t, crit_field)
@@ -238,6 +250,17 @@ def evaluate_candidate(
             epw = backend.superconducting_gap(element, geometry, state)
         except Exception as exc:  # backstop; the backend should already catch EPWError
             epw = EPWResult.failed(f"{type(exc).__name__}: {exc}")
+
+    # Off-gate field-response discriminator (needs a pairing energy scale = Tc).
+    fr_ratio = field_response_ratio(
+        pairing_critical_field(spin_pol, coupling, PairingSymmetry.TRIPLET), epw.tc_kelvin)
+    # Singlet refinement: a Pauli-limited critical field (only when Tc is known -> toy path untouched).
+    if sym is PairingSymmetry.SINGLET and epw.tc_kelvin is not None:
+        crit_field = pairing_critical_field(spin_pol, coupling, sym, tc_kelvin=epw.tc_kelvin)
+        suppression = magnetic_field_suppression_factor(config.applied_field_t, crit_field)
+        plaus = superconductivity_plausibility_score(
+            coupling_score=coupling, carrier_proxy=carrier, field_suppression=suppression,
+            structural_stability=stability, observable_signal=observable_signal, thresholds=th)
 
     # EM-coherence seam (H12/H16). Off-gate signal, gated by config flag. A high
     # coherence score is the H12 mundane alternative, NOT superconductivity.
@@ -278,11 +301,11 @@ def evaluate_candidate(
     # Pairing-mechanism tracks (#6): a candidate is credited only if >= 1 mechanism survives
     # end-to-end (no synthetic combining). A large local moment pair-breaks singlet M_phonon
     # but enables the magnetic channels, so high-spin candidates route out of phonon.
-    mech_results = evaluate_mechanisms(
+    mech_results = filter_by_symmetry(evaluate_mechanisms(
         coupling=coupling, carrier_proxy=carrier, structural_stability=stability,
         field_suppression=suppression, observable_signal=observable_signal,
         spin_polarization=spin_pol, em_coherence_score=em_score, n_atoms=geometry.n_atoms,
-        thresholds=th)
+        thresholds=th), sym)
     surviving_mechanisms = mechanism_surviving(mech_results)
     mechanism_summary = mechanism_summarize(mech_results)
 
@@ -310,6 +333,8 @@ def evaluate_candidate(
         isolated=isolated,
         carrier_proxy=carrier,
         field_suppression=suppression,
+        field_response_ratio=fr_ratio,
+        pairing_symmetry=sym.value,
         structural_stability=stability,
         observable_signal=observable_signal,
         resistance_regime=obs.resistance_regime,

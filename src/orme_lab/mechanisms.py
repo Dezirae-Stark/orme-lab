@@ -36,6 +36,7 @@ class Mechanism(str, Enum):
     TRIPLET = "M_triplet"
     EXCITONIC_POLARITONIC = "M_excitonic_polaritonic"
     GRANULAR_JOSEPHSON = "M_granular_josephson"
+    DRIVE = "M_drive"
 
 
 @dataclass(frozen=True)
@@ -100,6 +101,20 @@ def _excitonic(coupling: float, em_score: float | None, th: ModelThresholds) -> 
                            "(normally the H12/H16 mundane alternative)")
 
 
+def _drive(coupling: float, spin_pol: float, em_score: float | None,
+           th: ModelThresholds) -> MechanismResult:
+    if em_score is None:
+        return _reject(Mechanism.DRIVE, "EM coherence not computed (compute_em_coherence off)", True)
+    if spin_pol < MOMENT_MIN:
+        return _reject(Mechanism.DRIVE, "no moment for a magnetic drive channel", True)
+    if em_score < EM_STRONG_FLOOR:
+        return _reject(Mechanism.DRIVE, "EM coherence below strong-coupling floor", True)
+    if coupling < th.min_coupling_for_bulk:
+        return _reject(Mechanism.DRIVE, "coupling below floor", True)
+    return MechanismResult(Mechanism.DRIVE.value, True, em_score * spin_pol * coupling, True, "",
+                           "SURROGATE: spin/magnetic AC-drive (magnon-BEC analogue), not a computed kernel")
+
+
 def _granular(coupling: float, n_atoms: int, th: ModelThresholds) -> MechanismResult:
     if n_atoms < 2:
         return _reject(Mechanism.GRANULAR_JOSEPHSON, "single unit — no Josephson network", False)
@@ -115,6 +130,7 @@ def _granular(coupling: float, n_atoms: int, th: ModelThresholds) -> MechanismRe
 _SURROGATE = {
     Mechanism.PHONON: False, Mechanism.SPIN_FLUCTUATION: True, Mechanism.TRIPLET: True,
     Mechanism.EXCITONIC_POLARITONIC: True, Mechanism.GRANULAR_JOSEPHSON: False,
+    Mechanism.DRIVE: True,
 }
 
 
@@ -126,7 +142,7 @@ from .magnetic_field import PairingSymmetry
 _CREDITABLE = {
     PairingSymmetry.UNDETERMINED: frozenset(Mechanism),
     PairingSymmetry.SINGLET: frozenset({Mechanism.PHONON, Mechanism.GRANULAR_JOSEPHSON}),
-    PairingSymmetry.TRIPLET: frozenset({Mechanism.TRIPLET, Mechanism.SPIN_FLUCTUATION}),
+    PairingSymmetry.TRIPLET: frozenset({Mechanism.TRIPLET, Mechanism.SPIN_FLUCTUATION, Mechanism.DRIVE}),
 }
 
 
@@ -181,6 +197,7 @@ def evaluate_mechanisms(*, coupling: float, carrier_proxy: float, structural_sta
         _triplet(coupling, spin_polarization, thresholds),
         _excitonic(coupling, em_coherence_score, thresholds),
         _granular(coupling, n_atoms, thresholds),
+        _drive(coupling, spin_polarization, em_coherence_score, thresholds),
     )
 
 

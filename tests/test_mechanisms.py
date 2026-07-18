@@ -97,6 +97,7 @@ def test_evaluate_is_deterministic_and_ordered():
     assert [m.mechanism for m in a] == [
         Mechanism.PHONON.value, Mechanism.SPIN_FLUCTUATION.value, Mechanism.TRIPLET.value,
         Mechanism.EXCITONIC_POLARITONIC.value, Mechanism.GRANULAR_JOSEPHSON.value,
+        Mechanism.DRIVE.value,
     ]
 
 
@@ -168,3 +169,7 @@ def test_filter_removes_incompatible_survivors():
     singlet = filter_by_symmetry(results, PairingSymmetry.SINGLET)
     # under the singlet assumption the surviving triplet track is NOT creditable
     assert all(m.mechanism != Mechanism.TRIPLET.value for m in singlet if m.survives)
+
+
+def test_drive_mechanism_member_exists():
+    assert Mechanism.DRIVE.value == "M_drive"

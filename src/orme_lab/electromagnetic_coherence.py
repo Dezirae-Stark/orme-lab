@@ -179,6 +179,26 @@ class ElectromagneticMode:
         return (1.0 / gamma_rate) * 1e15
 
 
+DRIVE_BASELINE = 0.1   # below this modeled response, a drive-channel hypothesis is falsified
+
+
+def magnetic_drive_response(coherence_score: float, spin_polarization: float,
+                            symmetry: "PairingSymmetry") -> float:
+    """Toy [0,1] proxy for parametric response to an AC MAGNETIC drive (magnon-BEC analogue).
+
+    MODEL PROXY, Level 2. Speculation on the PGM-SAC premise + triplet assumption +
+    magnon-analogue drive assumption -- a hypothesis to test, not a mechanism claim. Nonzero
+    ONLY for a spin-carrying (triplet) coherent condensate: needs coherence AND a moment AND
+    equal-spin pairing. A spin-neutral singlet has no clean magnetic drive channel -> 0.
+    """
+    from .magnetic_field import PairingSymmetry as _PS
+    if symmetry is not _PS.TRIPLET:
+        return 0.0
+    if coherence_score <= 0.0 or spin_polarization <= 0.0:
+        return 0.0
+    return max(0.0, min(1.0, coherence_score * spin_polarization))
+
+
 def is_strong_coupling(mode: ElectromagneticMode) -> bool:
     """Strong coupling: Rabi splitting exceeds the mean loss rate.
 
@@ -239,6 +259,7 @@ class CoherenceResult:
     coherence_score: float
     plasmon_longitudinal_ev: float
     plasmon_transverse_ev: float
+    magnetic_drive_response: float = 0.0
 
     @property
     def predicted_observables(self) -> dict[str, float]:
@@ -249,6 +270,7 @@ class CoherenceResult:
             "quality_factor": self.mode.quality_factor,
             "plasmon_longitudinal_ev": self.plasmon_longitudinal_ev,
             "plasmon_transverse_ev": self.plasmon_transverse_ev,
+            "magnetic_drive_response": self.magnetic_drive_response,  # MODEL PROXY (Level 2)
         }
 
     def explain(self) -> str:
@@ -258,12 +280,19 @@ class CoherenceResult:
                 "WEAK coupling: no resolvable polariton; losses dominate. No "
                 "'light flows through it' signature under this model."
             )
+        drive_note = (
+            f" MODEL PROXY (Level 2) magnetic-drive response={self.magnetic_drive_response:.3f} "
+            f"(triplet-only, magnon-BEC analogue; a hypothesis to test, not a mechanism claim)."
+            if self.magnetic_drive_response > 0.0
+            else ""
+        )
         return (
             f"{self.regime.upper()} light-matter coupling "
             f"(coherence={self.coherence_score:.3f}). This is a candidate "
             f"COHERENT QUANTUM MATERIAL (polaritonic/plasmonic) -- a possible "
             f"H12 explanation for 'light flows through it'. It is NOT evidence "
             f"of superconductivity (no DC transport or Meissner claim follows)."
+            f"{drive_note}"
         )
 
 
@@ -275,6 +304,8 @@ def evaluate_em_coherence(
     cavity_loss_ev: float = 0.10,
     matter_loss_ev: float = 0.05,
     effective_mass_ratio: float = 1.0,
+    spin_polarization: float = 0.0,
+    symmetry: "PairingSymmetry" = None,
 ) -> CoherenceResult:
     """Full electromagnetic-coherence screen for one candidate.
 
@@ -294,7 +325,15 @@ def evaluate_em_coherence(
         Photon and electronic dephasing rates (as energies).
     effective_mass_ratio:
         m*/m_e for the carriers.
+    spin_polarization:
+        Moment proxy in [0,1], drives the triplet-only magnetic-drive-response
+        MODEL PROXY (Level 2). Default 0.0 keeps existing callers byte-identical.
+    symmetry:
+        Assumed ``PairingSymmetry``; ``None`` is treated as UNDETERMINED (no
+        magnetic-drive channel credited), keeping the toy path byte-identical.
     """
+    from .magnetic_field import PairingSymmetry as _PS
+
     hw_p = plasmon_energy_ev(number_density_m3, effective_mass_ratio)
     long_ev, trans_ev = anisotropic_plasmon_energies(hw_p, anisotropy_score)
 
@@ -306,6 +345,8 @@ def evaluate_em_coherence(
     )
     regime = coupling_regime(mode, thresholds)
     score = polariton_coherence_score(mode, thresholds)
+    sym = _PS.UNDETERMINED if symmetry is None else symmetry
+    drive = magnetic_drive_response(score, spin_polarization, sym)
 
     return CoherenceResult(
         mode=mode,
@@ -313,4 +354,5 @@ def evaluate_em_coherence(
         coherence_score=score,
         plasmon_longitudinal_ev=long_ev,
         plasmon_transverse_ev=trans_ev,
+        magnetic_drive_response=drive,
     )

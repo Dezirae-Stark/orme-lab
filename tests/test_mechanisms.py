@@ -141,3 +141,30 @@ def test_mechanisms_reported_even_when_not_credited():
     assert r.credited_sc_lead is False                # identity unestablished
     assert r.surviving_mechanisms                     # ...but the mechanism analysis is still reported
     assert "M_phonon" not in r.surviving_mechanisms
+
+
+# ---- creditable-mechanism filter by pairing symmetry ----
+from orme_lab.mechanisms import creditable_under, filter_by_symmetry
+from orme_lab.magnetic_field import PairingSymmetry
+from orme_lab.config import ModelThresholds
+
+
+def test_creditable_sets_partition_by_symmetry():
+    assert Mechanism.TRIPLET in creditable_under(PairingSymmetry.TRIPLET)
+    assert Mechanism.PHONON not in creditable_under(PairingSymmetry.TRIPLET)
+    assert Mechanism.PHONON in creditable_under(PairingSymmetry.SINGLET)
+    assert Mechanism.TRIPLET not in creditable_under(PairingSymmetry.SINGLET)
+    # UNDETERMINED credits everything (default, unchanged)
+    assert set(creditable_under(PairingSymmetry.UNDETERMINED)) == set(Mechanism)
+
+
+def test_filter_removes_incompatible_survivors():
+    th = ModelThresholds()
+    # high spin + good coupling: _triplet survives, _phonon is pair-broken
+    results = evaluate_mechanisms(
+        coupling=0.6, carrier_proxy=0.5, structural_stability=0.5,
+        field_suppression=1.0, observable_signal=0.5,
+        spin_polarization=0.8, em_coherence_score=None, n_atoms=13, thresholds=th)
+    singlet = filter_by_symmetry(results, PairingSymmetry.SINGLET)
+    # under the singlet assumption the surviving triplet track is NOT creditable
+    assert all(m.mechanism != Mechanism.TRIPLET.value for m in singlet if m.survives)

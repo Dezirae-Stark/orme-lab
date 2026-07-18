@@ -118,6 +118,38 @@ _SURROGATE = {
 }
 
 
+from .magnetic_field import PairingSymmetry
+
+#: Which pairing mechanisms a candidate may be CREDITED by, per assumed pairing symmetry.
+#: UNDETERMINED credits all (default, unchanged). SINGLET: conventional singlet channels.
+#: TRIPLET: moment-carrying (equal-spin) channels. This routes spin to ONE sign per hypothesis.
+_CREDITABLE = {
+    PairingSymmetry.UNDETERMINED: frozenset(Mechanism),
+    PairingSymmetry.SINGLET: frozenset({Mechanism.PHONON, Mechanism.GRANULAR_JOSEPHSON}),
+    PairingSymmetry.TRIPLET: frozenset({Mechanism.TRIPLET, Mechanism.SPIN_FLUCTUATION}),
+}
+
+
+def creditable_under(symmetry: PairingSymmetry) -> frozenset:
+    return _CREDITABLE[symmetry]
+
+
+def filter_by_symmetry(results: tuple[MechanismResult, ...],
+                       symmetry: PairingSymmetry) -> tuple[MechanismResult, ...]:
+    """Return only the mechanism results creditable under `symmetry`. A survivor of an
+    incompatible symmetry is demoted to non-surviving (its physics is real but does not
+    support THIS hypothesis's pairing assumption)."""
+    ok = creditable_under(symmetry)
+    out = []
+    for r in results:
+        if Mechanism(r.mechanism) in ok:
+            out.append(r)
+        else:
+            out.append(MechanismResult(r.mechanism, False, 0.0, r.is_surrogate,
+                                       f"not creditable under {symmetry.value} pairing", r.note))
+    return tuple(out)
+
+
 def evaluate_mechanisms(*, coupling: float, carrier_proxy: float, structural_stability: float,
                         field_suppression: float, observable_signal: float,
                         spin_polarization: float, em_coherence_score: float | None, n_atoms: int,

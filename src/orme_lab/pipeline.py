@@ -143,6 +143,15 @@ class CandidateRecord:
     # >= 1 survivor — a candidate with no viable mechanism (e.g. high-spin killing M_phonon and
     # nothing else surviving) is not credited even with identity + passing proxies.
     surviving_mechanisms: tuple[str, ...] = ()
+    # NOTE on the "default path byte-identical" invariant: mechanism_summary is a diagnostic
+    # string that enumerates every Mechanism member's rejection reason, so it necessarily grows
+    # whenever a Mechanism member is added (e.g. Task 6's M_drive) -- even on the UNDETERMINED /
+    # applied_field_t=0.0 default path. This is a documented, tested exception (see
+    # tests/test_mechanisms.py::test_mechanism_summary_default_path_after_drive_track and
+    # docs/superpowers/plans/2026-07-18-pairing-symmetry-discriminator.md, Task 6 note) -- the
+    # byte-identical invariant is scoped to decision-bearing fields/metrics (surviving_mechanisms,
+    # credited_sc_lead, evidence_level, field_suppression, field_response_ratio, sc_plausibility,
+    # verdict, ruled_out, ...), all of which are unaffected.
     mechanism_summary: str = ""
     # --- Branch B (Hudson optical coherence) — independent of the SC AND-gate ---
     hudson_regime: str | None = None

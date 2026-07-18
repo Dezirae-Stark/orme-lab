@@ -14,7 +14,7 @@
 - **Level-2 clamp** on every screen verdict (`min(candidate_evidence_level(...), LAB_CEILING)`, `pipeline.py:291`). Decisive-measurement predictions may carry `PREDICTION_CEILING` (Level 3, already in `evidence.py:54`) — they are predictions, not observations.
 - **Anti-tautology gate is authoritative.** A predictor must reference ≥1 `OFF_GATE_INVARIANT` (`closure.py`). New off-gate fields are ADDED to the pinned set and the golden `test_closure.py` is updated in lockstep — never weakened.
 - **Determinism:** no `time`/RNG/order-dependent iteration; enums compared by identity; dict iteration only over fixed tuples.
-- **Default path unchanged:** with `PairingSymmetry.UNDETERMINED` (the default) and `applied_field_t=0.0`, every existing `CandidateRecord` field and metric is byte-identical. A regression is a bug.
+- **Default path unchanged:** with `PairingSymmetry.UNDETERMINED` (the default) and `applied_field_t=0.0`, every existing `CandidateRecord` field and metric is byte-identical. A regression is a bug. Scope: this covers every *decision-bearing* field and metric — `surviving_mechanisms`, `credited_sc_lead`, `evidence_level`, `verdict`, `ruled_out`, `field_suppression`, `field_response_ratio`, `sc_plausibility`, etc. (pinned by `test_default_symmetry_is_byte_identical`). It does **not** extend to `mechanism_summary`: that field is a diagnostic string that enumerates every `Mechanism` member's rejection reason, so it necessarily grows whenever a task appends a member to the `Mechanism` enum (Task 6 Step 3 does this by design, adding `M_drive`). Task 6 documents this exception explicitly (see its note below) and pins the new default-path string with a regression test — it is a tracked, reviewed consequence of the enum growing, not a silent behavior drift.
 - **Stricter, never more permissive:** the branch must be able to rule out a candidate it previously credited. A change that only ever passes more is wrong.
 - **Honesty labels:** new proxy outputs are labeled "Toy (Level 2)" / "proxy" / "SURROGATE" (the in-code convention), never presented as measured.
 - **No fabricated ab-initio numbers:** the backend seam stays a no-number stub (`_nyi`); the toy drive-response proxy lives only in `electromagnetic_coherence.py`, clearly labeled.
@@ -712,6 +712,19 @@ Add two stub methods on `DFTBackend` mirroring the `_nyi` pattern (e.g. `plasmon
         self._nyi(Capability.SPIN_DRIVE_RESPONSE)
 ```
 In `mechanisms.py`, add `DRIVE = "M_drive"` to `Mechanism`, add it to `_SURROGATE` as `True`, add it to the `_CREDITABLE[TRIPLET]` set (Task 2), and add a `_drive(coupling, spin_pol, em_score, th)` track that is a labeled SURROGATE requiring a moment + EM coherence (mirrors `_excitonic`/`_triplet`), returning `is_surrogate=True` with a `"SURROGATE: spin/magnetic AC-drive (magnon-BEC analogue), not a computed kernel"` note. Add it to the `evaluate_mechanisms` return tuple.
+
+**Note — DEFAULT-PATH BYTE-IDENTICAL reconciliation (post-review):** adding `Mechanism.DRIVE` to
+the `Mechanism` enum and to `evaluate_mechanisms`'s return tuple (this task, as specced) means the
+global-rejection branch's `tuple(_reject(m, why, _SURROGATE[m]) for m in Mechanism)` now iterates
+6 members instead of 5. On the default path (`PairingSymmetry.UNDETERMINED`, `applied_field_t=0.0`)
+this appends a new `M_drive✗ ...` clause to `CandidateRecord.mechanism_summary` that did not exist
+pre-Task-6 — verified empirically against `fb43e4a`. No decision-bearing field or metric changes
+(`surviving_mechanisms`, `credited_sc_lead`, `evidence_level`, `field_suppression`,
+`field_response_ratio`, `sc_plausibility`, `verdict`, `ruled_out` are all unaffected in this
+scenario), so this is scoped out of the byte-identical invariant per the Global Constraints note
+above, and pinned going forward by `test_mechanism_summary_default_path_after_drive_track` in
+`tests/test_mechanisms.py` — any future silent change to the default-path summary string now fails
+a test instead of passing unnoticed.
 
 - [ ] **Step 4: Run to verify pass** — `cd /orme-lab && python3 -m pytest tests/test_backends.py tests/test_mechanisms.py -q && python3 -m pytest -q` → PASS.
 

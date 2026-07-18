@@ -182,6 +182,13 @@ def evaluate_mechanisms(*, coupling: float, carrier_proxy: float, structural_sta
     # so a bare `<` would let every channel through while the generic gate's `NaN >= threshold`
     # (also False) fails `field_tolerance` — the exact survivors-vs-all_passed inconsistency this
     # global gate exists to prevent.
+    # NOTE: `for m in Mechanism` means this global-rejection branch (and the one below) always
+    # enumerates every current Mechanism member -- adding a member (e.g. DRIVE, Task 6) grows the
+    # rejected-clause list in CandidateRecord.mechanism_summary, including on the UNDETERMINED /
+    # applied_field_t=0.0 default path. That is a documented, tested exception to the "default
+    # path byte-identical" invariant (see pipeline.CandidateRecord.mechanism_summary and
+    # tests/test_mechanisms.py::test_mechanism_summary_default_path_after_drive_track) -- no
+    # decision-bearing field/metric is affected.
     if not math.isfinite(field_suppression) or field_suppression < thresholds.min_field_tolerance:
         why = (f"field-suppressed: field tolerance {field_suppression:.2f} < "
                f"{thresholds.min_field_tolerance} (no robust SC phase in any channel)")

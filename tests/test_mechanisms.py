@@ -1,6 +1,8 @@
 """Tests for the mechanism-specific pairing tracks."""
 from __future__ import annotations
 
+import pytest
+
 from orme_lab.config import DEFAULT_CONFIG
 from orme_lab.mechanisms import (
     Mechanism,
@@ -173,3 +175,27 @@ def test_filter_removes_incompatible_survivors():
 
 def test_drive_mechanism_member_exists():
     assert Mechanism.DRIVE.value == "M_drive"
+
+
+def test_mechanism_summary_default_path_after_drive_track():
+    # Documented, tracked exception to "default path byte-identical" (see
+    # docs/superpowers/plans/2026-07-18-pairing-symmetry-discriminator.md, Task 6 note): adding
+    # Mechanism.DRIVE means the UNDETERMINED / applied_field_t=0.0 default-path
+    # mechanism_summary now names M_drive among the rejected tracks (em_coherence_score is None
+    # by default -- compute_em_coherence off). Decision-bearing fields are untouched; this test
+    # pins the diagnostic string so any further silent drift is caught, not shipped unnoticed.
+    from dataclasses import replace
+    from orme_lab.config import DEFAULT_CONFIG
+    from orme_lab.pipeline import evaluate_candidate
+    from orme_lab.elements import get_element
+    from orme_lab.geometry import make_compact_cluster
+    from orme_lab.spin_states import high_spin_state
+
+    el = get_element("Ir")
+    geo = make_compact_cluster(el, 13)
+    cfg = replace(DEFAULT_CONFIG, pairing_symmetry="undetermined", applied_field_t=0.0)
+    r = evaluate_candidate(el, geo, "high_spin", high_spin_state(el), cfg)
+    assert "M_drive✗ EM coherence not computed (compute_em_coherence off)" in r.mechanism_summary
+    # decision-bearing fields are unaffected by the new mechanism track
+    assert r.field_suppression == pytest.approx(1.0)
+    assert r.pairing_symmetry == "undetermined"

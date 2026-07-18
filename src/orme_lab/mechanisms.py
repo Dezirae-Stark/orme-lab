@@ -170,7 +170,7 @@ def evaluate_mechanisms(*, coupling: float, carrier_proxy: float, structural_sta
                         field_suppression: float, observable_signal: float,
                         spin_polarization: float, em_coherence_score: float | None, n_atoms: int,
                         thresholds: ModelThresholds) -> tuple[MechanismResult, ...]:
-    """Evaluate all five pairing-mechanism tracks. Order is fixed and deterministic.
+    """Evaluate all six pairing-mechanism tracks. Order is fixed and deterministic.
 
     Global necessary conditions shared by EVERY mechanism (they mirror the generic SC gate's
     field/observable floors, so the mechanism attribution stays consistent with

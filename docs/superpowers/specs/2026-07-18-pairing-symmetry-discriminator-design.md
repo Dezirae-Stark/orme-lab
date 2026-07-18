@@ -199,3 +199,37 @@ constants across the three surfaces — closing a pre-existing silent-divergence
 - The toy `magnetic_drive_response` functional form and its baseline/falsification threshold.
 - Whether the liveness gate lives in `loop.py` (run-time skip → `INCONCLUSIVE`) or `triage.py`
   (judge-time) — default: `triage.py`, so a run still produces an honest `INCONCLUSIVE` record.
+
+## Result (post-implementation, recorded after the acceptance run)
+
+All 8 test-contract acceptance criteria pass, exercised by `tests/test_pairing_acceptance.py`
+against the implementation landed in Tasks 1-8 on this branch:
+
+1. Independent retirement confirmed — killing `H7-singlet` leaves `H7-triplet` in the open set
+   (`test_1_independent_retirement`).
+2. Liveness gating confirmed — `H16-drive-triplet` triages `INCONCLUSIVE` once `H7-triplet` is
+   killed, and `SURVIVED` while it is still open, for the identical avenue/metric input
+   (`test_2_drive_gated_on_triplet`).
+3. No double-counting confirmed on a real `evaluate_candidate` run — under `singlet`,
+   `M_triplet` is absent from `surviving_mechanisms`; under `triplet`, `M_phonon` is absent
+   (`test_3_no_double_count_clean_sign`).
+4. Both new observables (`field_response_ratio`, `em_drive_response`) pass
+   `closure.is_independent` — off-gate, not weakened (`test_4_both_signals_off_gate`).
+5. The two H7 branches diverge under identical `max_field_response_ratio` inputs — enhancement
+   (`1.4`) kills singlet and lets triplet survive; suppression (`0.7`) kills triplet and lets
+   singlet survive (`test_5_hypotheses_diverge_same_ratio`).
+6. Stricter-not-more-permissive confirmed empirically: the same high-spin Ir-13 candidate at
+   `applied_field_t=3.0` has `field_suppression` no greater under `singlet` than under
+   `undetermined`, and loses its `M_triplet` credit under `singlet`
+   (`test_6_stricter_under_singlet_than_undetermined`) — no candidate's standing improves under
+   the branched logic in this contract.
+7. `Verdict.VALIDATED` remains absent from the enum; the singlet-run record's `evidence_level`
+   stays `<= 2` (`test_7_no_validated_and_level2`).
+8. Python<->JS parity (`tests/test_web_pairing_parity.py`, landed Task 8) passes for the new
+   hypothesis ids and the `magneticDriveResponse` mirror.
+
+No wiring gaps were exposed by the acceptance run — Tasks 1-8 already satisfied the full
+contract on first execution. Full suite: 425 passed, 0 failed, after adding this task's test
+file. No candidate's evidence level, verdict, or credited mechanism set improved under the
+branched logic anywhere in this contract; every divergence observed was either neutral
+(independent retirement) or strictly stricter (singlet suppression, drive gating).

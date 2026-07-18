@@ -44,6 +44,9 @@ METRIC_RANGES: dict[str, tuple[float, float]] = {
     "max_carrier_proxy": (0.0, 1.0),
     "n_isolated": (0.0, 1000.0),
     "max_em_coherence_score": (0.0, 1.0),
+    # Pairing-symmetry field-response discriminator + spin/magnetic drive-response proxy.
+    "max_field_response_ratio": (0.0, 5.0),
+    "max_em_drive_response": (0.0, 1.0),
 }
 
 
@@ -95,6 +98,7 @@ class ActionSpec:
     use_epw: bool
     use_em: bool
     coupling_channel: str | None           # tier-2: {nanocluster, josephson, oxide_salt, light_matter}
+    pairing_symmetry: str = "undetermined"  # PairingSymmetry value; default keeps existing construction valid
 
 
 @dataclass(frozen=True)

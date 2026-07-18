@@ -18,7 +18,8 @@ def test_registry_has_scoped_variants_not_bare_h1_h3():
         assert h in HYPOTHESES
     assert "H1" not in HYPOTHESES
     assert "H3" not in HYPOTHESES
-    for h in ("H2", "H4", "H5", "H6", "H7", "H12", "H16"):
+    assert "H7" not in HYPOTHESES  # split into H7-singlet/H7-triplet (pairing-symmetry discriminator)
+    for h in ("H2", "H4", "H5", "H6", "H7-singlet", "H7-triplet", "H12", "H16", "H16-drive-triplet"):
         assert h in HYPOTHESES
 
 

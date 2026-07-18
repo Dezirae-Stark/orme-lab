@@ -70,6 +70,8 @@ _METRIC_KEYS = (
     # just the SC-gate aggregate. All are toy-model quantities → Level-2 triage.
     "max_anisotropy", "max_structural_stability", "max_carrier_proxy", "n_isolated",
     "max_em_coherence_score",
+    # Pairing-symmetry field-response discriminator + spin/magnetic drive-response proxy.
+    "max_field_response_ratio", "max_em_drive_response",
 )
 
 
@@ -93,6 +95,8 @@ def _metrics(records: tuple[CandidateRecord, ...]) -> dict[str, float]:
         "max_carrier_proxy": _max("carrier_proxy"),
         "n_isolated": float(sum(1 for r in records if r.isolated)),
         "max_em_coherence_score": _max("em_coherence_score"),
+        "max_field_response_ratio": _max("field_response_ratio"),
+        "max_em_drive_response": _max("em_drive_response"),
     }
 
 
@@ -114,6 +118,7 @@ def run_avenue(
         applied_field_t=action.applied_field_t,
         temperature_k=action.temperature_k,
         compute_em_coherence=action.use_em,
+        pairing_symmetry=action.pairing_symmetry,
     )
     elements = [get_element(sym) for sym in action.elements]
 

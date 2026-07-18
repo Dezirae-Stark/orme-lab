@@ -129,6 +129,9 @@ class CandidateRecord:
     em_regime: str | None = None
     em_rabi_ev: float | None = None
     em_lifetime_fs: float | None = None
+    # Spin/magnetic AC-drive-response proxy (H16-drive-triplet), off-gate. None unless
+    # compute_em_coherence is on (mirrors em_coherence_score's default-off gating).
+    em_drive_response: float | None = None
     # Phase-identity gate (G_identity). Off-gate; a hard upstream precondition. In the
     # pure-simulation lab there is no characterization, so this defaults UNESTABLISHED and
     # `credited_sc_lead` is False regardless of how well the SC proxies score — nothing is
@@ -265,13 +268,14 @@ def evaluate_candidate(
     # EM-coherence seam (H12/H16). Off-gate signal, gated by config flag. A high
     # coherence score is the H12 mundane alternative, NOT superconductivity.
     n = free_electron_density(element)          # carrier density: shared by EM + Branch B
-    em_score = em_regime = em_rabi = em_lifetime = None
+    em_score = em_regime = em_rabi = em_lifetime = em_drive = None
     if config.compute_em_coherence:
-        coh = evaluate_em_coherence(n, anisotropy, th)
+        coh = evaluate_em_coherence(n, anisotropy, th, spin_polarization=spin_pol, symmetry=sym)
         em_score = coh.coherence_score
         em_regime = coh.regime
         em_rabi = coh.mode.rabi_splitting_ev
         em_lifetime = coh.mode.coherence_lifetime_fs
+        em_drive = coh.magnetic_drive_response
 
     # Branch B (Hudson optical coherence): opt-in, independent of the EM flag and of
     # the SC AND-gate. matter_ev omitted -> evaluated on resonance with the computed mode.
@@ -354,6 +358,7 @@ def evaluate_candidate(
         em_regime=em_regime,
         em_rabi_ev=em_rabi,
         em_lifetime_fs=em_lifetime,
+        em_drive_response=em_drive,
         identity_verdict=id_result.verdict.value,
         identity_established=id_result.established,
         credited_sc_lead=credited,

@@ -38,6 +38,13 @@ def triage(result: AvenueResult, open_hypotheses: frozenset[str]) -> TriageOutco
     if av.targeted_hypothesis not in open_hypotheses:
         return TriageOutcome(Verdict.INCONCLUSIVE, 0.0, None)
 
+    # 2b. Liveness gate: a dependent hypothesis (e.g. H16-drive-triplet) is only
+    # live while its parent hypothesis is still open.
+    from .hypotheses import validate_liveness
+    live, _reason = validate_liveness(av.targeted_hypothesis, open_hypotheses)
+    if not live:
+        return TriageOutcome(Verdict.INCONCLUSIVE, 0.0, None)
+
     # 3. Did the falsification condition fire? A fire kills the hypothesis.
     if av.falsification.evaluate(result.metrics):
         return TriageOutcome(Verdict.KILLED_HYPOTHESIS, 1.0, av.targeted_hypothesis)

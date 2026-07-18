@@ -253,11 +253,23 @@ export function polaritonCoherenceScore(m) {
   return Math.sqrt(coopFactor * qFactor);
 }
 
+// ---- magnetic-drive response (mirror electromagnetic_coherence.magnetic_drive_response) --
+// Toy [0,1] proxy for parametric response to an AC MAGNETIC drive (magnon-BEC analogue).
+// MODEL PROXY, Level 2. Nonzero ONLY for a spin-carrying (equal-spin triplet) coherent
+// condensate: needs coherence AND a moment AND the assumed pairing symmetry to be triplet.
+// A spin-neutral singlet has no clean magnetic drive channel -> 0.
+export const DRIVE_BASELINE = 0.1; // below this, the H16-drive-triplet hypothesis is falsified
+export function magneticDriveResponse(coherenceScore, spinPolarization, symmetry) {
+  if (coherenceScore <= 0 || spinPolarization <= 0) return 0;
+  return symmetry === "triplet" ? clamp01(coherenceScore * spinPolarization) : 0;
+}
+
 /*
  * evaluateCandidate -- the full pipeline for one (element, geometry, spin) at a
  * given field/temperature. Returns everything the 3D lab needs to render.
  */
-export function evaluateCandidate({ elSym, geomKind, spinKind, fieldT, tempK, anisotropyOverride }) {
+export function evaluateCandidate({ elSym, geomKind, spinKind, fieldT, tempK, anisotropyOverride,
+                                     symmetry = "undetermined" }) {
   const el = ELEMENTS[elSym];
   const st = spinState(el, spinKind);
   const geom = makeGeometry(el, geomKind);
@@ -293,6 +305,7 @@ export function evaluateCandidate({ elSym, geomKind, spinKind, fieldT, tempK, an
   const mode = emMode(hwp, gCoupling, 0.10, 0.05);
   const emRegime = couplingRegime(mode);
   const emScore = polaritonCoherenceScore(mode);
+  const driveResponse = magneticDriveResponse(emScore, spin, symmetry);
 
   // Evidence level (charter hierarchy 0-6). A ruled-out candidate rests on
   // computational simulation (2); a survivor additionally yields a laboratory
@@ -308,7 +321,7 @@ export function evaluateCandidate({ elSym, geomKind, spinKind, fieldT, tempK, an
     sc,
     band: candidateBand(sc),
     evidence,
-    em: { nDensity, plasmon: hwp, split, mode, regime: emRegime, score: emScore },
+    em: { nDensity, plasmon: hwp, split, mode, regime: emRegime, score: emScore, driveResponse },
   };
 }
 

@@ -151,6 +151,20 @@ export const METRICS = {
     future: "Cavity / near-field mode overlap + computed ε(q, ω).",
     source: "src/orme_lab/electromagnetic_coherence.py",
   },
+  drive: {
+    title: "Magnetic-drive response",
+    eyebrow: "Spin/EM drive (H16-drive-triplet)",
+    get: (r) => r.em.driveResponse.toFixed(3),
+    definition:
+      "Toy [0,1] proxy for parametric response to an AC MAGNETIC drive (magnon-BEC analogue). Nonzero ONLY for a spin-carrying (equal-spin triplet) coherent condensate — needs coherence AND a moment AND the assumed pairing symmetry to be triplet. A spin-neutral singlet has no clean magnetic drive channel.",
+    calculation:
+      "drive = coherence_score · spin_polarization when pairing symmetry is TRIPLET, else 0 (bounded to [0,1]). Falsified when it falls below DRIVE_BASELINE = 0.1.",
+    experimental:
+      "Parametric / ferromagnetic-resonance response to an applied AC magnetic field; magnon-BEC-analogue pumping spectroscopy.",
+    confidence: "Toy (Level 2). MODEL PROXY — speculation on the PGM-SAC premise + triplet assumption + magnon-analogue drive assumption, not a computed kernel.",
+    future: "Ab-initio spin-drive response kernel (DFT + spin dynamics) — see backends.py Capability.SPIN_DRIVE_RESPONSE (no-number stub).",
+    source: "src/orme_lab/electromagnetic_coherence.py",
+  },
   // gate cascade rows map to the metric that drives them
   gate_coupling: null,          // -> coupling (aliased below)
   gate_carriers: null,          // -> carrier

@@ -62,6 +62,11 @@ def _digest(ledger: Ledger, stopped_reason: str,
         "_Nothing here is confirmed. A surviving lead is a screening/triage signal,_",
         "_not evidence of superconductivity; independent verification requires physical Level 4-6._",
         "",
+        "_H7 is split into H7-singlet/H7-triplet (opposite Pauli-limit field predictions);_",
+        "_H16-drive-triplet (spin/magnetic AC-drive channel) is live only while H7-triplet is_",
+        "_open. Decisive measurements: critical field vs the Pauli limit (1.86*Tc), and_",
+        "_magnetic-drive response vs baseline._",
+        "",
     ]
     killed = [r for r in ledger.records if r.verdict == Verdict.KILLED_HYPOTHESIS.value]
     if killed:

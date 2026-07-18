@@ -47,13 +47,14 @@ class PairingSymmetry(Enum):
 
 
 def _legacy_critical_field(spin_score: float, coupling_score: float) -> float:
-    """The pairing-agnostic toy critical field (identical to pipeline.critical_field_proxy)."""
+    """The pairing-agnostic toy critical field: a stronger, better-coupled candidate tolerates a
+    larger field. Scaled to a few tesla so typical screening fields probe the transition. An
+    assumption for ranking, not a computed Hc2. This module is the single source of this formula
+    (used for the PairingSymmetry.UNDETERMINED branch below)."""
     return 5.0 * coupling_score * (0.5 + 0.5 * spin_score)
 
 
-#: Public alias so callers/tests can reference the pairing-agnostic legacy proxy from this
-#: module without importing pipeline.py (which imports this module — avoids a cycle).
-#: Numerically identical to pipeline.critical_field_proxy, which stays untouched.
+#: Public alias so callers/tests reference the pairing-agnostic legacy proxy by its familiar name.
 critical_field_proxy = _legacy_critical_field
 
 

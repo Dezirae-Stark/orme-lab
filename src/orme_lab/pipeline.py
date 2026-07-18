@@ -72,16 +72,6 @@ def structural_stability_proxy(geometry: ClusterGeometry) -> float:
     return math.tanh(geometry.mean_coordination / 8.0)
 
 
-def critical_field_proxy(spin_score: float, coupling_score: float) -> float:
-    """Toy critical field (tesla) for the candidate SC phase.
-
-    Heuristic: a stronger, better-coupled candidate tolerates a larger field.
-    Scaled to a few tesla so that typical screening fields probe the transition.
-    This is an assumption purely for ranking, not a computed Hc2.
-    """
-    return 5.0 * coupling_score * (0.5 + 0.5 * spin_score)
-
-
 @dataclass(frozen=True)
 class CandidateRecord:
     """One fully-scored candidate (element x geometry x spin state)."""

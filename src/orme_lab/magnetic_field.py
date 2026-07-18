@@ -25,9 +25,71 @@ on which phase you are testing. This module provides:
 from __future__ import annotations
 
 import math
+from enum import Enum
 
 from .config import BOLTZMANN
 from .spin_states import SpinState
+
+PAULI_SLOPE_T_PER_K = 1.86   # Chandrasekhar-Clogston / Pauli limit: Bc_pauli ~ 1.86 * Tc (weak-coupling BCS).
+                             # Clogston, PRL 9, 266 (1962); Chandrasekhar, APL 1, 7 (1962).
+
+
+class PairingSymmetry(Enum):
+    """Assumed Cooper-pair symmetry for a candidate's field response.
+
+    UNDETERMINED reproduces the legacy toy critical field (default; no assumption).
+    SINGLET: a static moment pair-breaks -> field suppressed, capped at the Pauli limit.
+    TRIPLET: equal-spin pairs carry the moment -> field-robust, may exceed the Pauli limit.
+    """
+    UNDETERMINED = "undetermined"
+    SINGLET = "singlet"
+    TRIPLET = "triplet"
+
+
+def _legacy_critical_field(spin_score: float, coupling_score: float) -> float:
+    """The pairing-agnostic toy critical field (identical to pipeline.critical_field_proxy)."""
+    return 5.0 * coupling_score * (0.5 + 0.5 * spin_score)
+
+
+#: Public alias so callers/tests can reference the pairing-agnostic legacy proxy from this
+#: module without importing pipeline.py (which imports this module — avoids a cycle).
+#: Numerically identical to pipeline.critical_field_proxy, which stays untouched.
+critical_field_proxy = _legacy_critical_field
+
+
+def pauli_limit_tesla(tc_kelvin: float) -> float:
+    """Chandrasekhar-Clogston paramagnetic limit Bc_pauli (tesla) for a singlet gap ~ Tc."""
+    return PAULI_SLOPE_T_PER_K * tc_kelvin
+
+
+def pairing_critical_field(spin_score: float, coupling_score: float,
+                           symmetry: "PairingSymmetry",
+                           tc_kelvin: float | None = None) -> float:
+    """Toy critical field (tesla), pairing-symmetry-conditional. Triage only.
+
+    - UNDETERMINED: the legacy proxy (spin raises Hc); default, byte-identical.
+    - TRIPLET: field-robust; spin raises Hc (equal-spin pairs carry the moment).
+    - SINGLET: spin SUPPRESSES Hc (pair-breaking); when Tc is known, capped at the Pauli limit.
+    """
+    base = _legacy_critical_field(spin_score, coupling_score)
+    if symmetry is PairingSymmetry.UNDETERMINED:
+        return base
+    if symmetry is PairingSymmetry.TRIPLET:
+        return base
+    # SINGLET: invert the spin dependence (moment pair-breaks), then cap at Pauli if Tc known.
+    singlet = 5.0 * coupling_score * (1.0 - 0.5 * spin_score)
+    if tc_kelvin is not None and tc_kelvin > 0.0:
+        singlet = min(singlet, pauli_limit_tesla(tc_kelvin))
+    return max(0.0, singlet)
+
+
+def field_response_ratio(critical_field_t: float, tc_kelvin: float | None) -> float | None:
+    """Bc / Bc_pauli — the singlet-vs-triplet discriminator. None when Tc is unknown
+    (toy path): the ratio is a decisive-measurement PREDICTION, computable only with a
+    pairing energy scale. > 1 => exceeds the Pauli limit => only a triplet can host it."""
+    if tc_kelvin is None or tc_kelvin <= 0.0:
+        return None
+    return critical_field_t / pauli_limit_tesla(tc_kelvin)
 
 
 def zeeman_energy_j(state: SpinState, field_t: float) -> float:

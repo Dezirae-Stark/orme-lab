@@ -55,6 +55,8 @@ class Capability(Enum):
     SC_GAP = "superconducting_gap"              # superconductivity.py TODO(ab-initio)
     DIELECTRIC_FUNCTION = "plasmon_energy"      # electromagnetic_coherence.py TODO(dft/rpa)
     DENSITY_CUBE = "density_cube"               # emit a Gaussian .cube for the web renderer
+    NON_PHONON_PAIRING = "non_phonon_pairing"     # TODO(backend): triplet/magnetic pairing kernel (NOT phonon-mediated)
+    SPIN_DRIVE_RESPONSE = "spin_drive_response"   # TODO(backend): response to an AC magnetic (spin-sector) drive
 
 
 def implemented(capability: Capability) -> Callable:
@@ -178,6 +180,16 @@ class DFTBackend:
         ``tools/eigenstate_to_cube.py`` for the format (generated from the
         analytic model until a real backend is wired)."""
         self._nyi(Capability.DENSITY_CUBE)
+
+    def non_phonon_pairing(self, element, geometry, state):
+        """TODO(backend): non-phonon (triplet/magnetic) pairing channel. No toy fallback — a real
+        triplet Tc requires a computed spin-fluctuation/odd-parity kernel; never fabricated."""
+        self._nyi(Capability.NON_PHONON_PAIRING)
+
+    def spin_drive_response(self, element, geometry, state):
+        """TODO(backend): ab-initio response to an AC magnetic drive (spin-sector). No toy number
+        here — the killable toy proxy lives in electromagnetic_coherence.magnetic_drive_response."""
+        self._nyi(Capability.SPIN_DRIVE_RESPONSE)
 
 
 # ---------------------------------------------------------------------------

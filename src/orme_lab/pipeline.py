@@ -46,7 +46,13 @@ from .geometry import (
     make_linear_chain,
     make_monomer,
 )
-from .magnetic_field import magnetic_field_suppression_factor
+from .magnetic_field import (
+    PairingSymmetry,
+    field_response_ratio,
+    magnetic_field_suppression_factor,
+    pairing_critical_field,
+)
+from .mechanisms import filter_by_symmetry
 from .observables import ObservableSet, predict_observables
 from .spin_states import SpinState, high_spin_state, low_spin_state, spin_polarization_score
 from .superconductivity import (
@@ -64,16 +70,6 @@ def structural_stability_proxy(geometry: ClusterGeometry) -> float:
     and cannot clear the stability gate. Not an energy calculation.
     """
     return math.tanh(geometry.mean_coordination / 8.0)
-
-
-def critical_field_proxy(spin_score: float, coupling_score: float) -> float:
-    """Toy critical field (tesla) for the candidate SC phase.
-
-    Heuristic: a stronger, better-coupled candidate tolerates a larger field.
-    Scaled to a few tesla so that typical screening fields probe the transition.
-    This is an assumption purely for ranking, not a computed Hc2.
-    """
-    return 5.0 * coupling_score * (0.5 + 0.5 * spin_score)
 
 
 @dataclass(frozen=True)
@@ -101,6 +97,11 @@ class CandidateRecord:
     ruled_out: bool
     evidence_level: int
     verdict: str
+    # Field-response seam (#7), pairing-symmetry-conditional (Task 3). Defaults keep the
+    # toy path byte-identical: UNDETERMINED is the default symmetry and field_response_ratio
+    # is None without a Tc.
+    field_response_ratio: float | None = None   # off-gate: Bc/Bc_pauli (None without Tc)
+    pairing_symmetry: str = "undetermined"
     # EPW electron-phonon Tc of a periodic approximant (phonon-channel,
     # spin-singlet counterfactual -- NOT evidence of superconductivity;
     # Level 2). None on the toy path.
@@ -118,6 +119,9 @@ class CandidateRecord:
     em_regime: str | None = None
     em_rabi_ev: float | None = None
     em_lifetime_fs: float | None = None
+    # Spin/magnetic AC-drive-response proxy (H16-drive-triplet), off-gate. None unless
+    # compute_em_coherence is on (mirrors em_coherence_score's default-off gating).
+    em_drive_response: float | None = None
     # Phase-identity gate (G_identity). Off-gate; a hard upstream precondition. In the
     # pure-simulation lab there is no characterization, so this defaults UNESTABLISHED and
     # `credited_sc_lead` is False regardless of how well the SC proxies score — nothing is
@@ -129,6 +133,15 @@ class CandidateRecord:
     # >= 1 survivor — a candidate with no viable mechanism (e.g. high-spin killing M_phonon and
     # nothing else surviving) is not credited even with identity + passing proxies.
     surviving_mechanisms: tuple[str, ...] = ()
+    # NOTE on the "default path byte-identical" invariant: mechanism_summary is a diagnostic
+    # string that enumerates every Mechanism member's rejection reason, so it necessarily grows
+    # whenever a Mechanism member is added (e.g. Task 6's M_drive) -- even on the UNDETERMINED /
+    # applied_field_t=0.0 default path. This is a documented, tested exception (see
+    # tests/test_mechanisms.py::test_mechanism_summary_default_path_after_drive_track and
+    # docs/superpowers/plans/2026-07-18-pairing-symmetry-discriminator.md, Task 6 note) -- the
+    # byte-identical invariant is scoped to decision-bearing fields/metrics (surviving_mechanisms,
+    # credited_sc_lead, evidence_level, field_suppression, field_response_ratio, sc_plausibility,
+    # verdict, ruled_out, ...), all of which are unaffected.
     mechanism_summary: str = ""
     # --- Branch B (Hudson optical coherence) — independent of the SC AND-gate ---
     hudson_regime: str | None = None
@@ -201,8 +214,9 @@ def evaluate_candidate(
 
     carrier = carrier_coherence_proxy(coupling, anisotropy)
 
-    # Field-response seam (orbital + paramagnetic pair-breaking).
-    crit_field = critical_field_proxy(spin_pol, coupling)
+    sym = PairingSymmetry(config.pairing_symmetry)
+    # Field-response seam (orbital + paramagnetic pair-breaking), pairing-symmetry-conditional.
+    crit_field = pairing_critical_field(spin_pol, coupling, sym)  # tc unknown here; refined below if EPW runs
     if backend is not None and backend.provides(Capability.FIELD_RESPONSE):
         crit_field = backend.critical_field(spin_pol, coupling)
     suppression = magnetic_field_suppression_factor(config.applied_field_t, crit_field)
@@ -239,16 +253,36 @@ def evaluate_candidate(
         except Exception as exc:  # backstop; the backend should already catch EPWError
             epw = EPWResult.failed(f"{type(exc).__name__}: {exc}")
 
+    # Off-gate field-response discriminator (needs a pairing energy scale = Tc).
+    fr_ratio = field_response_ratio(
+        pairing_critical_field(spin_pol, coupling, PairingSymmetry.TRIPLET), epw.tc_kelvin)
+    # Singlet refinement: a Pauli-limited critical field (only when Tc is known -> toy path untouched).
+    if sym is PairingSymmetry.SINGLET and epw.tc_kelvin is not None:
+        crit_field = pairing_critical_field(spin_pol, coupling, sym, tc_kelvin=epw.tc_kelvin)
+        suppression = magnetic_field_suppression_factor(config.applied_field_t, crit_field)
+        # Recompute observables with the capped field: a lower Hc lowers the Meissner/observable
+        # signal too, so the observable_signal gate (and the recorded screening fields) must not
+        # keep the pre-cap value — else a low-Tc singlet under a field overstates a candidate.
+        obs = predict_observables(
+            state=state, coupling_score=coupling, carrier_proxy=carrier,
+            temperature_k=config.temperature_k, applied_field_t=config.applied_field_t,
+            critical_field_t=crit_field)
+        observable_signal = min(1.0, max(obs.meissner_screening, math.tanh(abs(obs.molar_susceptibility))))
+        plaus = superconductivity_plausibility_score(
+            coupling_score=coupling, carrier_proxy=carrier, field_suppression=suppression,
+            structural_stability=stability, observable_signal=observable_signal, thresholds=th)
+
     # EM-coherence seam (H12/H16). Off-gate signal, gated by config flag. A high
     # coherence score is the H12 mundane alternative, NOT superconductivity.
     n = free_electron_density(element)          # carrier density: shared by EM + Branch B
-    em_score = em_regime = em_rabi = em_lifetime = None
+    em_score = em_regime = em_rabi = em_lifetime = em_drive = None
     if config.compute_em_coherence:
-        coh = evaluate_em_coherence(n, anisotropy, th)
+        coh = evaluate_em_coherence(n, anisotropy, th, spin_polarization=spin_pol, symmetry=sym)
         em_score = coh.coherence_score
         em_regime = coh.regime
         em_rabi = coh.mode.rabi_splitting_ev
         em_lifetime = coh.mode.coherence_lifetime_fs
+        em_drive = coh.magnetic_drive_response
 
     # Branch B (Hudson optical coherence): opt-in, independent of the EM flag and of
     # the SC AND-gate. matter_ev omitted -> evaluated on resonance with the computed mode.
@@ -278,11 +312,11 @@ def evaluate_candidate(
     # Pairing-mechanism tracks (#6): a candidate is credited only if >= 1 mechanism survives
     # end-to-end (no synthetic combining). A large local moment pair-breaks singlet M_phonon
     # but enables the magnetic channels, so high-spin candidates route out of phonon.
-    mech_results = evaluate_mechanisms(
+    mech_results = filter_by_symmetry(evaluate_mechanisms(
         coupling=coupling, carrier_proxy=carrier, structural_stability=stability,
         field_suppression=suppression, observable_signal=observable_signal,
         spin_polarization=spin_pol, em_coherence_score=em_score, n_atoms=geometry.n_atoms,
-        thresholds=th)
+        thresholds=th), sym)
     surviving_mechanisms = mechanism_surviving(mech_results)
     mechanism_summary = mechanism_summarize(mech_results)
 
@@ -310,6 +344,8 @@ def evaluate_candidate(
         isolated=isolated,
         carrier_proxy=carrier,
         field_suppression=suppression,
+        field_response_ratio=fr_ratio,
+        pairing_symmetry=sym.value,
         structural_stability=stability,
         observable_signal=observable_signal,
         resistance_regime=obs.resistance_regime,
@@ -329,6 +365,7 @@ def evaluate_candidate(
         em_regime=em_regime,
         em_rabi_ev=em_rabi,
         em_lifetime_fs=em_lifetime,
+        em_drive_response=em_drive,
         identity_verdict=id_result.verdict.value,
         identity_established=id_result.established,
         credited_sc_lead=credited,

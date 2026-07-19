@@ -68,6 +68,18 @@ export const HYPOTHESES = [
     modeled: "magnetic_field.py",
     test: "Magnetization vs field: H_c/H_c2 for a superconductor; Zeeman stabilization for a high-spin magnetic state.",
   },
+  {
+    id: "H7-singlet", group: "core", level: 2, status: "modeled",
+    statement: "Pairing-symmetry branch of H-07: under a SINGLET pairing assumption, a static moment pair-breaks the state — the critical field is suppressed and Pauli-limited (Chandrasekhar-Clogston, Bc_pauli = 1.86·Tc).",
+    modeled: "magnetic_field.py (pairing_critical_field, PairingSymmetry.SINGLET)",
+    test: "Decisive measurement: critical field vs the Pauli limit (1.86·Tc). Rejected when field_response_ratio > 1 — a singlet cannot exceed its own pair-breaking limit.",
+  },
+  {
+    id: "H7-triplet", group: "core", level: 2, status: "modeled",
+    statement: "Pairing-symmetry branch of H-07: under an EQUAL-SPIN TRIPLET pairing assumption, the moment is carried by the condensate itself — the critical field is field-robust and may exceed the Pauli limit.",
+    modeled: "magnetic_field.py (pairing_critical_field, PairingSymmetry.TRIPLET)",
+    test: "Decisive measurement: critical field vs the Pauli limit (1.86·Tc). Rejected when field_response_ratio <= 1 — no evidence of triplet field-robustness.",
+  },
   // ---- Extended hypotheses (H12–H20, from the source conversation) -------
   {
     id: "H-12", group: "extended", level: 2, status: "modeled",
@@ -122,6 +134,12 @@ export const HYPOTHESES = [
     statement: "The 'rice-bean' geometry is a molecular-orbital shape, not an atomic-shell shape.",
     modeled: "geometry.py (cluster geometry); MO density from DFT is roadmap",
     test: "Compute the MO density of a coupled cluster; compare its shape to the single-atom shell.",
+  },
+  {
+    id: "H16-drive-triplet", group: "extended", level: 2, status: "modeled",
+    statement: "Speculation on the PGM-SAC premise + triplet assumption + magnon-analogue drive assumption: a spin-carrying (equal-spin triplet) coherent condensate can be parametrically pumped by an AC MAGNETIC drive (magnon-BEC analogue, Demokritov 2006) — a hypothesis to test, not a mechanism claim. Live only while H7-triplet is open (judge-time liveness gate).",
+    modeled: "electromagnetic_coherence.py (magnetic_drive_response)",
+    test: "Decisive measurement: modeled magnetic-drive response vs baseline. Rejected when em_drive_response < DRIVE_BASELINE (0.1); INCONCLUSIVE (not a kill) if H7-triplet is already killed.",
   },
   // ---- Patent-claim tests (Hudson DE3920144A1, tested on its own terms) ----
   {
@@ -180,6 +198,7 @@ const METRIC_FOR = {
   "H-05": "coupling", "H-06": "regime", "H-07": "supp", "H-12": "coherence",
   "H-13": "spin", "H-14": "carrier", "H-15": "coupling", "H-16": "coherence",
   "H-17": "regime", "H-18": "spin", "H-19": "supp", "H-20": "anisotropy",
+  "H7-singlet": "supp", "H7-triplet": "supp", "H16-drive-triplet": "drive",
 };
 HYPOTHESES.forEach((h) => { h.metric = METRIC_FOR[h.id] || null; });
 

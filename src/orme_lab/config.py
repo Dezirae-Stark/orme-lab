@@ -119,6 +119,8 @@ class LabConfig:
     applied_field_t: float = 0.0
     """Applied external magnetic field in tesla for the screen (0 = zero-field)."""
 
+    pairing_symmetry: str = "undetermined"  # PairingSymmetry value; "singlet"/"triplet" branch the field response
+
     random_seed: int = 1729
     """Seed for any stochastic geometry perturbation. Fixed by default so runs
     are reproducible — see the operator's determinism commitment."""

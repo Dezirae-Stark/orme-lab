@@ -36,6 +36,7 @@ class Mechanism(str, Enum):
     TRIPLET = "M_triplet"
     EXCITONIC_POLARITONIC = "M_excitonic_polaritonic"
     GRANULAR_JOSEPHSON = "M_granular_josephson"
+    DRIVE = "M_drive"
 
 
 @dataclass(frozen=True)
@@ -100,6 +101,20 @@ def _excitonic(coupling: float, em_score: float | None, th: ModelThresholds) -> 
                            "(normally the H12/H16 mundane alternative)")
 
 
+def _drive(coupling: float, spin_pol: float, em_score: float | None,
+           th: ModelThresholds) -> MechanismResult:
+    if em_score is None:
+        return _reject(Mechanism.DRIVE, "EM coherence not computed (compute_em_coherence off)", True)
+    if spin_pol < MOMENT_MIN:
+        return _reject(Mechanism.DRIVE, "no moment for a magnetic drive channel", True)
+    if em_score < EM_STRONG_FLOOR:
+        return _reject(Mechanism.DRIVE, "EM coherence below strong-coupling floor", True)
+    if coupling < th.min_coupling_for_bulk:
+        return _reject(Mechanism.DRIVE, "coupling below floor", True)
+    return MechanismResult(Mechanism.DRIVE.value, True, em_score * spin_pol * coupling, True, "",
+                           "SURROGATE: spin/magnetic AC-drive (magnon-BEC analogue), not a computed kernel")
+
+
 def _granular(coupling: float, n_atoms: int, th: ModelThresholds) -> MechanismResult:
     if n_atoms < 2:
         return _reject(Mechanism.GRANULAR_JOSEPHSON, "single unit — no Josephson network", False)
@@ -115,14 +130,47 @@ def _granular(coupling: float, n_atoms: int, th: ModelThresholds) -> MechanismRe
 _SURROGATE = {
     Mechanism.PHONON: False, Mechanism.SPIN_FLUCTUATION: True, Mechanism.TRIPLET: True,
     Mechanism.EXCITONIC_POLARITONIC: True, Mechanism.GRANULAR_JOSEPHSON: False,
+    Mechanism.DRIVE: True,
 }
+
+
+from .magnetic_field import PairingSymmetry
+
+#: Which pairing mechanisms a candidate may be CREDITED by, per assumed pairing symmetry.
+#: UNDETERMINED credits all (default, unchanged). SINGLET: conventional singlet channels.
+#: TRIPLET: moment-carrying (equal-spin) channels. This routes spin to ONE sign per hypothesis.
+_CREDITABLE = {
+    PairingSymmetry.UNDETERMINED: frozenset(Mechanism),
+    PairingSymmetry.SINGLET: frozenset({Mechanism.PHONON, Mechanism.GRANULAR_JOSEPHSON}),
+    PairingSymmetry.TRIPLET: frozenset({Mechanism.TRIPLET, Mechanism.SPIN_FLUCTUATION, Mechanism.DRIVE}),
+}
+
+
+def creditable_under(symmetry: PairingSymmetry) -> frozenset:
+    return _CREDITABLE[symmetry]
+
+
+def filter_by_symmetry(results: tuple[MechanismResult, ...],
+                       symmetry: PairingSymmetry) -> tuple[MechanismResult, ...]:
+    """Return only the mechanism results creditable under `symmetry`. A survivor of an
+    incompatible symmetry is demoted to non-surviving (its physics is real but does not
+    support THIS hypothesis's pairing assumption)."""
+    ok = creditable_under(symmetry)
+    out = []
+    for r in results:
+        if Mechanism(r.mechanism) in ok:
+            out.append(r)
+        else:
+            out.append(MechanismResult(r.mechanism, False, 0.0, r.is_surrogate,
+                                       f"not creditable under {symmetry.value} pairing", r.note))
+    return tuple(out)
 
 
 def evaluate_mechanisms(*, coupling: float, carrier_proxy: float, structural_stability: float,
                         field_suppression: float, observable_signal: float,
                         spin_polarization: float, em_coherence_score: float | None, n_atoms: int,
                         thresholds: ModelThresholds) -> tuple[MechanismResult, ...]:
-    """Evaluate all five pairing-mechanism tracks. Order is fixed and deterministic.
+    """Evaluate all six pairing-mechanism tracks. Order is fixed and deterministic.
 
     Global necessary conditions shared by EVERY mechanism (they mirror the generic SC gate's
     field/observable floors, so the mechanism attribution stays consistent with
@@ -134,6 +182,13 @@ def evaluate_mechanisms(*, coupling: float, carrier_proxy: float, structural_sta
     # so a bare `<` would let every channel through while the generic gate's `NaN >= threshold`
     # (also False) fails `field_tolerance` — the exact survivors-vs-all_passed inconsistency this
     # global gate exists to prevent.
+    # NOTE: `for m in Mechanism` means this global-rejection branch (and the one below) always
+    # enumerates every current Mechanism member -- adding a member (e.g. DRIVE, Task 6) grows the
+    # rejected-clause list in CandidateRecord.mechanism_summary, including on the UNDETERMINED /
+    # applied_field_t=0.0 default path. That is a documented, tested exception to the "default
+    # path byte-identical" invariant (see pipeline.CandidateRecord.mechanism_summary and
+    # tests/test_mechanisms.py::test_mechanism_summary_default_path_after_drive_track) -- no
+    # decision-bearing field/metric is affected.
     if not math.isfinite(field_suppression) or field_suppression < thresholds.min_field_tolerance:
         why = (f"field-suppressed: field tolerance {field_suppression:.2f} < "
                f"{thresholds.min_field_tolerance} (no robust SC phase in any channel)")
@@ -149,6 +204,7 @@ def evaluate_mechanisms(*, coupling: float, carrier_proxy: float, structural_sta
         _triplet(coupling, spin_polarization, thresholds),
         _excitonic(coupling, em_coherence_score, thresholds),
         _granular(coupling, n_atoms, thresholds),
+        _drive(coupling, spin_polarization, em_coherence_score, thresholds),
     )
 
 

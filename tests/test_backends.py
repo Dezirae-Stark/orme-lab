@@ -104,6 +104,16 @@ def test_unimplemented_capability_falls_back_to_toy():
     assert with_stub.coupling == toy.coupling
 
 
+def test_new_capabilities_are_unimplemented_stubs():
+    b = DFTBackend()
+    assert not b.provides(Capability.NON_PHONON_PAIRING)
+    assert not b.provides(Capability.SPIN_DRIVE_RESPONSE)
+    with pytest.raises(NotImplementedError):
+        b.non_phonon_pairing(None, None, None)
+    with pytest.raises(NotImplementedError):
+        b.spin_drive_response(None, None, None)
+
+
 def test_fake_backend_can_change_the_verdict():
     # A monomer is ruled out on coupling; a backend forcing high coupling lifts
     # that specific gate (others may still fail — we only check the gate value).

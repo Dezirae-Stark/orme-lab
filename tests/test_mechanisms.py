@@ -1,6 +1,8 @@
 """Tests for the mechanism-specific pairing tracks."""
 from __future__ import annotations
 
+import pytest
+
 from orme_lab.config import DEFAULT_CONFIG
 from orme_lab.mechanisms import (
     Mechanism,
@@ -97,6 +99,7 @@ def test_evaluate_is_deterministic_and_ordered():
     assert [m.mechanism for m in a] == [
         Mechanism.PHONON.value, Mechanism.SPIN_FLUCTUATION.value, Mechanism.TRIPLET.value,
         Mechanism.EXCITONIC_POLARITONIC.value, Mechanism.GRANULAR_JOSEPHSON.value,
+        Mechanism.DRIVE.value,
     ]
 
 
@@ -141,3 +144,58 @@ def test_mechanisms_reported_even_when_not_credited():
     assert r.credited_sc_lead is False                # identity unestablished
     assert r.surviving_mechanisms                     # ...but the mechanism analysis is still reported
     assert "M_phonon" not in r.surviving_mechanisms
+
+
+# ---- creditable-mechanism filter by pairing symmetry ----
+from orme_lab.mechanisms import creditable_under, filter_by_symmetry
+from orme_lab.magnetic_field import PairingSymmetry
+from orme_lab.config import ModelThresholds
+
+
+def test_creditable_sets_partition_by_symmetry():
+    assert Mechanism.TRIPLET in creditable_under(PairingSymmetry.TRIPLET)
+    assert Mechanism.PHONON not in creditable_under(PairingSymmetry.TRIPLET)
+    assert Mechanism.PHONON in creditable_under(PairingSymmetry.SINGLET)
+    assert Mechanism.TRIPLET not in creditable_under(PairingSymmetry.SINGLET)
+    # UNDETERMINED credits everything (default, unchanged)
+    assert set(creditable_under(PairingSymmetry.UNDETERMINED)) == set(Mechanism)
+
+
+def test_filter_removes_incompatible_survivors():
+    th = ModelThresholds()
+    # high spin + good coupling: _triplet survives, _phonon is pair-broken
+    results = evaluate_mechanisms(
+        coupling=0.6, carrier_proxy=0.5, structural_stability=0.5,
+        field_suppression=1.0, observable_signal=0.5,
+        spin_polarization=0.8, em_coherence_score=None, n_atoms=13, thresholds=th)
+    singlet = filter_by_symmetry(results, PairingSymmetry.SINGLET)
+    # under the singlet assumption the surviving triplet track is NOT creditable
+    assert all(m.mechanism != Mechanism.TRIPLET.value for m in singlet if m.survives)
+
+
+def test_drive_mechanism_member_exists():
+    assert Mechanism.DRIVE.value == "M_drive"
+
+
+def test_mechanism_summary_default_path_after_drive_track():
+    # Documented, tracked exception to "default path byte-identical" (see
+    # docs/superpowers/plans/2026-07-18-pairing-symmetry-discriminator.md, Task 6 note): adding
+    # Mechanism.DRIVE means the UNDETERMINED / applied_field_t=0.0 default-path
+    # mechanism_summary now names M_drive among the rejected tracks (em_coherence_score is None
+    # by default -- compute_em_coherence off). Decision-bearing fields are untouched; this test
+    # pins the diagnostic string so any further silent drift is caught, not shipped unnoticed.
+    from dataclasses import replace
+    from orme_lab.config import DEFAULT_CONFIG
+    from orme_lab.pipeline import evaluate_candidate
+    from orme_lab.elements import get_element
+    from orme_lab.geometry import make_compact_cluster
+    from orme_lab.spin_states import high_spin_state
+
+    el = get_element("Ir")
+    geo = make_compact_cluster(el, 13)
+    cfg = replace(DEFAULT_CONFIG, pairing_symmetry="undetermined", applied_field_t=0.0)
+    r = evaluate_candidate(el, geo, "high_spin", high_spin_state(el), cfg)
+    assert "M_drive✗ EM coherence not computed (compute_em_coherence off)" in r.mechanism_summary
+    # decision-bearing fields are unaffected by the new mechanism track
+    assert r.field_suppression == pytest.approx(1.0)
+    assert r.pairing_symmetry == "undetermined"

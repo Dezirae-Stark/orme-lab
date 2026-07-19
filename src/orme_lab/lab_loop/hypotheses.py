@@ -14,12 +14,30 @@ from ..elements import get_element
 from .avenue import Avenue
 
 #: The retireable claims. H1/H3 are element/geometry-scoped; the rest are global.
+#: H7 is split into H7-singlet/H7-triplet (opposite Pauli-limit field predictions).
+#: H16-drive-triplet is a dependent hypothesis (see LIVENESS_DEPENDENCIES below) — it
+#: only makes sense while H7-triplet (equal-spin pairing) is still on the table.
 HYPOTHESES: tuple[str, ...] = (
     "H1-open-shell", "H1-closed-shell",
     "H2",
     "H3-cluster", "H3-monomer",
-    "H4", "H5", "H6", "H7", "H12", "H16",
+    "H4", "H5", "H6", "H7-singlet", "H7-triplet", "H12", "H16", "H16-drive-triplet",
 )
+
+#: Dependent hypothesis id -> the id that must remain OPEN for it to be live.
+#: H16-drive-triplet (spin/magnetic AC-drive channel) only makes sense if equal-spin
+#: triplet pairing is still on the table. Evaluated at judge time (parent may die mid-run).
+LIVENESS_DEPENDENCIES: dict[str, str] = {"H16-drive-triplet": "H7-triplet"}
+
+
+def validate_liveness(target: str, open_hypotheses) -> tuple[bool, str]:
+    """A dependent hypothesis is live only while its parent is open. Others always pass."""
+    parent = LIVENESS_DEPENDENCIES.get(target)
+    if parent is None:
+        return True, ""
+    if parent in open_hypotheses:
+        return True, ""
+    return False, f"{target}: parent hypothesis {parent} is killed — drive channel not live"
 
 
 def _all_elements_open_shell(action) -> tuple[bool, str]:

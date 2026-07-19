@@ -45,6 +45,12 @@ OFF_GATE_INVARIANTS: frozenset[str] = frozenset({
     # persistence, and its claim-level ladder. Never re-derivable from the gate inputs.
     "hudson_regime", "hudson_photon_fraction", "hudson_persistence",
     "hudson_highest_claim", "hudson_supported_levels",
+    # Pairing-symmetry field-response discriminator (H7-singlet/H7-triplet) and the
+    # spin/magnetic AC-drive-response proxy (H16-drive-triplet): both are distinct,
+    # independent signals from the SC AND-gate — the ratio needs an external Tc scale
+    # (EPW) and the drive response needs the EM-coherence channel, neither reachable
+    # from the gate's own five inputs.
+    "field_response_ratio", "em_drive_response",
 })
 
 

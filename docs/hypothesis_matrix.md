@@ -21,7 +21,19 @@ survive.
 | H4 | **Bulk** superconductivity requires an inter-unit coupling channel | `coupling.py` | `inter_unit_coupling_score` | (structural premise — encoded as a *necessary gate*, not tested for rejection) |
 | H5 | If units are truly electronically isolated, superconductivity fails | `coupling.py`, `superconductivity.py` | `is_electronically_isolated` + plausibility gate | A monomer/isolated unit is scored as a viable bulk SC candidate (would signal a **model bug**, not a discovery) |
 | H6 | Alternatives: nanoclusters, granular Josephson networks, plasmonic/polaritonic coherence, oxide/hydroxide/salt phases, measurement artifacts | all modules + `validation_tests.md` | routing via `predict_resistance_regime`, `meissner_screening_proxy` | An alternative is ruled out only by the specific discriminating measurement in `validation_tests.md` |
-| H7 | Magnetic fields stabilize / perturb / suppress / destroy the state, depending on phase | `magnetic_field.py` | `magnetic_field_suppression_factor`, `high_spin_field_stabilization` | The candidate shows no field dependence of any observable |
+| H7-singlet | Under a **singlet** pairing assumption, a static moment pair-breaks the state: the critical field is suppressed and Pauli-limited (Chandrasekhar-Clogston, Bc_pauli = 1.86·Tc) | `magnetic_field.py` (`pairing_critical_field`, `PairingSymmetry.SINGLET`) | `field_response_ratio` | The measured critical field exceeds the Pauli limit (`field_response_ratio` > 1 — only a triplet can host that) |
+| H7-triplet | Under an **equal-spin triplet** pairing assumption, the moment is carried by the condensate itself: the critical field is field-robust and may exceed the Pauli limit | `magnetic_field.py` (`pairing_critical_field`, `PairingSymmetry.TRIPLET`) | `field_response_ratio` | The measured critical field stays at or below the Pauli limit (`field_response_ratio` <= 1 — no evidence of triplet enhancement) |
+| H16-drive-triplet | A spin-carrying (equal-spin triplet) coherent condensate can be parametrically pumped by an AC **magnetic** drive (magnon-BEC analogue) — live only while H7-triplet is still open | `electromagnetic_coherence.py` (`magnetic_drive_response`) | `em_drive_response` | The modeled magnetic-drive response falls below baseline (`em_drive_response` < `DRIVE_BASELINE` = 0.1), or its parent H7-triplet is killed (liveness gate — INCONCLUSIVE, not a kill) |
+
+**Why H7 is pairing-scoped, and the two decisive measurements:** singlet and equal-spin-triplet
+pairing make *opposite* Pauli-limit predictions from the same applied-field data, so a single H7
+would be un-killable by field alone (whichever way the field response goes, some pairing channel
+"explains" it). Splitting it lets a field measurement retire exactly one branch: `field_response_ratio`
+(critical field vs the Chandrasekhar-Clogston Pauli limit, 1.86·Tc) kills H7-singlet when it is > 1
+and kills H7-triplet when it is <= 1. `H16-drive-triplet` adds a second, independent decisive
+measurement — modeled magnetic-drive response vs `DRIVE_BASELINE` — and is judge-time-gated live
+only while H7-triplet remains open (`LIVENESS_DEPENDENCIES`, `src/orme_lab/lab_loop/hypotheses.py`):
+a dead H7-triplet makes the drive channel INCONCLUSIVE, never a false SURVIVED.
 
 **Why H1/H3 are element/geometry-scoped (measured):** `d_shell_vacancies` exactly predicts the
 toy anisotropy — closed-shell (d¹⁰: Ag, Au, Pd) → 0.000 in both spin states; open-shell (Ir, Os,
@@ -39,13 +51,13 @@ pipeline walks in order:
 ```
 H1 (spin) ──▶ H2/H3 (density anisotropy / shape)
                      │
-H4/H5 (coupling) ────┼──▶ carrier proxy ──▶ H7 (field response)
+H4/H5 (coupling) ────┼──▶ carrier proxy ──▶ H7-singlet/H7-triplet (field response)
                      │                            │
                      └────────────▶ observables ──┴──▶ SC plausibility (AND-gate)
 ```
 
 The key design decision: **H4/H5 dominate**. A candidate can be maximally
-high-spin (H1), beautifully rice-bean (H2/H3), and field-tolerant (H7), and still
+high-spin (H1), beautifully rice-bean (H2/H3), and field-tolerant (H7-singlet/H7-triplet), and still
 be *ruled out* for bulk superconductivity if it has no coupling channel. This is
 the whole point of the Hudson critique: a genuinely monatomic, electronically
 isolated species has no mechanism to host a macroscopic coherent condensate.

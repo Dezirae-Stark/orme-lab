@@ -149,6 +149,13 @@ class CandidateRecord:
     hudson_persistence: str | None = None
     hudson_highest_claim: int = 0
     hudson_supported_levels: tuple[int, ...] = ()
+    # Orbital-order descriptor (QE projwfc.x Löwdin d-occupations), gated behind
+    # config.compute_orbital_order (default off -- keeps the toy path byte-identical).
+    # orbital_order_param is the OFF-GATE polarization -- a different contraction of
+    # the occupations than the gate anisotropy override -- never positive SC/pairing
+    # evidence, never a raised evidence level (still Level 2).
+    orbital_order_param: float | None = None
+    orbital_order_source: str = "toy"
 
     def as_csv_row(self) -> dict[str, object]:
         row = asdict(self)
@@ -205,6 +212,28 @@ def evaluate_candidate(
     if backend is not None and backend.provides(Capability.DENSITY_ANISOTROPY):
         anisotropy = backend.density_anisotropy(state)
         ricebean = is_ricebean(anisotropy, th)
+
+    # Orbital-order seam (QE projwfc.x Löwdin d-occupations). Gated behind
+    # config.compute_orbital_order (default False) so the toy path is byte-identical.
+    # Runs BEFORE carrier_coherence_proxy so the gate consumes the computed anisotropy.
+    # orbital_order_param (off-gate polarization) is a DIFFERENT contraction of the same
+    # occupations than the gate anisotropy override below -- never re-derivable from it
+    # (anti-tautology gate) -- and is never positive SC/pairing evidence.
+    orbital_order_param: float | None = None
+    orbital_order_source = "toy"
+    if config.compute_orbital_order:
+        if (backend is not None and backend.provides(Capability.ORBITAL_ORDER)
+                and backend.available()):
+            oo = backend.orbital_order(element, geometry, state)
+            if oo.anisotropy is not None:
+                anisotropy = oo.anisotropy
+                ricebean = is_ricebean(anisotropy, th)
+                orbital_order_param = oo.polarization
+                orbital_order_source = "computed"
+            else:
+                orbital_order_source = "absent"
+        else:
+            orbital_order_source = "absent"
 
     # Inter-unit-coupling seam (tight-binding transfer integrals).
     coupling = inter_unit_coupling_score(geometry, th)
@@ -376,6 +405,8 @@ def evaluate_candidate(
         hudson_persistence=hud_persistence,
         hudson_highest_claim=hud_highest,
         hudson_supported_levels=hud_levels,
+        orbital_order_param=orbital_order_param,
+        orbital_order_source=orbital_order_source,
     )
 
 

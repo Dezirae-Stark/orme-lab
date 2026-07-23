@@ -47,6 +47,8 @@ METRIC_RANGES: dict[str, tuple[float, float]] = {
     # Pairing-symmetry field-response discriminator + spin/magnetic drive-response proxy.
     "max_field_response_ratio": (0.0, 5.0),
     "max_em_drive_response": (0.0, 1.0),
+    # Orbital-order off-gate against-triplet discriminator (QE projwfc polarization).
+    "max_orbital_order": (0.0, 1.0),
 }
 
 
@@ -105,6 +107,7 @@ class ActionSpec:
     use_em: bool
     coupling_channel: str | None           # tier-2: {nanocluster, josephson, oxide_salt, light_matter}
     pairing_symmetry: str = "undetermined"  # PairingSymmetry value; default keeps existing construction valid
+    compute_orbital_order: bool = False     # request the QE-computed orbital-order descriptor
 
 
 @dataclass(frozen=True)

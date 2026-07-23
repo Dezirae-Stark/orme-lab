@@ -165,6 +165,28 @@ export const METRICS = {
     future: "Ab-initio spin-drive response kernel (DFT + spin dynamics) — see backends.py Capability.SPIN_DRIVE_RESPONSE (no-number stub).",
     source: "src/orme_lab/electromagnetic_coherence.py",
   },
+  orbitalOrder: {
+    title: "Orbital-order parameter (model-derived)",
+    eyebrow: "Off-gate discriminator (H7-triplet)",
+    get: (r) => {
+      const src = r.orbitalOrderSource || (r.orbitalOrderParam == null ? "absent" : undefined);
+      if (r.orbitalOrderParam == null || src === "absent") {
+        return "absent — no QE backend attached in this session (Python-only, evaluate_candidate)";
+      }
+      const label = src === "computed" ? "computed (QE projwfc)" : "toy-fallback";
+      return r.orbitalOrderParam.toFixed(3) + `  (${label})`;
+    },
+    definition:
+      "A frame-robust d-orbital occupation imbalance used ONLY to argue AGAINST an equal-spin-triplet pairing avenue (H7-triplet) when it runs high — never a positive superconductivity or pairing score. Orbital order is a normal-state ordering phenomenon, not superconductivity.",
+    calculation:
+      "polarization = a different contraction of the same Löwdin d-occupations than the gate's quadrupole anisotropy (deliberately off the gate's scalar closure, so it cannot be re-derived from gate inputs — see OFF_GATE_INVARIANTS). Computed at fixed geometry + fixed magnetic config: computational isolation of cross-channel feedback, NOT physical separability.",
+    experimental:
+      "Resonant / linear-dichroism XAS orbital-occupation asymmetry · Löwdin/Mulliken population analysis from a real DFT run.",
+    confidence:
+      "Computed from QE projwfc Löwdin d-occupations when the backend is live; toy-fallback / absent otherwise. Level 2 — a descriptor, not evidence; orbital order is a normal-state ordering, NOT superconductivity. Three honest provenance states: computed (real projwfc.x output) / toy-fallback (heuristic, LabConfig.compute_orbital_order off or unavailable) / absent (no backend attached — no value fabricated).",
+    future: "Already the computed path when compute_orbital_order=True and QuantumEspressoBackend is live — see docs/epw-orbital-order-run.md for a real run log.",
+    source: "src/orme_lab/orbital_order.py",
+  },
   // gate cascade rows map to the metric that drives them
   gate_coupling: null,          // -> coupling (aliased below)
   gate_carriers: null,          // -> carrier

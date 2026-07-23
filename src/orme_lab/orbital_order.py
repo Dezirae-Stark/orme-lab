@@ -37,12 +37,20 @@ def d_polarization(occ: "tuple[float, ...]") -> float:
 
 
 def quadrupole_anisotropy(occ: "tuple[float, ...]") -> float:
-    """Gate-facing d-manifold charge-shape anisotropy in [0,1] from occupation-weighted quadrupole."""
+    """Gate-facing d-manifold shape anisotropy in [0,1]: the RANK-2 (quadrupolar) anisotropy of the
+    occupation-weighted d-density, |Q_zz| normalized to [0,1]. Level-2 approximation with a known,
+    conservative blind spot: it is 0 for any cubic (Oh) site by symmetry — a cubic charge
+    distribution has zero quadrupole moment; its anisotropy is 4th-order (eg-t2g splitting), which
+    NO rank-2 tensor can capture. So Q_zz=0 means 'no quadrupolar anisotropy', NOT 'spherical' (an
+    eg>t2g split shell, e.g. fcc Ir, correctly reads 0 here). Also blind to in-plane redistribution
+    (dxz<->dyz, dxy<->dx2y2, which share Q_zz weight). Reading 0 is conservative for the gate (less
+    anisotropy -> smaller localization penalty -> not more permissive)."""
     total = sum(occ)
     if total <= 0.0:
         return 0.0
     qzz = sum(w * o for w, o in zip((_QZZ[l] for l in _D_LABELS), occ)) / total
-    # |Q_zz| normalized by its max magnitude (2.0) -> [0,1] departure from spherical (Q_zz=0).
+    # |Q_zz| / max magnitude (2.0) -> [0,1]. Q_zz=0 = no rank-2 anisotropy (NOT necessarily
+    # spherical; cubic eg-t2g splitting is rank-4 and invisible to any quadrupole — see docstring).
     return min(1.0, abs(qzz) / 2.0)
 
 

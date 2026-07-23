@@ -173,8 +173,9 @@ export const METRICS = {
       if (r.orbitalOrderParam == null || src === "absent") {
         return "absent — no QE backend attached in this session (Python-only, evaluate_candidate)";
       }
-      const label = src === "computed" ? "computed (QE projwfc)" : "toy-fallback";
-      return r.orbitalOrderParam.toFixed(3) + `  (${label})`;
+      // param is non-None only on the computed path (pipeline sets param + source atomically),
+      // so this line is reached only for computed values; the toy/off path yields param==null -> "absent".
+      return r.orbitalOrderParam.toFixed(3) + "  (computed, QE projwfc)";
     },
     definition:
       "A frame-robust d-orbital occupation imbalance used ONLY to argue AGAINST an equal-spin-triplet pairing avenue (H7-triplet) when it runs high — never a positive superconductivity or pairing score. Orbital order is a normal-state ordering phenomenon, not superconductivity.",
@@ -183,7 +184,7 @@ export const METRICS = {
     experimental:
       "Resonant / linear-dichroism XAS orbital-occupation asymmetry · Löwdin/Mulliken population analysis from a real DFT run.",
     confidence:
-      "Computed from QE projwfc Löwdin d-occupations when the backend is live; toy-fallback / absent otherwise. Level 2 — a descriptor, not evidence; orbital order is a normal-state ordering, NOT superconductivity. Three honest provenance states: computed (real projwfc.x output) / toy-fallback (heuristic, LabConfig.compute_orbital_order off or unavailable) / absent (no backend attached — no value fabricated).",
+      "Computed from QE projwfc Löwdin d-occupations when the backend is live AND compute_orbital_order=True; otherwise no computed value exists and it reads 'absent' — a value is NEVER fabricated. Level 2 — a descriptor, not evidence; orbital order is a normal-state ordering, NOT superconductivity. Two reachable states: computed (real projwfc.x output) / absent (flag off, backend unavailable, or none attached).",
     future: "Already the computed path when compute_orbital_order=True and QuantumEspressoBackend is live — see docs/epw-orbital-order-run.md for a real run log.",
     source: "src/orme_lab/orbital_order.py",
   },

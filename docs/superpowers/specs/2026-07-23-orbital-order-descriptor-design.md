@@ -177,6 +177,24 @@ Wired exactly like `field_response_ratio`:
   framing (computational isolation, not physical separability) — the screen is more discriminating,
   never more permissive.
 
+## Result (Task 9 — live validation, 2026-07-23)
+
+Precondition MET. `pw.x` + `projwfc.x` (QE 7.3.1) ran live on the Ir `compact_cluster`
+periodic approximant (SG15 ONCV pseudo, `n_semicore_bands=4`, same recipe as
+`docs/epw-ir-lambda-run.md`): SCF converged in 11 iterations (`total energy
+-230.30536826 Ry`), `projwfc.x` reached `JOB DONE` with spilling parameter 0.0118.
+Through `evaluate_candidate(..., compute_orbital_order=True, backend=QuantumEspressoBackend(...))`:
+`orbital_order_source == "computed"`, `orbital_order_param (P) = 0.03966`, gate
+`anisotropy = 0.0` — both finite, both in `[0,1]`, both cross-checked by hand against
+`orbital_order.py`'s pure functions from the real Löwdin d-occupations
+`(1.6892, 1.4823, 1.4823, 1.4823, 1.6892)`. The zero anisotropy is a genuine
+consequence of the fcc site's cubic point symmetry, not a degenerate/fabricated value.
+Full log: `docs/epw-orbital-order-run.md`. All 8 acceptance criteria pass
+(`tests/test_orbital_acceptance.py` for 1–7, live run above for 8); full suite green.
+No evidence-level change (Level 2); anti-tautology gate extended, not weakened
+(golden `tests/lab_loop/test_closure.py` pin includes `orbital_order_param`); default
+path (`compute_orbital_order=False`) byte-identical.
+
 ## Open items for the writing-plans step
 
 - Exact `P` formula (normalized d-occupation imbalance) + the quadrupole-anisotropy arithmetic, each

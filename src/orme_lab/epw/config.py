@@ -29,6 +29,7 @@ class EPWConfig:
     pw_x: str = "pw.x"
     ph_x: str = "ph.x"
     epw_x: str = "epw.x"
+    projwfc_x: str = "projwfc.x"
     scratch_root: str = "/tmp/orme-epw"
     timeout_s: int = 86400
     tr2_ph: str = "1.0d-14"          # DFPT self-consistency threshold (ph.x)

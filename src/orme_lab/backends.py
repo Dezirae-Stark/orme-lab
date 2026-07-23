@@ -57,6 +57,7 @@ class Capability(Enum):
     DENSITY_CUBE = "density_cube"               # emit a Gaussian .cube for the web renderer
     NON_PHONON_PAIRING = "non_phonon_pairing"     # TODO(backend): triplet/magnetic pairing kernel (NOT phonon-mediated)
     SPIN_DRIVE_RESPONSE = "spin_drive_response"   # TODO(backend): response to an AC magnetic (spin-sector) drive
+    ORBITAL_ORDER = "orbital_order"               # orbital_order.py TODO(dft): QE projwfc.x Löwdin d-occupations
 
 
 def implemented(capability: Capability) -> Callable:
@@ -191,6 +192,16 @@ class DFTBackend:
         here — the killable toy proxy lives in electromagnetic_coherence.magnetic_drive_response."""
         self._nyi(Capability.SPIN_DRIVE_RESPONSE)
 
+    def orbital_order(self, element: "Element", geometry: "ClusterGeometry",
+                       state: "SpinState"):
+        """Computed orbital-order descriptor (Löwdin d-occupation polarization, off-gate,
+        + quadrupole anisotropy, gate-facing) from QE projwfc.x -- see
+        ``epw.orbital_result.OrbitalResult``. Computed at fixed geometry + fixed magnetic
+        config: computational isolation of cross-channel feedback, NOT physical
+        separability. Off-gate discriminator only -- never positive SC/pairing evidence.
+        Level 2."""
+        self._nyi(Capability.ORBITAL_ORDER)
+
 
 # ---------------------------------------------------------------------------
 # Named adapter stubs — the concrete places a real integration goes.
@@ -255,8 +266,39 @@ class QuantumEspressoBackend(DFTBackend):
     declared_capabilities = frozenset({
         Capability.INTER_UNIT_COUPLING,
         Capability.DIELECTRIC_FUNCTION,
+        Capability.ORBITAL_ORDER,
     })
-    binary_requires = ("pw.x",)
+    binary_requires = ("pw.x", "projwfc.x")
+
+    def __init__(self, config=None, runner=None):
+        from .epw.config import EPWConfig
+        from .epw.runner import LiveEPWRunner
+        self.config = config or EPWConfig()
+        self.runner = runner or LiveEPWRunner()
+
+    @implemented(Capability.ORBITAL_ORDER)
+    def orbital_order(self, element, geometry, state):
+        """See DFTBackend.orbital_order -- one pw.x SCF + projwfc.x run, parsed into
+        per-atom Löwdin d-occupations and aggregated to an OrbitalResult. Never aborts
+        the screen: an undefined approximant or a failed run degrades to
+        OrbitalResult.not_applicable/failed, not an exception."""
+        from .epw.approximant import ApproximantUndefined, build_approximant
+        from .epw.orbital_result import OrbitalResult
+        from .epw.parse_projwfc import parse_projwfc
+        from .epw.runner import EPWError
+
+        try:
+            approx = build_approximant(element, geometry, state)
+        except ApproximantUndefined as exc:
+            return OrbitalResult.not_applicable(str(exc))
+        try:
+            text = self.runner.run_orbital_order(approx, self.config)
+        except EPWError as exc:
+            return OrbitalResult.failed(str(exc))
+        occupations = parse_projwfc(text)
+        if not occupations.per_atom:
+            return OrbitalResult.failed("projwfc.x produced no per-atom d-occupations")
+        return OrbitalResult.from_occupations(occupations.per_atom, source="qe:projwfc")
 
 
 class EPWBackend(DFTBackend):

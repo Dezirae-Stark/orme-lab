@@ -146,3 +146,40 @@ class LiveEPWRunner:
             raise EPWError(f"EPW produced no .a2f at {a2f_path}")
         with open(a2f_path, encoding="utf-8") as fh:
             return fh.read()
+
+    def run_orbital_order(self, approx: PeriodicApproximant, cfg: EPWConfig) -> str:
+        """Lightweight run for the ORBITAL_ORDER capability: pw.x SCF -> projwfc.x
+        only (no ph/nscf/epw stages -- orbital occupations need just the converged
+        SCF density). Returns projwfc.x's raw stdout (the "Lowdin Charges" block
+        parse_projwfc reads); a fresh per-candidate scratch dir, same completion
+        gating as :meth:`run`."""
+        if not shutil.which(cfg.pw_x) or not shutil.which(cfg.projwfc_x):
+            raise EPWError("pw.x/projwfc.x not both on PATH")
+        from . import qe_input   # lazy import: Task 8
+
+        prefix = scratch_name(approx)
+        workdir = os.path.join(cfg.scratch_root, prefix)
+        if os.path.exists(workdir):
+            shutil.rmtree(workdir)
+        os.makedirs(workdir, exist_ok=True)
+
+        def _run(binary: str, deck: str, *, converge: bool) -> str:
+            proc = subprocess.Popen(
+                [binary], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT, cwd=workdir, text=True,
+                start_new_session=True,
+            )
+            try:
+                stdout, _ = proc.communicate(input=deck, timeout=cfg.timeout_s)
+            except subprocess.TimeoutExpired as exc:
+                try:
+                    os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
+                except ProcessLookupError:
+                    pass
+                proc.wait()
+                raise EPWError(f"{binary} timed out after {cfg.timeout_s}s") from exc
+            assert_stage_complete(stdout, require_convergence=converge)
+            return stdout
+
+        _run(cfg.pw_x, qe_input.scf_input(approx, cfg, prefix), converge=True)
+        return _run(cfg.projwfc_x, qe_input.projwfc_input(approx, cfg, prefix), converge=False)

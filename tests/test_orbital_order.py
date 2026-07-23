@@ -27,4 +27,5 @@ def test_quadrupole_anisotropy_bounded_and_zero_for_spherical():
 
 
 def test_dominant_orbital_names_the_max():
-    assert dominant_orbital((0.1, 0.1, 0.9, 0.1, 0.1)) == "dxy" or isinstance(dominant_orbital((0.1,0.1,0.9,0.1,0.1)), str)
+    # _D_LABELS = (dz2, dxz, dyz, dxy, dx2y2); index 2 (dyz) is the max here.
+    assert dominant_orbital((0.1, 0.1, 0.9, 0.1, 0.1)) == "dyz"

@@ -15,8 +15,6 @@ construction, NOT physical separability (orbital/magnetic/lattice order are symm
 """
 from __future__ import annotations
 
-import math
-
 _D_LABELS = ("dz2", "dxz", "dyz", "dxy", "dx2y2")  # m-ordered; align to the projwfc (l=2,m) order in parse_projwfc
 
 # Diagonal quadrupole (3z^2-r^2 -> Q_zz) weights per real d-orbital, normalized; used for the

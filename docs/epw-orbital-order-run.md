@@ -86,6 +86,14 @@ dxy:-2, dx2y2:-2}` → `2·1.6892 + 1.4823 + 1.4823 − 2·1.4823 − 2·1.6892 
 dxy}` each fill symmetrically, and the specific `_QZZ` weights cancel across the two
 sets under that symmetry) — not a degenerate/fabricated value.
 
+**Follow-up (descriptor upgrade):** the quadrupole is *rank-2* and structurally blind to
+this cubic (rank-4) splitting, so `Q_zz=0` does **not** mean the shell is spherical — the
+`eg` pair (1.6892) sits clearly above the `t2g` triplet (1.4823). The gate-facing anisotropy
+was subsequently upgraded to `d_manifold_anisotropy = max(quadrupole, eg-t2g imbalance)`,
+which reads **0.0652** for this same Ir occupation (`|1.6892−1.4823|/(1.6892+1.4823)`) —
+correctly non-isotropic. The off-gate `P` (0.03966) is unchanged and remains a distinct
+contraction, so the anti-tautology separation holds (gate 0.0652 ≠ off-gate 0.03966).
+
 ## Separability note
 
 The descriptor is computed at **fixed geometry + fixed magnetic (SCF `nspin=2`,

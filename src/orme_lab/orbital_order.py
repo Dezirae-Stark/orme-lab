@@ -54,6 +54,29 @@ def quadrupole_anisotropy(occ: "tuple[float, ...]") -> float:
     return min(1.0, abs(qzz) / 2.0)
 
 
+def eg_t2g_imbalance(occ: "tuple[float, ...]") -> float:
+    """Cubic-field eg-t2g population imbalance in [0,1]: |<eg> - <t2g>| / (<eg>+<t2g>), where
+    eg = {dz2, dx2y2} and t2g = {dxz, dyz, dxy} (the Oh crystal-field split of the d-manifold).
+
+    This captures the crystal-field anisotropy that `quadrupole_anisotropy` (a rank-2 tensor) is
+    structurally blind to: a cubic site has zero quadrupole yet a real eg/t2g occupation split
+    (e.g. fcc Ir: eg 1.6892 > t2g 1.4823 -> nonzero here, zero in the quadrupole). Level-2
+    descriptor from the same fixed-config Löwdin occupations."""
+    eg = (occ[0] + occ[4]) / 2.0        # dz2, dx2y2
+    t2g = (occ[1] + occ[2] + occ[3]) / 3.0   # dxz, dyz, dxy
+    denom = eg + t2g
+    return 0.0 if denom <= 0.0 else min(1.0, abs(eg - t2g) / denom)
+
+
+def d_manifold_anisotropy(occ: "tuple[float, ...]") -> float:
+    """Combined gate-facing d-shape anisotropy in [0,1]: the larger of the rank-2 quadrupolar
+    (axial) anisotropy and the cubic-field eg-t2g imbalance. Using the max means a shell that is
+    anisotropic in EITHER channel reads anisotropic — so a cubic-split site (Q_zz=0) is no longer
+    mis-read as isotropic, while a purely axial (tetragonal) distortion the quadrupole sees is
+    still captured. 0 only when the d-occupations are genuinely equal-filled."""
+    return max(quadrupole_anisotropy(occ), eg_t2g_imbalance(occ))
+
+
 def dominant_orbital(occ: "tuple[float, ...]") -> str:
     """Label of the most-occupied d-orbital (symmetry metadata; non-scoring provenance)."""
     return _D_LABELS[max(range(len(occ)), key=lambda i: occ[i])]

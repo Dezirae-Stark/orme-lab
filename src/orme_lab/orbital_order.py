@@ -18,8 +18,16 @@ from __future__ import annotations
 _D_LABELS = ("dz2", "dxz", "dyz", "dxy", "dx2y2")  # m-ordered; align to the projwfc (l=2,m) order in parse_projwfc
 
 # Diagonal quadrupole (3z^2-r^2 -> Q_zz) weights per real d-orbital, normalized; used for the
-# occupation-weighted shape tensor. Standard angular quadrupole signs of the real d-harmonics.
-_QZZ = {"dz2": +2.0, "dxz": +1.0, "dyz": +1.0, "dxy": -2.0, "dx2y2": -2.0}
+# Per-orbital TRACELESS diagonal quadrupole (q_xx, q_yy, q_zz) of the real d-harmonics
+# (each row sums to 0). The FULL tensor — not just Q_zz — so in-plane redistribution is captured:
+# dxz favours x (q_xx>q_yy), dyz favours y (q_yy>q_xx), so dxz<->dyz shows up as Q_xx != Q_yy.
+_QUAD = {
+    "dz2":   (-2.0, -2.0, +4.0),
+    "dxz":   (+2.0, -4.0, +2.0),
+    "dyz":   (-4.0, +2.0, +2.0),
+    "dxy":   (+2.0, +2.0, -4.0),
+    "dx2y2": (+2.0, +2.0, -4.0),
+}
 
 
 def d_polarization(occ: "tuple[float, ...]") -> float:
@@ -37,21 +45,20 @@ def d_polarization(occ: "tuple[float, ...]") -> float:
 
 
 def quadrupole_anisotropy(occ: "tuple[float, ...]") -> float:
-    """Gate-facing d-manifold shape anisotropy in [0,1]: the RANK-2 (quadrupolar) anisotropy of the
-    occupation-weighted d-density, |Q_zz| normalized to [0,1]. Level-2 approximation with a known,
-    conservative blind spot: it is 0 for any cubic (Oh) site by symmetry — a cubic charge
-    distribution has zero quadrupole moment; its anisotropy is 4th-order (eg-t2g splitting), which
-    NO rank-2 tensor can capture. So Q_zz=0 means 'no quadrupolar anisotropy', NOT 'spherical' (an
-    eg>t2g split shell, e.g. fcc Ir, correctly reads 0 here). Also blind to in-plane redistribution
-    (dxz<->dyz, dxy<->dx2y2, which share Q_zz weight). Reading 0 is conservative for the gate (less
-    anisotropy -> smaller localization penalty -> not more permissive)."""
+    """Rank-2 d-manifold shape anisotropy in [0,1]: the norm of the FULL occupation-weighted
+    quadrupole tensor (Q_xx, Q_yy, Q_zz), normalized. Captures axial (z vs xy) AND in-plane
+    (x vs y, e.g. dxz<->dyz redistribution) anisotropy — a strict improvement over a Q_zz-only
+    measure. Level-2. One structural blind spot remains and is intrinsic to any rank-2 tensor:
+    it is 0 for a cubic (Oh) site by symmetry (all rank-2 components vanish), so Q=0 means 'no
+    rank-2 anisotropy', NOT 'spherical' — the cubic eg-t2g split (rank-4, e.g. fcc Ir) is picked
+    up by eg_t2g_imbalance instead, and the two are combined in d_manifold_anisotropy."""
     total = sum(occ)
     if total <= 0.0:
         return 0.0
-    qzz = sum(w * o for w, o in zip((_QZZ[l] for l in _D_LABELS), occ)) / total
-    # |Q_zz| / max magnitude (2.0) -> [0,1]. Q_zz=0 = no rank-2 anisotropy (NOT necessarily
-    # spherical; cubic eg-t2g splitting is rank-4 and invisible to any quadrupole — see docstring).
-    return min(1.0, abs(qzz) / 2.0)
+    q = [sum(_QUAD[l][i] * o for l, o in zip(_D_LABELS, occ)) / total for i in range(3)]
+    norm = (q[0] * q[0] + q[1] * q[1] + q[2] * q[2]) ** 0.5
+    # normalize by ~a single fully-occupied orbital's |Q| (=4.0) -> [0,1], clamped.
+    return min(1.0, norm / 4.0)
 
 
 def eg_t2g_imbalance(occ: "tuple[float, ...]") -> float:
@@ -69,11 +76,14 @@ def eg_t2g_imbalance(occ: "tuple[float, ...]") -> float:
 
 
 def d_manifold_anisotropy(occ: "tuple[float, ...]") -> float:
-    """Combined gate-facing d-shape anisotropy in [0,1]: the larger of the rank-2 quadrupolar
-    (axial) anisotropy and the cubic-field eg-t2g imbalance. Using the max means a shell that is
-    anisotropic in EITHER channel reads anisotropic — so a cubic-split site (Q_zz=0) is no longer
-    mis-read as isotropic, while a purely axial (tetragonal) distortion the quadrupole sees is
-    still captured. 0 only when the d-occupations are genuinely equal-filled."""
+    """Combined gate-facing d-shape anisotropy in [0,1]: the larger of the FULL rank-2 quadrupole
+    anisotropy (axial + in-plane, incl. dxz<->dyz redistribution) and the cubic-field eg-t2g
+    imbalance. Max means a shell anisotropic in EITHER channel reads anisotropic — so a cubic-split
+    site (rank-2 = 0, e.g. fcc Ir) is not mis-read as isotropic, and an in-plane t2g redistribution
+    the eg-t2g term misses is still caught by the full quadrupole. Only genuinely higher-rank
+    patterns invisible to BOTH channels read low, and that direction is conservative for the gate
+    (less anisotropy -> smaller localization penalty -> never more permissive). Distinct from the
+    off-gate polarization P (occupation dispersion), so the anti-tautology separation holds."""
     return max(quadrupole_anisotropy(occ), eg_t2g_imbalance(occ))
 
 

@@ -34,6 +34,17 @@ def test_d_manifold_captures_axial_quadrupole_too():
     assert d_manifold_anisotropy(occ) >= quadrupole_anisotropy(occ) - 1e-12
 
 
+def test_full_quadrupole_catches_in_plane_redistribution():
+    # Codex PR#27 counterexample: dxz/dyz redistribution (dyz=2, dxz=0) is NOT equal-filled
+    # (d_polarization=0.25) and Q_zz cancels + eg==t2g, so a Q_zz-only or eg-t2g-only measure
+    # would read it isotropic. The FULL quadrupole tensor (Q_xx != Q_yy) must catch it.
+    occ = (1.0, 0.0, 2.0, 1.0, 1.0)   # dz2, dxz, dyz, dxy, dx2y2
+    assert d_polarization(occ) == pytest.approx(0.25)
+    assert eg_t2g_imbalance(occ) == pytest.approx(0.0)     # eg mean == t2g mean here
+    assert quadrupole_anisotropy(occ) > 0.0                # full tensor sees Q_xx != Q_yy
+    assert d_manifold_anisotropy(occ) > 0.0                # so the gate is NOT mis-read isotropic
+
+
 def test_equal_filling_zero_polarization():
     assert d_polarization((0.4, 0.4, 0.4, 0.4, 0.4)) == pytest.approx(0.0)
 

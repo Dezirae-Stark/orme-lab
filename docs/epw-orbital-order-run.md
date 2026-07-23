@@ -86,13 +86,15 @@ dxy:-2, dx2y2:-2}` → `2·1.6892 + 1.4823 + 1.4823 − 2·1.4823 − 2·1.6892 
 dxy}` each fill symmetrically, and the specific `_QZZ` weights cancel across the two
 sets under that symmetry) — not a degenerate/fabricated value.
 
-**Follow-up (descriptor upgrade):** the quadrupole is *rank-2* and structurally blind to
-this cubic (rank-4) splitting, so `Q_zz=0` does **not** mean the shell is spherical — the
-`eg` pair (1.6892) sits clearly above the `t2g` triplet (1.4823). The gate-facing anisotropy
-was subsequently upgraded to `d_manifold_anisotropy = max(quadrupole, eg-t2g imbalance)`,
-which reads **0.0652** for this same Ir occupation (`|1.6892−1.4823|/(1.6892+1.4823)`) —
-correctly non-isotropic. The off-gate `P` (0.03966) is unchanged and remains a distinct
-contraction, so the anti-tautology separation holds (gate 0.0652 ≠ off-gate 0.03966).
+**Follow-up (descriptor upgrade, PR #27):** `quadrupole_anisotropy` is now the norm of the
+FULL occupation-weighted quadrupole tensor `(Q_xx, Q_yy, Q_zz)` (captures in-plane dxz↔dyz
+redistribution, not just the axial Q_zz). For fcc Ir all three rank-2 components still vanish
+by cubic (`Oh`) symmetry, so it correctly reads `0.0` — but rank-2 = 0 does **not** mean
+spherical (the `eg` pair 1.6892 sits above the `t2g` triplet 1.4823). The cubic (rank-4) split
+is captured by `eg_t2g_imbalance`, and the gate uses `d_manifold_anisotropy = max(full
+quadrupole, eg-t2g)`, which reads **0.0652** for this Ir occupation (`|1.6892−1.4823|/(1.6892+
+1.4823)`) — correctly non-isotropic. The off-gate `P` (0.03966) is unchanged and remains a
+distinct contraction, so the anti-tautology separation holds (gate 0.0652 ≠ off-gate 0.03966).
 
 ## Separability note
 

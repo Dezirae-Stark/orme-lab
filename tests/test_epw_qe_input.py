@@ -46,3 +46,11 @@ def test_all_four_decks_share_one_prefix():
     from orme_lab.epw.qe_input import scf_input, nscf_input, ph_input, epw_input
     for deck in (scf_input(ap, cfg, p), nscf_input(ap, cfg, p), ph_input(ap, cfg, p), epw_input(ap, cfg, p)):
         assert p in deck
+
+
+def test_projwfc_input_has_namelist_and_prefix():
+    from orme_lab.epw.qe_input import projwfc_input
+    deck = projwfc_input(_fcc(), _cfg(), "orme")
+    assert "&projwfc" in deck.lower()
+    assert "prefix" in deck and "orme" in deck
+    assert "filproj" in deck

@@ -31,6 +31,7 @@ def test_offgate_set_is_pinned_exactly():
         "hudson_regime", "hudson_photon_fraction", "hudson_persistence",
         "hudson_highest_claim", "hudson_supported_levels",
         "field_response_ratio", "em_drive_response",
+        "orbital_order_param",
     })
 
 

@@ -51,6 +51,12 @@ OFF_GATE_INVARIANTS: frozenset[str] = frozenset({
     # (EPW) and the drive response needs the EM-coherence channel, neither reachable
     # from the gate's own five inputs.
     "field_response_ratio", "em_drive_response",
+    # Orbital-order descriptor (QE projwfc d-occupation polarization): a distinct
+    # contraction of the Löwdin d-occupations from the gate's own `anisotropy`
+    # scalar (quadrupole vs. polarization). Never re-derivable from the gate's
+    # five inputs; used only as an against-triplet falsifier, never as positive
+    # SC/pairing evidence.
+    "orbital_order_param",
 })
 
 

@@ -137,6 +137,14 @@ class LabConfig:
     #: recover the lightweight SC-only path.
     compute_hudson_optical: bool = True
 
+    compute_orbital_order: bool = False
+    """When True, the screen also computes the orbital-order descriptor (QE
+    projwfc.x Löwdin d-occupations) per candidate and overrides the toy
+    density-anisotropy value with the computed one, recording the off-gate
+    orbital_order_param. Off by default so the toy path's values stay
+    byte-identical -- with the flag off, or the backend absent, the field
+    is None and the toy anisotropy is untouched."""
+
     output_dir: str = "outputs"
 
 

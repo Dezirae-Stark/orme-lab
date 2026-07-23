@@ -40,6 +40,8 @@ def validate_runnable(avenue: Avenue) -> tuple[bool, str]:
         return False, "max_field_response_ratio falsifier requires use_epw (Pauli ratio needs a Tc scale)"
     if m == "max_em_drive_response" and not avenue.action.use_em:
         return False, "max_em_drive_response falsifier requires use_em (drive response needs the EM channel)"
+    if m == "max_orbital_order" and not avenue.action.compute_orbital_order:
+        return False, "max_orbital_order falsifier requires compute_orbital_order (needs a QE projwfc run)"
     # An empty screening grid produces zero records and all-0.0 metrics, which
     # would spuriously FIRE any "less-than" falsifier (a hypothesis retired having
     # tested nothing). Reject empty axes before they can reach the screen.
@@ -78,12 +80,16 @@ _METRIC_KEYS = (
     "max_em_coherence_score",
     # Pairing-symmetry field-response discriminator + spin/magnetic drive-response proxy.
     "max_field_response_ratio", "max_em_drive_response",
+    # Orbital-order off-gate against-triplet discriminator (QE projwfc polarization).
+    "max_orbital_order",
 )
 
 
 # Discriminator metrics that must stay None (not 0.0) when unmeasured, so a falsifier cannot
 # fire on absent evidence (0.0 is a real in-range value that fires `<=` conditions).
-_NONE_WHEN_UNMEASURED = frozenset({"max_field_response_ratio", "max_em_drive_response"})
+_NONE_WHEN_UNMEASURED = frozenset({
+    "max_field_response_ratio", "max_em_drive_response", "max_orbital_order",
+})
 
 
 def _metrics(records: tuple[CandidateRecord, ...]) -> dict[str, float | None]:
@@ -112,6 +118,7 @@ def _metrics(records: tuple[CandidateRecord, ...]) -> dict[str, float | None]:
         "max_em_coherence_score": _max("em_coherence_score"),
         "max_field_response_ratio": _max_or_none("field_response_ratio"),
         "max_em_drive_response": _max_or_none("em_drive_response"),
+        "max_orbital_order": _max_or_none("orbital_order_param"),
     }
 
 
@@ -134,6 +141,7 @@ def run_avenue(
         temperature_k=action.temperature_k,
         compute_em_coherence=action.use_em,
         pairing_symmetry=action.pairing_symmetry,
+        compute_orbital_order=action.compute_orbital_order,
     )
     elements = [get_element(sym) for sym in action.elements]
 

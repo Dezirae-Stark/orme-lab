@@ -172,6 +172,23 @@ def q2r_input(approx: PeriodicApproximant, cfg: EPWConfig, prefix: str) -> str:
     )
 
 
+def projwfc_input(approx: PeriodicApproximant, cfg: EPWConfig, prefix: str) -> str:
+    """projwfc.x deck: Löwdin d-orbital projections/occupations for the
+    ORBITAL_ORDER capability (parsed by parse_projwfc). Reads the SCF save
+    files for ``prefix``; ``approx`` is unused but kept for the uniform
+    (approx, cfg, prefix) deck-writer signature. Structure per the working
+    Task-1 live-QE deck (docs/superpowers/plans/2026-07-23-orbital-order-descriptor.md)."""
+    del approx
+    return (
+        "&projwfc\n"
+        f"    prefix = '{prefix}'\n"
+        "    outdir = './'\n"
+        f"    filproj = '{prefix}.proj'\n"
+        "    lwrite_overlaps = .false.\n"
+        "/\n"
+    )
+
+
 def epw_input(approx: PeriodicApproximant, cfg: EPWConfig, prefix: str,
               *, fermi_ev: float | None = None) -> str:
     """Full &inputepw for an elph -> a2f run. STRUCTURE validated vs real EPW

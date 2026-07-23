@@ -70,10 +70,20 @@ def test_1_inert_without_backend_toy_fallback_flagged():
     assert on_no_backend.orbital_order_param is None
     assert on_no_backend.orbital_order_source == "absent"
 
-    # inert: with the flag off, the two records are identical apart from the
-    # (byte-identical-by-default) orbital_order_* fields themselves.
-    baseline = dataclasses.replace(off, orbital_order_param=None, orbital_order_source="toy")
-    assert off == baseline
+    # inert: flag-off (`off`) and flag-on-but-no-backend (`on_no_backend`) must be
+    # identical on EVERY CandidateRecord field except orbital_order_source itself
+    # (the only field the "absent" path is permitted to move). This is a genuine
+    # cross-record comparison, not a tautology built from `off` -- normalise
+    # `on_no_backend`'s orbital_order_source back to "toy" and diff every field.
+    normalized = dataclasses.replace(on_no_backend, orbital_order_source="toy")
+    off_fields = dataclasses.fields(off)
+    assert {f.name for f in off_fields} == {f.name for f in dataclasses.fields(normalized)}
+    mismatches = [
+        f.name for f in off_fields
+        if getattr(off, f.name) != getattr(normalized, f.name)
+    ]
+    assert mismatches == []
+    assert off == normalized
 
 
 # --- Criterion 2: computed differs from toy on >=1 candidate (fake backend) -

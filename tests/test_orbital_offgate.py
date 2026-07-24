@@ -17,13 +17,6 @@ from orme_lab.lab_loop.triage import Verdict, triage
 from orme_lab.lab_loop.hypotheses import HYPOTHESES
 
 
-def _av(target, metric, comp, thr, invariants, symmetry="undetermined"):
-    return Avenue("a", Tier.TIER1, "d", target,
-                  ActionSpec(("Ir",), ("compact_cluster",), ("high_spin",), 0.0, 300.0,
-                             False, True, None, symmetry),
-                  FalsificationCondition(metric, comp, thr), invariants, "test")
-
-
 def test_orbital_order_is_off_gate():
     from orme_lab.lab_loop.closure import OFF_GATE_INVARIANTS, GATE_INPUT_CLOSURE, is_independent
     assert "orbital_order_param" in OFF_GATE_INVARIANTS
@@ -110,7 +103,6 @@ def test_orbital_order_falsifier_requires_compute_flag():
 
 
 def _av(target, metric, comp, thr, invariants):
-    from orme_lab.lab_loop.avenue import Avenue, ActionSpec, Tier, FalsificationCondition, Comparator
     action = ActionSpec(("Ir",), ("compact_cluster",), ("high_spin",), 0.0, 300.0,
                         False, False, None, "undetermined", compute_orbital_order=True)
     return Avenue("a", Tier.TIER1, "d", target, action,

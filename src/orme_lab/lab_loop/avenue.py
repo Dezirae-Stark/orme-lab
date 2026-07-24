@@ -49,6 +49,9 @@ METRIC_RANGES: dict[str, tuple[float, float]] = {
     "max_em_drive_response": (0.0, 1.0),
     # Orbital-order off-gate against-triplet discriminator (QE projwfc polarization).
     "max_orbital_order": (0.0, 1.0),
+    # eg-t2g crystal-field imbalance off-gate against-triplet discriminator (SPECULATIVE;
+    # see orbital_order.py docstring for the disclosure).
+    "max_eg_t2g_imbalance": (0.0, 1.0),
 }
 
 

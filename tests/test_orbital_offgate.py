@@ -74,6 +74,19 @@ def test_anti_tautology_moves_pairing_not_from_gate_inputs():
     assert is_independent(("anisotropy",)) is False
 
 
+def test_eg_t2g_is_off_gate():
+    from orme_lab.lab_loop.closure import OFF_GATE_INVARIANTS, GATE_INPUT_CLOSURE, is_independent
+    assert "eg_t2g_imbalance" in OFF_GATE_INVARIANTS
+    assert "eg_t2g_imbalance" not in GATE_INPUT_CLOSURE
+    assert is_independent(("eg_t2g_imbalance",))
+
+
+def test_eg_t2g_metric_range_and_guard():
+    from orme_lab.lab_loop.avenue import METRIC_RANGES, FalsificationCondition, Comparator
+    assert METRIC_RANGES["max_eg_t2g_imbalance"] == (0.0, 1.0)
+    assert FalsificationCondition("max_eg_t2g_imbalance", Comparator.GT, 0.5).fireable()
+
+
 def test_orbital_order_falsifier_requires_compute_flag():
     from orme_lab.lab_loop.runner import validate_runnable
     action_no_flag = ActionSpec(("Ir",), ("compact_cluster",), ("high_spin",), 0.0, 300.0,

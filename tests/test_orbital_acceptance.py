@@ -173,6 +173,6 @@ def test_7_golden_closure_pinned_with_orbital_order():
         "hudson_regime", "hudson_photon_fraction", "hudson_persistence",
         "hudson_highest_claim", "hudson_supported_levels",
         "field_response_ratio", "em_drive_response",
-        "orbital_order_param",
+        "orbital_order_param", "eg_t2g_imbalance",
     })
     assert GATE_INPUT_CLOSURE.isdisjoint(OFF_GATE_INVARIANTS)

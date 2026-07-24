@@ -57,6 +57,14 @@ OFF_GATE_INVARIANTS: frozenset[str] = frozenset({
     # five inputs; used only as an against-triplet falsifier, never as positive
     # SC/pairing evidence.
     "orbital_order_param",
+    # eg-t2g crystal-field imbalance (QE projwfc d-occupation, computed orbital-resolved
+    # density): SPECULATIVE unverified extrapolation from the t2g-manifold Hund's
+    # interorbital-triplet mechanism (Clepkens-Kee), NOT independently grounded, and
+    # directionally redundant with the grounded `orbital_order_param` discriminator. Left
+    # the gate anisotropy (see orbital_result.py) so it is genuinely not re-derivable from
+    # the gate's own scalar; used only as an against-H7-triplet falsifier, never positive
+    # SC/pairing evidence.
+    "eg_t2g_imbalance",
 })
 
 

@@ -188,6 +188,29 @@ export const METRICS = {
     future: "Already the computed path when compute_orbital_order=True and QuantumEspressoBackend is live — see docs/epw-orbital-order-run.md for a real run log.",
     source: "src/orme_lab/orbital_order.py",
   },
+  egT2gImbalance: {
+    title: "eg–t2g imbalance (model-derived, SPECULATIVE)",
+    eyebrow: "Off-gate discriminator (H7-triplet) — speculative",
+    get: (r) => {
+      const src = r.egT2gSource || (r.egT2gImbalance == null ? "absent" : undefined);
+      if (r.egT2gImbalance == null || src === "absent") {
+        return "absent — no QE backend attached in this session (Python-only, evaluate_candidate)";
+      }
+      // like orbital_order_param, non-None only on the computed path (pipeline sets the
+      // field + source atomically) -- so this line is reached only for computed values.
+      return r.egT2gImbalance.toFixed(3) + "  (computed, QE projwfc)";
+    },
+    definition:
+      "Cubic-field eg/t2g Löwdin d-occupation imbalance, used ONLY to argue AGAINST an equal-spin-triplet pairing avenue (H7-triplet) when it runs high — never a positive superconductivity or pairing score. SPECULATIVE — unverified extrapolation from the t2g-manifold requirement of the Hund's interorbital-triplet mechanism (Clepkens-Kee); NOT independently grounded, directionally redundant with the grounded P (orbital_order_param) discriminator. 'Triplet' here means Cooper-pair spin symmetry, NOT a local ionic spin multiplet.",
+    calculation:
+      "|<eg> - <t2g>| / (<eg>+<t2g>) over the same fixed-config Löwdin d-occupations as the gate, where eg = {dz2, dx2-y2} and t2g = {dxz, dyz, dxy} (the Oh crystal-field split). Deliberately off the gate's scalar closure (the gate is now full-quadrupole-only, rank-2, and structurally blind to this rank-4 split) — see OFF_GATE_INVARIANTS.",
+    experimental:
+      "Resonant / linear-dichroism XAS orbital-occupation asymmetry resolved by eg vs t2g symmetry channel · Löwdin/Mulliken population analysis from a real DFT run.",
+    confidence:
+      "Computed from QE projwfc Löwdin d-occupations when the backend is live AND compute_orbital_order=True; otherwise no computed value exists and it reads 'absent' — a value is NEVER fabricated. Level 2 — a descriptor, not evidence. SPECULATIVE: this mechanism-level extrapolation is prior-art SPECULATIVE-NOT-FOUND (no source ties eg/t2g occupation to Cooper-pair symmetry); it is disclosed as speculation, not withheld.",
+    future: "Already the computed path when compute_orbital_order=True and QuantumEspressoBackend is live — see docs/epw-orbital-order-run.md for a real run log.",
+    source: "src/orme_lab/orbital_order.py",
+  },
   // gate cascade rows map to the metric that drives them
   gate_coupling: null,          // -> coupling (aliased below)
   gate_carriers: null,          // -> carrier

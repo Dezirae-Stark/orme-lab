@@ -119,3 +119,32 @@ unchanged (Level 2 — a computed descriptor is not a raised evidence level). No
 fabricated numbers: every value in this log traces to a real `pw.x`/`projwfc.x` run
 captured the same session, cross-checked by hand against `orbital_order.py`'s pure
 functions.
+
+## Changelog (eg–t2g gate→speculative-off-gate follow-up)
+
+- `eg_t2g_imbalance` moved **out** of the gate anisotropy and into its own Level-2
+  off-gate against-`H7-triplet` discriminator, wired exactly like `orbital_order_param`
+  (`OFF_GATE_INVARIANTS`, `METRIC_RANGES["max_eg_t2g_imbalance"]`, a `runner.py`
+  `validate_runnable` guard requiring `compute_orbital_order`). It contributes no
+  positive score and backs no hypothesis — it only argues against `H7-triplet`.
+- The gate anisotropy (`OrbitalResult.anisotropy`) is now **full-quadrupole-only**
+  (`quadrupole_anisotropy`), honestly rank-2 and cubic-blind — conservative, never more
+  permissive than before. `d_manifold_anisotropy` (the max-of-quadrupole-and-eg/t2g
+  gate blend) is deleted.
+- Anti-tautology gate **extended, not weakened**: `eg_t2g_imbalance` is pinned in the
+  golden off-gate set (`tests/lab_loop/test_closure.py`) and is genuinely independent
+  of the gate scalar now that it no longer feeds it — verified by
+  `test_eg_t2g_anti_tautology_distinct_from_gate` (same gate anisotropy, different
+  off-gate eg–t2g value for two occupations).
+- SPECULATIVE disclosure carried on every surface: the `eg_t2g_imbalance` docstring,
+  the avenue provenance string, and the `web/metrics.js` `egT2gImbalance` entry all
+  state the mechanism-level extrapolation (t2g-manifold requirement of the Hund's
+  interorbital-triplet mechanism, Clepkens-Kee) is prior-art SPECULATIVE-NOT-FOUND —
+  not independently grounded, directionally redundant with the grounded `P`
+  (`orbital_order_param`) discriminator, and that "triplet" means Cooper-pair spin
+  symmetry, not a local ionic spin multiplet.
+- No new `Verdict` member, evidence stays Level 2, default path
+  (`compute_orbital_order=False` / backend absent) is byte-identical to before this
+  follow-up.
+- Reversion point for the prior eg–t2g-in-gate design: branch
+  `orbital-order-followups-frozen` / tag `pr27-eg-t2g-in-gate`.

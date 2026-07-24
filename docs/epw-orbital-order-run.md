@@ -90,11 +90,15 @@ sets under that symmetry) — not a degenerate/fabricated value.
 FULL occupation-weighted quadrupole tensor `(Q_xx, Q_yy, Q_zz)` (captures in-plane dxz↔dyz
 redistribution, not just the axial Q_zz). For fcc Ir all three rank-2 components still vanish
 by cubic (`Oh`) symmetry, so it correctly reads `0.0` — but rank-2 = 0 does **not** mean
-spherical (the `eg` pair 1.6892 sits above the `t2g` triplet 1.4823). The cubic (rank-4) split
-is captured by `eg_t2g_imbalance`, and the gate uses `d_manifold_anisotropy = max(full
-quadrupole, eg-t2g)`, which reads **0.0652** for this Ir occupation (`|1.6892−1.4823|/(1.6892+
-1.4823)`) — correctly non-isotropic. The off-gate `P` (0.03966) is unchanged and remains a
-distinct contraction, so the anti-tautology separation holds (gate 0.0652 ≠ off-gate 0.03966).
+spherical (the `eg` pair 1.6892 sits above the `t2g` triplet 1.4823).
+
+**Follow-up (gate reframe, this PR):** the gate is now **full-quadrupole-only** — `anisotropy =
+quadrupole_anisotropy`, reading **0.0** for this Ir occupation, honestly rank-2 (cubic-blind) and
+conservative (a smaller localization penalty, never more permissive). The cubic (rank-4) `eg`/`t2g`
+split (`eg_t2g_imbalance`, `0.0652` for this occupation, `|1.6892−1.4823|/(1.6892+1.4823)`) no
+longer feeds the gate scalar; it is a separate, explicitly SPECULATIVE off-gate against-`H7-triplet`
+discriminator. The off-gate `P` (0.03966) is unchanged and remains a distinct contraction, so the
+anti-tautology separation holds (gate 0.0 ≠ off-gate P 0.03966 ≠ off-gate eg-t2g 0.0652).
 
 ## Separability note
 

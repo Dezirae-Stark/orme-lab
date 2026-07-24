@@ -75,18 +75,6 @@ def eg_t2g_imbalance(occ: "tuple[float, ...]") -> float:
     return 0.0 if denom <= 0.0 else min(1.0, abs(eg - t2g) / denom)
 
 
-def d_manifold_anisotropy(occ: "tuple[float, ...]") -> float:
-    """Combined gate-facing d-shape anisotropy in [0,1]: the larger of the FULL rank-2 quadrupole
-    anisotropy (axial + in-plane, incl. dxz<->dyz redistribution) and the cubic-field eg-t2g
-    imbalance. Max means a shell anisotropic in EITHER channel reads anisotropic — so a cubic-split
-    site (rank-2 = 0, e.g. fcc Ir) is not mis-read as isotropic, and an in-plane t2g redistribution
-    the eg-t2g term misses is still caught by the full quadrupole. Only genuinely higher-rank
-    patterns invisible to BOTH channels read low, and that direction is conservative for the gate
-    (less anisotropy -> smaller localization penalty -> never more permissive). Distinct from the
-    off-gate polarization P (occupation dispersion), so the anti-tautology separation holds."""
-    return max(quadrupole_anisotropy(occ), eg_t2g_imbalance(occ))
-
-
 def dominant_orbital(occ: "tuple[float, ...]") -> str:
     """Label of the most-occupied d-orbital (symmetry metadata; non-scoring provenance)."""
     return _D_LABELS[max(range(len(occ)), key=lambda i: occ[i])]

@@ -54,10 +54,28 @@ def test_flag_on_without_backend_is_absent_not_fabricated():
 
 def test_computed_overrides_anisotropy_and_sets_param():
     fake = _FakeOrbitalBackend(
-        OrbitalResult(anisotropy=0.42, polarization=0.77, dominant_orbital="dxy",
-                       source="qe:projwfc", provenance="test")
+        OrbitalResult(anisotropy=0.42, polarization=0.77, eg_t2g_imbalance=0.19,
+                       dominant_orbital="dxy", source="qe:projwfc", provenance="test")
     )
     r = _rec(compute_orbital_order=True, backend=fake)
     assert r.orbital_order_source == "computed"
     assert r.orbital_order_param == pytest.approx(0.77)
     assert r.anisotropy == pytest.approx(fake._orbital.anisotropy)
+
+
+def test_eg_t2g_recorded_when_computed():
+    # eg-t2g imbalance is a SPECULATIVE off-gate against-triplet discriminator (see
+    # orbital_order.py); it is recorded on the CandidateRecord alongside orbital_order_param
+    # but is never itself a gate input or positive score.
+    fake_qe_backend = _FakeOrbitalBackend(
+        OrbitalResult(anisotropy=0.42, polarization=0.77, eg_t2g_imbalance=0.33,
+                       dominant_orbital="dxy", source="qe:projwfc", provenance="test")
+    )
+    r = _rec(compute_orbital_order=True, backend=fake_qe_backend)
+    assert r.eg_t2g_imbalance is not None
+    assert r.eg_t2g_imbalance == pytest.approx(fake_qe_backend._orbital.eg_t2g_imbalance)
+
+
+def test_eg_t2g_none_on_default_path():
+    r = _rec(compute_orbital_order=False)
+    assert r.eg_t2g_imbalance is None

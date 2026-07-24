@@ -91,8 +91,8 @@ def test_1_inert_without_backend_toy_fallback_flagged():
 def test_2_computed_differs_from_toy():
     toy = _rec(compute_orbital_order=False)
     fake = _FakeOrbitalBackend(
-        OrbitalResult(anisotropy=0.55, polarization=0.81, dominant_orbital="dxy",
-                       source="qe:projwfc", provenance="test")
+        OrbitalResult(anisotropy=0.55, polarization=0.81, eg_t2g_imbalance=0.22,
+                       dominant_orbital="dxy", source="qe:projwfc", provenance="test")
     )
     computed = _rec(compute_orbital_order=True, backend=fake)
     assert computed.orbital_order_source == "computed"
@@ -141,8 +141,8 @@ def test_5_no_validated_level2_and_provenance_correct_every_path():
     assert absent.orbital_order_source == "absent"
 
     fake = _FakeOrbitalBackend(
-        OrbitalResult(anisotropy=0.4, polarization=0.6, dominant_orbital="dz2",
-                       source="qe:projwfc", provenance="test")
+        OrbitalResult(anisotropy=0.4, polarization=0.6, eg_t2g_imbalance=0.15,
+                       dominant_orbital="dz2", source="qe:projwfc", provenance="test")
     )
     computed = _rec(compute_orbital_order=True, backend=fake)
     assert computed.evidence_level <= 2

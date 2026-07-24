@@ -18,28 +18,29 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from ..orbital_order import d_polarization, dominant_orbital, quadrupole_anisotropy
+from ..orbital_order import d_polarization, dominant_orbital, eg_t2g_imbalance, quadrupole_anisotropy
 
 
 @dataclass(frozen=True)
 class OrbitalResult:
     anisotropy: float | None
     polarization: float | None
+    eg_t2g_imbalance: float | None
     dominant_orbital: str | None
     source: str
     provenance: str = ""
 
     @classmethod
     def toy_absent(cls) -> "OrbitalResult":
-        return cls(None, None, None, "toy", "")
+        return cls(None, None, None, None, "toy", "")
 
     @classmethod
     def not_applicable(cls, reason: str) -> "OrbitalResult":
-        return cls(None, None, None, "n/a", reason)
+        return cls(None, None, None, None, "n/a", reason)
 
     @classmethod
     def failed(cls, reason: str) -> "OrbitalResult":
-        return cls(None, None, None, "orbital:failed", reason)
+        return cls(None, None, None, None, "orbital:failed", reason)
 
     @classmethod
     def from_occupations(
@@ -56,6 +57,9 @@ class OrbitalResult:
         # shape). Honestly cubic-blind (0 for an Oh site, e.g. fcc Ir) = conservative; the cubic
         # eg-t2g split is now an OFF-GATE discriminator, not folded into the gate.
         aniso = sum(quadrupole_anisotropy(a) for a in per_atom) / n
+        # SPECULATIVE off-gate against-triplet discriminator; see orbital_order.eg_t2g_imbalance
+        # docstring for the mandatory disclosure. Never fed back into the gate scalar (aniso above).
+        egt2g = sum(eg_t2g_imbalance(a) for a in per_atom) / n
         width = len(per_atom[0])
         mean_occ = tuple(sum(a[i] for a in per_atom) / n for i in range(width))
         dom = dominant_orbital(mean_occ)
@@ -64,4 +68,4 @@ class OrbitalResult:
             "(computational isolation of cross-channel feedback, NOT physical "
             "separability)"
         )
-        return cls(aniso, pol, dom, source, provenance)
+        return cls(aniso, pol, egt2g, dom, source, provenance)

@@ -156,6 +156,9 @@ class CandidateRecord:
     # evidence, never a raised evidence level (still Level 2).
     orbital_order_param: float | None = None
     orbital_order_source: str = "toy"
+    # SPECULATIVE off-gate against-triplet discriminator (eg-t2g crystal-field imbalance). Level 2,
+    # never positive evidence; disclosed as an unverified extrapolation (see orbital_order.py).
+    eg_t2g_imbalance: float | None = None
 
     def as_csv_row(self) -> dict[str, object]:
         row = asdict(self)
@@ -221,6 +224,7 @@ def evaluate_candidate(
     # (anti-tautology gate) -- and is never positive SC/pairing evidence.
     orbital_order_param: float | None = None
     orbital_order_source = "toy"
+    eg_t2g_imbalance: float | None = None
     if config.compute_orbital_order:
         if (backend is not None and backend.provides(Capability.ORBITAL_ORDER)
                 and backend.available()):
@@ -229,6 +233,7 @@ def evaluate_candidate(
                 anisotropy = oo.anisotropy
                 ricebean = is_ricebean(anisotropy, th)
                 orbital_order_param = oo.polarization
+                eg_t2g_imbalance = oo.eg_t2g_imbalance
                 orbital_order_source = "computed"
             else:
                 orbital_order_source = "absent"
@@ -407,6 +412,7 @@ def evaluate_candidate(
         hudson_supported_levels=hud_levels,
         orbital_order_param=orbital_order_param,
         orbital_order_source=orbital_order_source,
+        eg_t2g_imbalance=eg_t2g_imbalance,
     )
 
 

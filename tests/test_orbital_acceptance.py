@@ -176,3 +176,23 @@ def test_7_golden_closure_pinned_with_orbital_order():
         "orbital_order_param", "eg_t2g_imbalance",
     })
     assert GATE_INPUT_CLOSURE.isdisjoint(OFF_GATE_INVARIANTS)
+
+
+# --- eg-t2g guardrail: SPECULATIVE off-gate discriminator, no positive score --
+
+def test_8_eg_t2g_no_positive_score_even_on_computed_path():
+    # eg-t2g contributes no positive score even on the COMPUTED path (fake backend
+    # actually returning a nonzero eg_t2g_imbalance): toggling compute_orbital_order
+    # on/off must not move any positive scoring/decision field, and evidence_level
+    # stays <= 2 (Level 2, never VALIDATED/CONFIRMED).
+    off = _rec(compute_orbital_order=False)
+    fake = _FakeOrbitalBackend(
+        OrbitalResult(anisotropy=0.4, polarization=0.6, eg_t2g_imbalance=0.9,
+                       dominant_orbital="dz2", source="qe:projwfc", provenance="test")
+    )
+    computed = _rec(compute_orbital_order=True, backend=fake)
+    assert computed.eg_t2g_imbalance == pytest.approx(0.9)
+    for field in ("sc_plausibility", "credited_sc_lead", "ruled_out",
+                  "surviving_mechanisms", "coupling", "carrier_proxy"):
+        assert getattr(off, field) == getattr(computed, field), field
+    assert computed.evidence_level <= 2

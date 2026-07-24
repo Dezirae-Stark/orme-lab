@@ -7,6 +7,8 @@ own ``anisotropy`` scalar, so it must sit outside GATE_INPUT_CLOSURE and pass th
 anti-tautology gate. It is used only as an against-triplet falsifier (kills
 H7-triplet on high orbital order), never as positive SC/pairing evidence.
 """
+import pytest
+
 from orme_lab.lab_loop.avenue import (
     Avenue, ActionSpec, Tier, FalsificationCondition, Comparator, METRIC_RANGES,
 )
@@ -105,3 +107,42 @@ def test_orbital_order_falsifier_requires_compute_flag():
                  ("orbital_order_param",), "test")
     ok2, reason2 = validate_runnable(av2)
     assert ok2 is True
+
+
+def _av(target, metric, comp, thr, invariants):
+    from orme_lab.lab_loop.avenue import Avenue, ActionSpec, Tier, FalsificationCondition, Comparator
+    action = ActionSpec(("Ir",), ("compact_cluster",), ("high_spin",), 0.0, 300.0,
+                        False, False, None, "undetermined", compute_orbital_order=True)
+    return Avenue("a", Tier.TIER1, "d", target, action,
+                  FalsificationCondition(metric, comp, thr), invariants, "SPECULATIVE eg-t2g")
+
+
+def test_high_eg_t2g_kills_triplet():
+    from orme_lab.lab_loop.runner import AvenueResult
+    from orme_lab.lab_loop.triage import triage, Verdict
+    from orme_lab.lab_loop.hypotheses import HYPOTHESES
+    from orme_lab.lab_loop.avenue import Comparator
+    av = _av("H7-triplet", "max_eg_t2g_imbalance", Comparator.GT, 0.5, ("eg_t2g_imbalance",))
+    hi = AvenueResult(av, (), {"max_eg_t2g_imbalance": 0.8})
+    lo = AvenueResult(av, (), {"max_eg_t2g_imbalance": 0.2})
+    none = AvenueResult(av, (), {"max_eg_t2g_imbalance": None})
+    assert triage(hi, frozenset(HYPOTHESES)).verdict == Verdict.KILLED_HYPOTHESIS
+    assert triage(lo, frozenset(HYPOTHESES)).verdict == Verdict.SURVIVED
+    assert triage(none, frozenset(HYPOTHESES)).verdict == Verdict.INCONCLUSIVE  # never fires on absent
+
+
+def test_eg_t2g_anti_tautology_distinct_from_gate():
+    # eg-t2g is now OUT of the gate: two occupations with the SAME gate anisotropy (both cubic ->
+    # quadrupole 0) but DIFFERENT eg-t2g -> distinct off-gate value not derivable from the gate.
+    from orme_lab.orbital_order import quadrupole_anisotropy, eg_t2g_imbalance
+    a = (1.6892, 1.4823, 1.4823, 1.4823, 1.6892)   # eg > t2g
+    b = (1.4823, 1.4823, 1.4823, 1.4823, 1.4823)   # equal fill
+    assert quadrupole_anisotropy(a) == pytest.approx(quadrupole_anisotropy(b), abs=1e-9)  # same gate
+    assert eg_t2g_imbalance(a) != pytest.approx(eg_t2g_imbalance(b))                        # different off-gate
+
+
+def test_speculative_disclosure_present():
+    import orme_lab.orbital_order as oo
+    doc = oo.eg_t2g_imbalance.__doc__
+    assert "SPECULATIVE" in doc.upper()
+    assert "Cooper" in doc  # the ionic-vs-Cooper disambiguation

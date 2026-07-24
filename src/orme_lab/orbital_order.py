@@ -70,7 +70,12 @@ def eg_t2g_imbalance(occ: "tuple[float, ...]") -> float:
     This captures the crystal-field anisotropy that `quadrupole_anisotropy` (a rank-2 tensor) is
     structurally blind to: a cubic site has zero quadrupole yet a real eg/t2g occupation split
     (e.g. fcc Ir: eg 1.6892 > t2g 1.4823 -> nonzero here, zero in the quadrupole). Level-2
-    descriptor from the same fixed-config Löwdin occupations."""
+    descriptor from the same fixed-config Löwdin occupations.
+
+    SPECULATIVE -- unverified extrapolation from the t2g-manifold requirement of the Hund's
+    interorbital-triplet mechanism (Clepkens-Kee); NOT independently grounded, directionally
+    redundant with the grounded P discriminator. 'Triplet' = Cooper-pair spin symmetry, NOT a
+    local ionic spin multiplet."""
     eg = (occ[0] + occ[4]) / 2.0        # dz2, dx2y2
     t2g = (occ[1] + occ[2] + occ[3]) / 3.0   # dxz, dyz, dxy
     denom = eg + t2g

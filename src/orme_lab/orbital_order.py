@@ -51,7 +51,9 @@ def quadrupole_anisotropy(occ: "tuple[float, ...]") -> float:
     measure. Level-2. One structural blind spot remains and is intrinsic to any rank-2 tensor:
     it is 0 for a cubic (Oh) site by symmetry (all rank-2 components vanish), so Q=0 means 'no
     rank-2 anisotropy', NOT 'spherical' — the cubic eg-t2g split (rank-4, e.g. fcc Ir) is picked
-    up by eg_t2g_imbalance instead, and the two are combined in d_manifold_anisotropy."""
+    up by eg_t2g_imbalance instead. eg_t2g_imbalance is NOT folded into this scalar or into the
+    gate anisotropy: it is a Level-2, speculative, off-gate against-triplet discriminator only
+    (see eg_t2g_imbalance docstring and the module docstring), never a gate/pairing input."""
     total = sum(occ)
     if total <= 0.0:
         return 0.0

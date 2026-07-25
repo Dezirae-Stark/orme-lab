@@ -88,6 +88,29 @@ def assert_stage_complete(stdout: str, *, require_convergence: bool) -> None:
         raise EPWError("SCF did not report 'convergence has been achieved'")
 
 
+def _spawn_qe(binary: str, deck: str, *, workdir: str, timeout_s: float, converge: bool) -> str:
+    """Run one QE binary (deck fed via stdin) in ``workdir`` and return its stdout.
+
+    Shared by LiveEPWRunner.run() and run_orbital_order(). Fail-closed as EPWError; on timeout,
+    G-KILL the whole process group (mpirun + MPI ranks, not just the direct child) so one
+    candidate's timeout never aborts the screen; then assert positive stage completion."""
+    proc = subprocess.Popen(
+        [binary], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT, cwd=workdir, text=True, start_new_session=True,
+    )
+    try:
+        stdout, _ = proc.communicate(input=deck, timeout=timeout_s)
+    except subprocess.TimeoutExpired as exc:
+        try:
+            os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+        proc.wait()
+        raise EPWError(f"{binary} timed out after {timeout_s}s") from exc
+    assert_stage_complete(stdout, require_convergence=converge)
+    return stdout
+
+
 class LiveEPWRunner:
     """Real subprocess runner. available() gates on the three binaries; run()
     drives scf/ph/nscf/epw in a fresh per-candidate scratch dir under a new
@@ -110,25 +133,7 @@ class LiveEPWRunner:
         os.makedirs(workdir, exist_ok=True)
 
         def _run(binary: str, deck: str, *, converge: bool) -> str:
-            proc = subprocess.Popen(
-                [binary], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT, cwd=workdir, text=True,
-                start_new_session=True,
-            )
-            try:
-                stdout, _ = proc.communicate(input=deck, timeout=cfg.timeout_s)
-            except subprocess.TimeoutExpired as exc:
-                # G-KILL: kill the whole process group (mpirun + MPI ranks), not
-                # just the direct child, then fail closed as an EPWError so one
-                # candidate's timeout never aborts the screen.
-                try:
-                    os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
-                except ProcessLookupError:
-                    pass
-                proc.wait()
-                raise EPWError(f"{binary} timed out after {cfg.timeout_s}s") from exc
-            assert_stage_complete(stdout, require_convergence=converge)
-            return stdout
+            return _spawn_qe(binary, deck, workdir=workdir, timeout_s=cfg.timeout_s, converge=converge)
 
         _run(cfg.pw_x, qe_input.scf_input(approx, cfg, prefix), converge=True)
         _run(cfg.ph_x, qe_input.ph_input(approx, cfg, prefix), converge=False)
@@ -164,22 +169,7 @@ class LiveEPWRunner:
         os.makedirs(workdir, exist_ok=True)
 
         def _run(binary: str, deck: str, *, converge: bool) -> str:
-            proc = subprocess.Popen(
-                [binary], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT, cwd=workdir, text=True,
-                start_new_session=True,
-            )
-            try:
-                stdout, _ = proc.communicate(input=deck, timeout=cfg.timeout_s)
-            except subprocess.TimeoutExpired as exc:
-                try:
-                    os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
-                except ProcessLookupError:
-                    pass
-                proc.wait()
-                raise EPWError(f"{binary} timed out after {cfg.timeout_s}s") from exc
-            assert_stage_complete(stdout, require_convergence=converge)
-            return stdout
+            return _spawn_qe(binary, deck, workdir=workdir, timeout_s=cfg.timeout_s, converge=converge)
 
         _run(cfg.pw_x, qe_input.scf_input(approx, cfg, prefix), converge=True)
         return _run(cfg.projwfc_x, qe_input.projwfc_input(approx, cfg, prefix), converge=False)

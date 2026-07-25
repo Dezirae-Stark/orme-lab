@@ -18,7 +18,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from ..orbital_order import d_polarization, dominant_orbital, quadrupole_anisotropy
+from ..orbital_order import d_manifold_anisotropy, d_polarization, dominant_orbital
 
 
 @dataclass(frozen=True)
@@ -52,7 +52,9 @@ class OrbitalResult:
         if n == 0:
             return cls.not_applicable("no per-atom occupations")
         pol = sum(d_polarization(a) for a in per_atom) / n
-        aniso = sum(quadrupole_anisotropy(a) for a in per_atom) / n
+        # gate-facing shape anisotropy: combined rank-2 quadrupole + cubic-field eg-t2g imbalance,
+        # so a cubic-split site (Q_zz=0, e.g. fcc Ir) is not mis-read as isotropic.
+        aniso = sum(d_manifold_anisotropy(a) for a in per_atom) / n
         width = len(per_atom[0])
         mean_occ = tuple(sum(a[i] for a in per_atom) / n for i in range(width))
         dom = dominant_orbital(mean_occ)

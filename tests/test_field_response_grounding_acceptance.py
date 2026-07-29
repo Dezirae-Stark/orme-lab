@@ -104,3 +104,36 @@ def test_8_default_path_byte_identical():
     rec = evaluate_candidate(el, geo, "high_spin", st, DEFAULT_CONFIG)
     assert rec.b_orb_tesla is None and rec.is_clean_limit is None
     assert rec.unconventional_admissible is False
+
+
+def test_2b_clean_limit_true_positive_through_pipeline():
+    """TRUE-POSITIVE end-to-end (closes the Task-2 reviewer gap): with a Tc injected via a fake
+    SC_GAP backend so R_Pauli>1 is real, a CLEAN candidate with a large Borb REGISTERS an
+    unconventional signature, and the SAME candidate DIRTY does not. Exercises the pipeline wiring
+    of maki_alpha / Bp / the fr_ratio>1 branch -- not just clean_limit_admits_unconventional in
+    isolation. All prior pipeline tests hit the toy path (Tc=None), so this is the only place
+    unconventional_admissible is observed True through evaluate_candidate."""
+    from orme_lab.backends import DFTBackend, Capability
+    from orme_lab.epw.result import EPWResult
+
+    class _TcBackend(DFTBackend):
+        name = "tc-double"
+        @classmethod
+        def available(cls) -> bool:
+            return True
+        def provides(self, cap) -> bool:            # only SC_GAP; all other seams stay toy
+            return cap == Capability.SC_GAP
+        def superconducting_gap(self, element, geometry, state):
+            # tiny Tc -> Bp = 1.86*0.1 = 0.186 T, well below the toy critical field -> R_Pauli >> 1
+            return EPWResult(0.1, 1.0, 100.0, 100.0, 1.0, 0.1, "epw", False, "test-double")
+
+    el = get_element("Ir"); geo = make_compact_cluster(el, 13); st = high_spin_state(el)
+    be = _TcBackend()
+    clean = evaluate_candidate(el, geo, "high_spin", st,
+              replace(DEFAULT_CONFIG, b_orb_tesla=500.0, is_clean_limit=True), backend=be)
+    dirty = evaluate_candidate(el, geo, "high_spin", st,
+              replace(DEFAULT_CONFIG, b_orb_tesla=500.0, is_clean_limit=False), backend=be)
+    assert clean.field_response_ratio is not None and clean.field_response_ratio > 1.0  # R_Pauli>1 real
+    assert clean.unconventional_admissible is True     # clean + big Borb + R_Pauli>1 -> registers
+    assert dirty.unconventional_admissible is False     # same, dirty -> gated off (the gate bites)
+    assert clean.evidence_level <= 2                     # still Level 2

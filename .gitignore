@@ -28,6 +28,10 @@ outputs/*
 # Local Claude proxy access token (never commit)
 tools/.orme-proxy-token
 
+# Local-only operating notes (cross-project coupling records, etc.) -- this repo
+# is public; keep private-repo references out of tracked/public content
+CLAUDE.md
+
 # OS / editor
 .DS_Store
 *.swp

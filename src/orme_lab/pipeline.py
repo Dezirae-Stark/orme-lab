@@ -48,9 +48,12 @@ from .geometry import (
 )
 from .magnetic_field import (
     PairingSymmetry,
+    clean_limit_admits_unconventional,
     field_response_ratio,
     magnetic_field_suppression_factor,
+    maki_alpha,
     pairing_critical_field,
+    pauli_limit_tesla,
 )
 from .mechanisms import filter_by_symmetry
 from .observables import ObservableSet, predict_observables
@@ -296,7 +299,6 @@ def evaluate_candidate(
     # Heavy-fermion Hc2/Pauli-limit clean-limit admissibility gate (Task 2). Absent
     # config inputs (b_orb_tesla/is_clean_limit both None on the toy path) -> alpha is
     # None -> not admissible, conservative, byte-identical.
-    from .magnetic_field import maki_alpha, clean_limit_admits_unconventional, pauli_limit_tesla
     _bp = pauli_limit_tesla(epw.tc_kelvin) if epw.tc_kelvin else None
     _alpha = maki_alpha(config.b_orb_tesla, _bp)
     unconventional_admissible = (

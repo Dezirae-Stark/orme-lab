@@ -45,3 +45,9 @@ def test_magnetic_drive_response_matches_js():
                f'console.log(JSON.stringify(magneticDriveResponse(0.8,0.6,"triplet")));')
     js = _node(js_code)
     assert js == pytest.approx(py, abs=1e-9)
+
+
+def test_h7_triplet_card_names_r_pauli_and_clean_limit():
+    js = (_WEB / "hypotheses.js").read_text()
+    # the H7-triplet decisive measurement now names R_Pauli and the clean-limit admissibility
+    assert "R_Pauli" in js and ("clean limit" in js or "clean-limit" in js)

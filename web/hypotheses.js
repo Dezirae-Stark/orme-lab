@@ -78,7 +78,7 @@ export const HYPOTHESES = [
     id: "H7-triplet", group: "core", level: 2, status: "modeled",
     statement: "Pairing-symmetry branch of H-07: under an EQUAL-SPIN TRIPLET pairing assumption, the moment is carried by the condensate itself — the critical field is field-robust and may exceed the Pauli limit.",
     modeled: "magnetic_field.py (pairing_critical_field, PairingSymmetry.TRIPLET)",
-    test: "Decisive measurement: critical field vs the Pauli limit (1.86·Tc). Rejected when field_response_ratio <= 1 — no evidence of triplet field-robustness.",
+    test: "Decisive measurement (Method 5, Hc2-vs-Pauli-limit): NMR Knight shift + H_c2 vs the Pauli limit, R_Pauli = Hc2(0)/Bp (Bp = 1.86·Tc). R_Pauli > 1 is consistent-with (not proof of) triplet, and is admissible ONLY in the clean limit (Maki alpha >= 1.8, clean); dirty/unknown does not register it. Corroborating quantum-critical companions (off-gate): non-Fermi-liquid resistivity exponent n < 2, effective-mass enhancement near a magnetic instability. Rejected when field_response_ratio <= 1 (R_Pauli <= 1, Pauli-limited) — no evidence of triplet field-robustness.",
   },
   // ---- Extended hypotheses (H12–H20, from the source conversation) -------
   {

@@ -111,11 +111,19 @@ def _mech_test(mech: str) -> AdversarialTest | None:
                      [("ordinary metal", "no steps"), ("ionic conduction", "no steps; dispersive")],
                      "no Shapiro steps under RF drive → no phase-locked Josephson network", True, mech)
     if mech == Mechanism.TRIPLET.value:
-        return _test("NMR Knight shift + H_c2", "NMR through T_c; H_c2 vs the Pauli limit",
-                     "Knight shift unchanged through T_c (spin-triplet); H_c2 exceeds the Pauli limit",
-                     [("singlet SC", "Knight shift drops below T_c; H_c2 ≤ Pauli limit"),
+        return _test("NMR Knight shift + H_c2",
+                     "NMR through T_c; H_c2(T) vs the Pauli limit, R_Pauli = Hc2(0)/Bp (Bp = 1.86·Tc)",
+                     "Knight shift unchanged through T_c (spin-triplet); R_Pauli = Hc2(0)/Bp > 1, "
+                     "admissible ONLY in the clean limit (Maki alpha >= 1.8, clean) — consistent-with, "
+                     "not proof, of equal-spin triplet",
+                     [("singlet SC", "Knight shift drops below T_c; R_Pauli <= 1 (Pauli-limited)"),
                       ("no SC", "no transition")],
-                     "Knight-shift drop through T_c → singlet, not triplet", True, mech)
+                     "Knight-shift drop through T_c, OR R_Pauli <= 1 (Pauli-limited) → against triplet; "
+                     "R_Pauli > 1 in the clean limit → consistent-with triplet (not proof)", True, mech,
+                     note="Method 5 (Hc2-vs-Pauli-limit, SAC): corroborating quantum-critical companions "
+                          "(off-gate, non-decisive alone) — non-Fermi-liquid resistivity exponent n < 2, "
+                          "and effective-mass enhancement near a magnetic instability — strengthen but do "
+                          "not by themselves establish triplet pairing")
     if mech == Mechanism.SPIN_FLUCTUATION.value:
         return _test("magnetic-QCP tuning", "resistivity vs T; T_c vs pressure/field near a magnetic instability",
                      "non-Fermi-liquid resistivity; T_c peaks near a magnetic instability (spin-fluctuation glue)",

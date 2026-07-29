@@ -166,6 +166,10 @@ class CandidateRecord:
     b_orb_tesla: float | None = None
     is_clean_limit: bool | None = None
     unconventional_admissible: bool = False
+    # Clean-limit-gated R_Pauli: the raw ratio when unconventional_admissible, else None.
+    # This is the metric the H7-singlet enhancement kill consults, so a dirty/unknown
+    # candidate (None here) cannot register an unconventional signature. Off-gate.
+    field_response_ratio_admissible: float | None = None
 
     def as_csv_row(self) -> dict[str, object]:
         row = asdict(self)
@@ -293,8 +297,16 @@ def evaluate_candidate(
             epw = EPWResult.failed(f"{type(exc).__name__}: {exc}")
 
     # Off-gate field-response discriminator (needs a pairing energy scale = Tc).
-    fr_ratio = field_response_ratio(
-        pairing_critical_field(spin_pol, coupling, PairingSymmetry.TRIPLET), epw.tc_kelvin)
+    # R_Pauli = Hc2(0)/Bp. When a backend supplies a real Hc2 (FIELD_RESPONSE), use
+    # THAT measured field -- not the toy equal-spin-triplet proxy (P2 fix): a
+    # Pauli-limited backend result must classify as Pauli-limited, not be overridden
+    # by the field-robust proxy. Absent a backend, the TRIPLET probe stands in as the
+    # "what would the field look like if it were field-robust" counterfactual.
+    hc2_for_ratio = (
+        backend.critical_field(spin_pol, coupling)
+        if (backend is not None and backend.provides(Capability.FIELD_RESPONSE))
+        else pairing_critical_field(spin_pol, coupling, PairingSymmetry.TRIPLET))
+    fr_ratio = field_response_ratio(hc2_for_ratio, epw.tc_kelvin)
 
     # Heavy-fermion Hc2/Pauli-limit clean-limit admissibility gate (Task 2). Absent
     # config inputs (b_orb_tesla/is_clean_limit both None on the toy path) -> alpha is
@@ -304,6 +316,14 @@ def evaluate_candidate(
     unconventional_admissible = (
         fr_ratio is not None and fr_ratio > 1.0
         and clean_limit_admits_unconventional(_alpha, config.is_clean_limit))
+    # Clean-limit-GATED ratio (P1 fix): the metric the H7-singlet ENHANCEMENT kill
+    # consults. It is the raw R_Pauli only when the unconventional signature is
+    # admissible (clean limit, Maki alpha >= 1.8); None otherwise. None -- not the raw
+    # ratio -- so a dirty/unknown candidate CANNOT register an unconventional signature
+    # (a `> 1` falsifier never fires on None). The raw `field_response_ratio` stays
+    # available for the H7-triplet SUPPRESSION kill (R_Pauli <= 1 -> Pauli-limited),
+    # which is admissibility-independent.
+    field_response_ratio_admissible = fr_ratio if unconventional_admissible else None
 
     # Singlet refinement: a Pauli-limited critical field (only when Tc is known -> toy path untouched).
     if sym is PairingSymmetry.SINGLET and epw.tc_kelvin is not None:
@@ -430,6 +450,7 @@ def evaluate_candidate(
         b_orb_tesla=config.b_orb_tesla,
         is_clean_limit=config.is_clean_limit,
         unconventional_admissible=unconventional_admissible,
+        field_response_ratio_admissible=field_response_ratio_admissible,
     )
 
 

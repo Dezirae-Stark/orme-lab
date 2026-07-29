@@ -72,7 +72,7 @@ export const HYPOTHESES = [
     id: "H7-singlet", group: "core", level: 2, status: "modeled",
     statement: "Pairing-symmetry branch of H-07: under a SINGLET pairing assumption, a static moment pair-breaks the state — the critical field is suppressed and Pauli-limited (Chandrasekhar-Clogston, Bc_pauli = 1.86·Tc).",
     modeled: "magnetic_field.py (pairing_critical_field, PairingSymmetry.SINGLET)",
-    test: "Decisive measurement: critical field vs the Pauli limit (1.86·Tc). Rejected when field_response_ratio > 1 — a singlet cannot exceed its own pair-breaking limit.",
+    test: "Decisive measurement: critical field vs the Pauli limit (1.86·Tc). Rejected when field_response_ratio_admissible > 1 — a singlet cannot exceed its own pair-breaking limit. The enhancement kill consults the CLEAN-LIMIT-GATED ratio (R_Pauli > 1 admissible only when Maki alpha >= 1.8 and clean); a dirty/unknown candidate cannot register the unconventional signature (the gated ratio is unmeasured, so the falsifier does not fire).",
   },
   {
     id: "H7-triplet", group: "core", level: 2, status: "modeled",

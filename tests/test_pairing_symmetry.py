@@ -97,3 +97,20 @@ def test_singlet_high_spin_lower_field_than_triplet_under_field():
     t = _rec("triplet", field_t=2.0)
     # Under an applied field, a high-spin singlet is suppressed more than a triplet.
     assert s.field_suppression <= t.field_suppression
+
+
+def test_unconventional_admissible_gated_by_clean_limit():
+    from dataclasses import replace
+    from orme_lab.config import DEFAULT_CONFIG
+    from orme_lab.pipeline import evaluate_candidate
+    from orme_lab.elements import get_element
+    from orme_lab.geometry import make_compact_cluster
+    from orme_lab.spin_states import high_spin_state
+    el = get_element("Ir"); geo = make_compact_cluster(el, 13); st = high_spin_state(el)
+    # default: no Borb/clean-limit -> not admissible, byte-identical extras None
+    d = evaluate_candidate(el, geo, "high_spin", st, DEFAULT_CONFIG)
+    assert d.b_orb_tesla is None and d.is_clean_limit is None and d.unconventional_admissible is False
+    # dirty limit -> cannot register unconventional even with a huge Borb
+    dirty = evaluate_candidate(el, geo, "high_spin", st,
+              replace(DEFAULT_CONFIG, b_orb_tesla=200.0, is_clean_limit=False))
+    assert dirty.unconventional_admissible is False

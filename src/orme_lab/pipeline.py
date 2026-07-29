@@ -156,6 +156,13 @@ class CandidateRecord:
     # evidence, never a raised evidence level (still Level 2).
     orbital_order_param: float | None = None
     orbital_order_source: str = "toy"
+    # Heavy-fermion Hc2/Pauli-limit grounding (Task 2): Borb/clean-limit inputs, threaded
+    # from config, and the resulting admissibility gate. R_Pauli>1 alone never registers
+    # unconventional pairing -- only R_Pauli>1 AND clean_limit_admits_unconventional does.
+    # Defaults (None/None/False) keep the toy path byte-identical.
+    b_orb_tesla: float | None = None
+    is_clean_limit: bool | None = None
+    unconventional_admissible: bool = False
 
     def as_csv_row(self) -> dict[str, object]:
         row = asdict(self)
@@ -285,6 +292,17 @@ def evaluate_candidate(
     # Off-gate field-response discriminator (needs a pairing energy scale = Tc).
     fr_ratio = field_response_ratio(
         pairing_critical_field(spin_pol, coupling, PairingSymmetry.TRIPLET), epw.tc_kelvin)
+
+    # Heavy-fermion Hc2/Pauli-limit clean-limit admissibility gate (Task 2). Absent
+    # config inputs (b_orb_tesla/is_clean_limit both None on the toy path) -> alpha is
+    # None -> not admissible, conservative, byte-identical.
+    from .magnetic_field import maki_alpha, clean_limit_admits_unconventional, pauli_limit_tesla
+    _bp = pauli_limit_tesla(epw.tc_kelvin) if epw.tc_kelvin else None
+    _alpha = maki_alpha(config.b_orb_tesla, _bp)
+    unconventional_admissible = (
+        fr_ratio is not None and fr_ratio > 1.0
+        and clean_limit_admits_unconventional(_alpha, config.is_clean_limit))
+
     # Singlet refinement: a Pauli-limited critical field (only when Tc is known -> toy path untouched).
     if sym is PairingSymmetry.SINGLET and epw.tc_kelvin is not None:
         crit_field = pairing_critical_field(spin_pol, coupling, sym, tc_kelvin=epw.tc_kelvin)
@@ -407,6 +425,9 @@ def evaluate_candidate(
         hudson_supported_levels=hud_levels,
         orbital_order_param=orbital_order_param,
         orbital_order_source=orbital_order_source,
+        b_orb_tesla=config.b_orb_tesla,
+        is_clean_limit=config.is_clean_limit,
+        unconventional_admissible=unconventional_admissible,
     )
 
 

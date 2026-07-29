@@ -31,7 +31,12 @@ from .config import BOLTZMANN
 from .spin_states import SpinState
 
 PAULI_SLOPE_T_PER_K = 1.86   # Chandrasekhar-Clogston / Pauli limit: Bc_pauli ~ 1.86 * Tc (weak-coupling BCS).
-                             # Clogston, PRL 9, 266 (1962); Chandrasekhar, APL 1, 7 (1962).
+                             # Coefficient origin: Clogston, PRL 9, 266 (1962); Chandrasekhar,
+                             # APL 1, 7 (1962). General Hc2 theory: Schossmann & Carbotte,
+                             # PRB 39, 4210 (1989).
+
+MAKI_FFLO_MIN = 1.8   # Maki parameter above which paramagnetically-limited FFLO / unconventional
+                      # signatures become admissible (standard threshold; clean limit required).
 
 
 class PairingSymmetry(Enum):
@@ -59,8 +64,36 @@ critical_field_proxy = _legacy_critical_field
 
 
 def pauli_limit_tesla(tc_kelvin: float) -> float:
-    """Chandrasekhar-Clogston paramagnetic limit Bc_pauli (tesla) for a singlet gap ~ Tc."""
+    """Chandrasekhar-Clogston paramagnetic limit Bc_pauli (tesla) for a singlet gap ~ Tc.
+    Coefficient (1.86) per Clogston, PRL 9, 266 (1962) / Chandrasekhar, APL 1, 7 (1962)."""
     return PAULI_SLOPE_T_PER_K * tc_kelvin
+
+
+def pauli_violation_ratio(hc2_0_tesla: float, tc_kelvin: float | None) -> float | None:
+    """R_Pauli = Hc2(0) / Bp, Bp = 1.86*Tc (Clogston PRL 9,266 1962 / Chandrasekhar APL 1,7 1962).
+    Core field-response quantity. R_Pauli <= 1: consistent with singlet / Pauli-limited.
+    R_Pauli > 1: unconventional / equal-spin-triplet SIGNATURE (admissible only in the clean limit,
+    see clean_limit_admits_unconventional). None when Tc unknown (toy path) -> a decisive-measurement
+    PREDICTION, not a computed score. Model proxy, Level 2."""
+    if tc_kelvin is None or tc_kelvin <= 0.0:
+        return None
+    return hc2_0_tesla / pauli_limit_tesla(tc_kelvin)
+
+
+def maki_alpha(b_orb_tesla: float | None, bp_tesla: float | None) -> float | None:
+    """Maki parameter alpha = sqrt(2) * Borb / Bp (orbital vs paramagnetic pair-breaking).
+    None if either field is unknown. Model proxy, Level 2."""
+    if b_orb_tesla is None or bp_tesla is None or bp_tesla <= 0.0:
+        return None
+    return math.sqrt(2.0) * b_orb_tesla / bp_tesla
+
+
+def clean_limit_admits_unconventional(alpha: float | None, is_clean: bool | None) -> bool:
+    """An FFLO / paramagnetically-limited unconventional signature is admissible ONLY in the clean
+    limit (mean free path >~ coherence length) with a large Maki parameter (alpha >= MAKI_FFLO_MIN).
+    Unknown inputs -> NOT admissible (conservative): absence of evidence cannot register an
+    unconventional signature (Maki 1966; usage per CeCoIn5/LiFeAs literature)."""
+    return alpha is not None and is_clean is True and alpha >= MAKI_FFLO_MIN
 
 
 def pairing_critical_field(spin_score: float, coupling_score: float,

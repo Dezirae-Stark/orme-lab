@@ -47,6 +47,28 @@ def test_field_response_ratio_gt_one_signals_enhancement():
     assert r == pytest.approx(1.5)
 
 
+def test_pauli_violation_ratio():
+    from orme_lab.magnetic_field import pauli_violation_ratio
+    assert pauli_violation_ratio(18.6, 10.0) == pytest.approx(1.0)   # Hc2 == Bp -> R=1
+    assert pauli_violation_ratio(37.2, 10.0) == pytest.approx(2.0)   # 2x Pauli -> unconventional
+    assert pauli_violation_ratio(5.0, None) is None                  # no Tc -> prediction, not a number
+
+
+def test_maki_alpha():
+    from orme_lab.magnetic_field import maki_alpha
+    import math
+    assert maki_alpha(20.0, 10.0) == pytest.approx(math.sqrt(2) * 2.0)
+    assert maki_alpha(None, 10.0) is None
+
+
+def test_clean_limit_gates_unconventional():
+    from orme_lab.magnetic_field import clean_limit_admits_unconventional
+    assert clean_limit_admits_unconventional(5.0, True) is True     # alpha>=1.8 AND clean
+    assert clean_limit_admits_unconventional(5.0, False) is False   # dirty -> not admissible
+    assert clean_limit_admits_unconventional(1.0, True) is False    # alpha<1.8 -> not admissible
+    assert clean_limit_admits_unconventional(None, True) is False   # unknown -> conservative
+
+
 from dataclasses import replace
 from orme_lab.config import DEFAULT_CONFIG
 from orme_lab.pipeline import evaluate_candidate

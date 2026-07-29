@@ -144,3 +144,39 @@ not sufficient) inside the AND-gate — never standalone proof of triplet.
 - The exact benchmark `r_pauli` values / ranges to encode per row (from the audit: CeSiI 4–7,
   CeSb₂ ~8, CeCoIn₅ FFLO clean α~5, CeRh₂As₂, LiFeAs ≤1) with per-row citations.
 - The decisive-measurement block's storage/serialization shape in the registry.
+
+## Result (Task 5 — acceptance contract, 2026-07-30)
+
+All 8 test-contract acceptance criteria (`tests/test_field_response_grounding_acceptance.py`) pass
+against the implementation landed in Tasks 1-4 on this branch (`magnetic_field.py`, `config.py` +
+`pipeline.py`, `field_response_refs.py`, `validator.py` + `web/hypotheses.js`):
+
+1. `pauli_violation_ratio` reproduces the R_Pauli=1 boundary direction (`<=1` singlet-side, `>1`
+   unconventional-side), and every cited `BENCHMARKS` row classifies correctly against it
+   (`test_1_r_pauli_boundary_matches_benchmark_table`).
+2. The clean-limit gate actually gates: a dirty-limit candidate with a huge `b_orb_tesla` cannot
+   register `unconventional_admissible`, and neither can a clean-limit candidate with an unknown
+   Maki α (no `b_orb_tesla`) — both conservative, non-registered
+   (`test_2_clean_limit_gate_actually_gates`).
+3. The discriminator can WORSEN standing on a real triage run: a Pauli-limited measurement
+   (`max_field_response_ratio=0.6 <= 1.0`) kills `H7-triplet` outright
+   (`test_3_pauli_limited_ratio_can_worsen_standing_against_triplet`).
+4. `field_response_ratio` still passes `closure.is_independent` — off-gate, unweakened
+   (`test_4_field_response_stays_off_gate`).
+5. `validator._mech_test(Mechanism.TRIPLET)` names R_Pauli, the explicit against/consistent-with
+   falsification, and both quantum-critical companions (NFL exponent, effective-mass enhancement),
+   at `evidence_level == 3` (a prediction, not an observation)
+   (`test_5_decisive_measurement_block_names_falsification_and_companions`).
+6. No `Verdict.VALIDATED` member exists; `evaluate_candidate` stays `evidence_level <= 2` under all
+   three pairing-symmetry branches; `CESII_ANCHOR.scoping`/`conditions` carry the not-PGM/~240 mK/
+   GPa scoping text verbatim (`test_6_no_validated_level_2_everywhere_cesii_scoped`).
+7. `field_response_refs` exposes no `score_candidate` and no callable in the module mentions
+   `CandidateRecord` in its docstring — the reference table cannot score a PGM candidate
+   (`test_7_refs_module_never_scores_a_pgm_candidate`).
+8. Default `LabConfig` (no `b_orb_tesla`/`is_clean_limit`) round-trips through `evaluate_candidate`
+   byte-identical on the three new fields: both `None`, `unconventional_admissible is False`
+   (`test_8_default_path_byte_identical`).
+
+Full suite green (`python3 -m pytest -q`). No evidence-level change (Level 2 everywhere); anti-
+tautology gate unweakened; no new hypothesis; no positive score term; no fabricated citation
+(Baskaran recorded as conceptual framing only, per the citation gate above).

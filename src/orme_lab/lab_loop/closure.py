@@ -51,6 +51,13 @@ OFF_GATE_INVARIANTS: frozenset[str] = frozenset({
     # (EPW) and the drive response needs the EM-coherence channel, neither reachable
     # from the gate's own five inputs.
     "field_response_ratio", "em_drive_response",
+    # Clean-limit-GATED field-response ratio: the raw R_Pauli only when the
+    # unconventional signature is admissible (clean limit, Maki alpha >= 1.8), else
+    # None. It is the metric the H7-singlet enhancement kill consults so a
+    # dirty/unknown candidate cannot register an unconventional signature. As
+    # off-gate as its ungated sibling -- both need an external Tc (EPW) scale plus
+    # the Maki/clean-limit inputs, never reachable from the gate's own five inputs.
+    "field_response_ratio_admissible",
     # Orbital-order descriptor (QE projwfc d-occupation polarization): a distinct
     # contraction of the Löwdin d-occupations from the gate's own `anisotropy`
     # scalar (quadrupole vs. polarization). Never re-derivable from the gate's

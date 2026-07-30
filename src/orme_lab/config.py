@@ -121,6 +121,18 @@ class LabConfig:
 
     pairing_symmetry: str = "undetermined"  # PairingSymmetry value; "singlet"/"triplet" branch the field response
 
+    b_orb_tesla: float | None = None
+    """Orbital-limiting upper critical field Hc2,orb(0) in tesla, when independently known
+    (e.g. from a Werthamer-Helfand-Hohenberg fit). Feeds the Maki parameter alpha =
+    sqrt(2)*Borb/Bp. None (default) -> Maki parameter unknown -> conservative non-registration;
+    keeps the toy path byte-identical."""
+
+    is_clean_limit: bool | None = None
+    """Whether the candidate is in the clean limit (mean free path >~ coherence length),
+    a precondition for registering a paramagnetically-limited unconventional/FFLO signature.
+    None (default) -> unknown -> conservative non-registration; keeps the toy path
+    byte-identical."""
+
     random_seed: int = 1729
     """Seed for any stochastic geometry perturbation. Fixed by default so runs
     are reproducible — see the operator's determinism commitment."""

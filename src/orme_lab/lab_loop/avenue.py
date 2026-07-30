@@ -46,6 +46,7 @@ METRIC_RANGES: dict[str, tuple[float, float]] = {
     "max_em_coherence_score": (0.0, 1.0),
     # Pairing-symmetry field-response discriminator + spin/magnetic drive-response proxy.
     "max_field_response_ratio": (0.0, 5.0),
+    "max_field_response_ratio_admissible": (0.0, 5.0),
     "max_em_drive_response": (0.0, 1.0),
     # Orbital-order off-gate against-triplet discriminator (QE projwfc polarization).
     "max_orbital_order": (0.0, 1.0),

@@ -138,3 +138,14 @@ def test_broadband_survey_is_not_visible_only():
     s = design_validation(_record("Au"))
     surv = next(t for t in s.tests if t.measurement == "broadband resonance survey")
     assert "RF" in surv.claimed_signature or "RF" in surv.note
+
+
+def test_triplet_test_names_r_pauli_and_companions():
+    from orme_lab.validator import _mech_test
+    from orme_lab.mechanisms import Mechanism
+    t = _mech_test(Mechanism.TRIPLET.value)
+    blob = (t.measurement + t.claimed_signature + t.rejection_threshold + t.note).lower()
+    assert "pauli" in blob and "r_pauli" in blob            # R_Pauli = Hc2(0)/Bp named
+    assert "non-fermi" in blob or "n < 2" in blob or "effective-mass" in blob  # QC companions
+    assert "method 5" in blob                                # descriptive SAC label
+    assert t.evidence_level == 3                             # LABORATORY_PREDICTION

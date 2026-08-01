@@ -65,6 +65,38 @@ Given a candidate's computed scores (from `run_screen`, `evaluate_candidate`, or
   dependence, ESR/EPR/NMR/SQUID for the high-spin H13 claim, XRD/XPS/EDS to rule out an
   oxide/salt phase) rather than asserting a conclusion.
 
+## The pairing field-response discriminator (H7-singlet / H7-triplet)
+
+When you design or propose a field-response avenue (an `Avenue` with a
+`FalsificationCondition` targeting the pairing branches), the **metric you emit differs by
+which side of the boundary you are testing**. Get this wrong and the avenue either cannot
+fire or fires on absent evidence.
+
+- **H7-singlet ENHANCEMENT kill** — falsifying a *singlet* by observing field-robustness
+  beyond its own Pauli limit (`R_Pauli = Hc2(0)/Bp > 1`). Emit falsifier metric
+  **`max_field_response_ratio_admissible`** with comparator `GT`, threshold `1.0`. This is
+  the **clean-limit-GATED** ratio: it carries R_Pauli only when the unconventional
+  signature is admissible (clean limit, Maki α ≥ 1.8), and is `None` otherwise. `None` (not
+  `0.0`) is deliberate — a dirty/unknown candidate must **not** be able to register the
+  unconventional signature, and a `> 1` falsifier never fires on an unmeasured (`None`)
+  metric. Never use the raw `max_field_response_ratio` for the singlet enhancement kill:
+  that was the pre-fix convention (through PR #25) and let a dirty candidate kill H7-singlet
+  regardless of admissibility.
+- **H7-triplet SUPPRESSION kill** — falsifying an equal-spin *triplet* by observing a
+  Pauli-limited field (`R_Pauli ≤ 1`, no field-robustness). Emit falsifier metric
+  **`max_field_response_ratio`** (the raw ratio) with comparator `LE`, threshold `1.0`. This
+  side is intentionally **admissibility-independent**: a Pauli-limited measurement worsens
+  the triplet's standing on the field axis whether or not the clean-limit gate is satisfied.
+
+Both falsifiers require the avenue's `ActionSpec` to set **`use_epw=True`** — the Pauli
+ratio needs an external Tc scale, and `validate_runnable` rejects either metric without it.
+Frame `R_Pauli > 1` as *consistent-with* (never proof of) triplet pairing, admissible only
+in the clean limit; corroborate with the off-gate quantum-critical companions
+(non-Fermi-liquid resistivity exponent `n < 2`, effective-mass enhancement) rather than
+treating the ratio alone as decisive. See `web/hypotheses.js` (H7-singlet / H7-triplet
+cards), `src/orme_lab/magnetic_field.py`, and `src/orme_lab/lab_loop/{closure,avenue,runner}.py`
+for the encoded convention.
+
 ## How to propose the next experiment
 
 Prefer the change that most cleanly discriminates between the surviving hypotheses. State the
